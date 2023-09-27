@@ -149,9 +149,9 @@ Facing issues or have questions about our framework? We're here to help!
 1. **Documentation (Building)**:
     - We're currently in the process of building our official documentation webpage to better assist you. In the meantime, if you have any specific questions or need clarifications, feel free to reach out through our other support channels. We appreciate your patience and understanding!
 2. **Issue Tracker**:
-    - If you've encountered a bug or have a feature request, please open an issue on our **[GitHub Issues page](https://chat.openai.com/c/LINK_TO_GITHUB_ISSUES)**. Be sure to check existing issues to avoid duplicates.
+    - If you've encountered a bug or have a feature request, please open an issue on our **[GitHub Issues page](https://github.com/ccnets-team/rl-tune/issues)**. Be sure to check existing issues to avoid duplicates.
 3. **Social Media**:
-    - Stay updated with announcements and news by following us on **[LinkedIn](https://chat.openai.com/c/LINK_TO_LINKEDIN)**.
+    - Stay updated with announcements and news by following us on **[LinkedIn](https://www.linkedin.com/company/ccnets)**.
 4. **Emergency Contact**:
     - If there are security concerns or critical issues, contact our emergency team at support@ccnets.org.
 
