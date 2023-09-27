@@ -53,10 +53,10 @@ rl_tune = RLTune(env_config, trainer, device, use_graphics = False, use_print = 
 
 rl_tune.train(on_policy=False)
 ```
-![image](https://github.com/ccnets-team/rl-tune/assets/75417171/1531d697-6043-43c3-9888-d8d817ce73e8)
-![1.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/4a9c44ca-ccf3-494e-8d64-928c9425daa4/1.png)
-![2.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/240bd9f4-198c-442c-ac9c-a7362d50b2ab/2.png)
-![3.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/23bc06c5-f9c6-449b-b598-6a44b1522dc0/3.png)
+![1](https://github.com/ccnets-team/rl-tune/assets/75417171/4007a1c4-89c4-4727-bddb-4b332fb12bda)
+![2](https://github.com/ccnets-team/rl-tune/assets/75417171/bfafafdd-b0f1-4210-866a-bcddfdb8953d)
+![3](https://github.com/ccnets-team/rl-tune/assets/75417171/17494f60-ab20-4d93-9ca7-8ea44d6d8fd7)
+
 
 # Features
 
@@ -127,13 +127,13 @@ Enhances policy optimization through the **`compute_gae_advantage`** method.
 Incorporates curiosity-driven RL components for enhanced exploration and learning in sparse reward environments.
 
 # **Performance & Benchmarks**
-![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/b461349a-615f-40ba-953c-899641a7cfb0/image.png)
+![File (1)](https://github.com/ccnets-team/rl-tune/assets/75417171/e94d7922-1eba-4594-886b-428573bc19c4)
 
 *HumanoidStandup-v4*
 
 
 ## Algorithm Feature Checklist
-![comparison.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/36664675-670c-4466-b155-42a9b51c60ce/comparison.png)
+![File (2)](https://github.com/ccnets-team/rl-tune/assets/75417171/41cd231e-b13c-45a9-b21e-cb4a3ae3ed15)
 
 # **API Documentation**
 
