@@ -106,26 +106,26 @@ class YourRLTrainer(BaseTrainer):
 
 **5. Enhanced Algorithmic Components:**
     
-    a. **Numerical n-td steps:**
-    Supports configurable numerical n-td steps for effective planning and learning.
+- Numerical n-td steps:
+Supports configurable numerical n-td steps for effective planning and learning.
     
-    b. **Expected Value Calculation:**
-    Enables precise value predictions with the **`calculate_expected_value`** method.
+- Expected Value Calculation:
+Enables precise value predictions with the **`calculate_expected_value`** method.
     
-    c. **Value Loss Computation:**
-    Optimizes value approximation with the **`calculate_value_loss`** method.
+- Value Loss Computation:
+Optimizes value approximation with the **`calculate_value_loss`** method.
     
-    d. **Advantage Calculation:**
-    Refines policy estimates with the **`calculate_advantage`** method.
+- Advantage Calculation:
+Refines policy estimates with the **`calculate_advantage`** method.
     
-    e. **Discount Factor Retrieval:**
-    Facilitates the retrieval of essential discount factors with **`get_discount_factor`** and **`get_discount_factors`** methods.
+- Discount Factor Retrieval:
+Facilitates the retrieval of essential discount factors with **`get_discount_factor`** and **`get_discount_factors`** methods.
     
-    f. **GAE Advantage Computation:**
-    Enhances policy optimization through the **`compute_gae_advantage`** method.
+- GAE Advantage Computation:
+Enhances policy optimization through the **`compute_gae_advantage`** method.
     
-    g. **Curiosity RL Integration:**
-    Incorporates curiosity-driven RL components for enhanced exploration and learning in sparse reward environments.
+- Curiosity RL Integration:
+Incorporates curiosity-driven RL components for enhanced exploration and learning in sparse reward environments.
 
 # **Performance & Benchmarks**
 ![image](https://github.com/ccnets-team/rl-tune/assets/66022264/ea306301-b8bc-45e7-b26b-68322ddfdeb0)
@@ -149,9 +149,9 @@ Facing issues or have questions about our framework? We're here to help!
 1. **Documentation (Building)**:
     - We're currently in the process of building our official documentation webpage to better assist you. In the meantime, if you have any specific questions or need clarifications, feel free to reach out through our other support channels. We appreciate your patience and understanding!
 2. **Issue Tracker**:
-    - If you've encountered a bug or have a feature request, please open an issue on our **[GitHub Issues page](https://chat.openai.com/c/LINK_TO_GITHUB_ISSUES)**. Be sure to check existing issues to avoid duplicates.
+    - If you've encountered a bug or have a feature request, please open an issue on our **[GitHub Issues page](https://github.com/ccnets-team/rl-tune/issues)**. Be sure to check existing issues to avoid duplicates.
 3. **Social Media**:
-    - Stay updated with announcements and news by following us on **[LinkedIn](https://chat.openai.com/c/LINK_TO_LINKEDIN)**.
+    - Stay updated with announcements and news by following us on **[LinkedIn](https://www.linkedin.com/company/ccnets)**.
 4. **Emergency Contact**:
     - If there are security concerns or critical issues, contact our emergency team at support@ccnets.org.
 
