@@ -81,12 +81,13 @@ RL-Tune features comprehensive modules including memory, normalization, noise, e
 RL-Tune’s flexible architecture facilitates distinct role assignments to different networks, optimizing the processes of development and management for various network configurations.
 
 ```python
-from nn.roles import SingleInputCritic, DualInputActor, QNetwork
+from nn.roles.actor_network import SingleInputActor as QNetwork
+from nn.roles.critic_network import SingleInputCritic
+from nn.roles.reverse_env_network import RevEnv
 
-q_network = QNetwork(net, env_config, network_params, exploration_params)
-
-actor_network = DualInputActor(net, env_config, network_params, exploration_params)
-critic_network = SingleInputCritic(net, env_config, network_params)
+q_network = QNetwork(network, env_config, network_params, exploration_params)
+critic = SingleInputCritic(network, env_config, network_params)
+reverse_env = RevEnv(network, env_config, network_params)
 
 ```
 
@@ -118,10 +119,7 @@ Optimizes value approximation with the **`calculate_value_loss`** method.
 - Advantage Calculation:
 Refines policy estimates with the **`calculate_advantage`** method.
     
-- Discount Factor Retrieval:
-Facilitates the retrieval of essential discount factors with **`get_discount_factor`** and **`get_discount_factors`** methods.
-    
-- GAE Advantage Computation:
+- GAE Advantage:
 Enhances policy optimization through the **`compute_gae_advantage`** method.
     
 - Curiosity RL Integration:
@@ -148,13 +146,11 @@ Incorporates curiosity-driven RL components for enhanced exploration and learnin
 
 Facing issues or have questions about our framework? We're here to help!
 
-1. **Documentation (Building)**:
-    - We're currently in the process of building our official documentation webpage to better assist you. In the meantime, if you have any specific questions or need clarifications, feel free to reach out through our other support channels. We appreciate your patience and understanding!
-2. **Issue Tracker**:
+1. **Issue Tracker**:
     - If you've encountered a bug or have a feature request, please open an issue on our **[GitHub Issues page](https://github.com/ccnets-team/rl-tune/issues)**. Be sure to check existing issues to avoid duplicates.
-3. **Social Media**:
+2. **Social Media**:
     - Stay updated with announcements and news by following us on **[LinkedIn](https://www.linkedin.com/company/ccnets)**.
-4. **Emergency Contact**:
+3. **Emergency Contact**:
     - If there are security concerns or critical issues, contact our emergency team at support@ccnets.org.
 
 *Please be respectful and constructive in all interactions.*
