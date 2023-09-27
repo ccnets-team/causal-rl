@@ -60,11 +60,11 @@ class CausalRL(BaseTrainer):
         coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost)
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
-        if self.use_curiosity:
-            rewards = self.trainer_calculate_curiosity_rewards(forward_cost, rewards)
-            
         expected_value, advantage = self.compute_values(states, rewards, next_states, dones, estimated_value)
-        
+
+        if self.use_curiosity: 
+            expected_value, advantage = self.trainer_calculate_curiosity_rewards(forward_cost, expected_value, advantage)
+            
         value_loss = self.calculate_value_loss(estimated_value, expected_value)
 
         critic_loss = (coop_critic_error).mean()
@@ -101,14 +101,11 @@ class CausalRL(BaseTrainer):
         self.update_target_networks()
         self.update_schedulers()
             
-    def trainer_calculate_curiosity_rewards(self, cost, rewards):
+    def trainer_calculate_curiosity_rewards(self, cost, *args):
         with torch.no_grad():
             curiosity_reward = self.curiosity_factor * cost
-            if self.use_gae_advantage:
-                rewards += curiosity_reward
-            else:
-                rewards[:, 0, :] += curiosity_reward
-        return rewards
+            new_values = [value + curiosity_reward  for value in args]
+        return new_values if len(new_values) > 1 else new_values[0]  # Return a tuple if multiple, else a single value
 
     def trainer_calculate_future_value(self, gamma, end_step, next_state):
         target_network, _, _ = self.get_target_networks()
