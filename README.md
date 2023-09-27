@@ -53,9 +53,9 @@ rl_tune = RLTune(env_config, trainer, device, use_graphics = False, use_print = 
 
 rl_tune.train(on_policy=False)
 ```
-![1](https://github.com/ccnets-team/rl-tune/assets/66022264/2d57a3df-9f12-4dbd-b8aa-89fc7f5b59cb)
-![2](https://github.com/ccnets-team/rl-tune/assets/66022264/db3fa6ec-7b8a-4767-a685-ee2ee933926f)
-![3](https://github.com/ccnets-team/rl-tune/assets/66022264/2f651c7d-58b2-40d5-811c-5dc570061303)
+![1.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/4a9c44ca-ccf3-494e-8d64-928c9425daa4/1.png)
+![2.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/240bd9f4-198c-442c-ac9c-a7362d50b2ab/2.png)
+![3.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/23bc06c5-f9c6-449b-b598-6a44b1522dc0/3.png)
 
 # Features
 
@@ -126,13 +126,13 @@ Enhances policy optimization through the **`compute_gae_advantage`** method.
 Incorporates curiosity-driven RL components for enhanced exploration and learning in sparse reward environments.
 
 # **Performance & Benchmarks**
-![image](https://github.com/ccnets-team/rl-tune/assets/66022264/ea306301-b8bc-45e7-b26b-68322ddfdeb0)
+![image.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/b461349a-615f-40ba-953c-899641a7cfb0/image.png)
 
 *HumanoidStandup-v4*
 
 
 ## Algorithm Feature Checklist
-![comparison](https://github.com/ccnets-team/rl-tune/assets/66022264/2ea99dc2-ad08-426d-aa91-7c8f43569b8a)
+![comparison.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/36664675-670c-4466-b155-42a9b51c60ce/comparison.png)
 
 # **API Documentation**
 
