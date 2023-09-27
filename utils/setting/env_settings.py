@@ -24,7 +24,7 @@ GYM_ENV_SPECIFIC_ARGS = {
     "Reacher-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'max_steps': 500000},
     "Pusher-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'max_steps': 500000},
     "Humanoid-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'hidden_size': 256, 'max_steps': 500000},
-    "HumanoidStandup-": {'reward_scale': 0.01, 'replay_ratio': 5, 'train_frequency': 1, 'batch_size': 1024, 'hidden_size': 256, 'max_steps': 500000}
+    "HumanoidStandup-": {'reward_scale': 0.001, 'replay_ratio': 3, 'train_frequency': 2, 'batch_size': 1024, 'hidden_size': 256, 'max_steps': 500000}
 }
 
 def analyze_env(env_name):
