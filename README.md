@@ -53,6 +53,7 @@ rl_tune = RLTune(env_config, trainer, device, use_graphics = False, use_print = 
 
 rl_tune.train(on_policy=False)
 ```
+![image](https://github.com/ccnets-team/rl-tune/assets/75417171/1531d697-6043-43c3-9888-d8d817ce73e8)
 ![1.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/4a9c44ca-ccf3-494e-8d64-928c9425daa4/1.png)
 ![2.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/240bd9f4-198c-442c-ac9c-a7362d50b2ab/2.png)
 ![3.png](https://prod-files-secure.s3.us-west-2.amazonaws.com/c38b57b1-2243-423c-8306-07d332950ea1/23bc06c5-f9c6-449b-b598-6a44b1522dc0/3.png)
