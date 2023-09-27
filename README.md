@@ -130,6 +130,8 @@ Incorporates curiosity-driven RL components for enhanced exploration and learnin
 # **Performance & Benchmarks**
 ![image](https://github.com/ccnets-team/rl-tune/assets/66022264/ea306301-b8bc-45e7-b26b-68322ddfdeb0)
 
+*HumanoidStandup-v4*
+
 
 ## Algorithm Feature Checklist
 ![comparison](https://github.com/ccnets-team/rl-tune/assets/66022264/2ea99dc2-ad08-426d-aa91-7c8f43569b8a)
