@@ -1,0 +1,148 @@
+# DDPG (Deep Deterministic Policy Gradients) Source:
+# Title: Continuous control with deep reinforcement learning
+# Authors: Timothy P. Lillicrap, Jonathan J. Hunt, Alexander Pritzel, Nicolas Heess, Tom Erez, Yuval Tassa, David Silver & Daan Wierstra
+# Publication: ICLR 2016
+# Link: https://arxiv.org/abs/1509.02971
+
+import torch
+import torch.nn.functional as F
+
+from utils.structure.trajectory_handler  import BatchTrajectory
+from training.base_trainer import BaseTrainer
+
+from nn.roles.critic_network import DualInputCritic
+from nn.roles.actor_network import SingleInputActor
+import copy
+from utils.structure.metrics_recorder import create_training_metrics
+
+class DDPG(BaseTrainer):
+    def __init__(self, env_config, rl_params, device):
+        """
+        Initialize the DDPG trainer.
+        
+        Parameters:
+        - env_config: Environment configuration object.
+        - rl_params: Reinforcement Learning parameters object.
+        - device: Device to which model will be allocated.
+        """
+        trainer_name = "ddpg"
+        self.network_names = ["critic", "actor"]
+        network_params, exploration_params = rl_params.network, rl_params.exploration
+        net = network_params.network
+
+        self.critic = DualInputCritic(net, env_config, network_params).to(device)
+        self.actor = SingleInputActor(net, env_config, network_params, exploration_params).to(device)
+        self.target_critic = copy.deepcopy(self.critic)
+        self.target_actor = copy.deepcopy(self.actor)
+
+        super(DDPG, self).__init__(trainer_name, env_config, rl_params, \
+                                   networks = [self.critic, self.actor], \
+                                   target_networks= [self.target_critic, self.target_actor],
+                                   device = device
+                                   )
+
+    def get_action(self, state, training):
+        """
+        Get action based on the state and whether the model is in training mode.
+        
+        Parameters:
+        - state (Tensor): The current state of the environment.
+        - training (bool): Flag to indicate whether the model is in training mode.
+        
+        Returns:
+        - action (Tensor): The action chosen by the actor network.
+        
+        Notes:
+        During training, actions are sampled with noise for exploration. During evaluation, the action with the highest value is selected.
+        """
+        with torch.no_grad():
+            if training:
+                epsilon = self.get_exploration_rate()
+                action = self.actor.sample_action(state, epsilon)
+            else:
+                action = self.actor.select_action(state)
+        return action
+    
+    def train_model(self, trajectory: BatchTrajectory):
+        """
+        Train the DDPG model based on the provided trajectory.
+        
+        Parameters:
+        - trajectory (BatchTrajectory): Sampled trajectory consisting of states, actions, rewards, next_states, and dones.
+        
+        Returns:
+        - metrics (dict): Dictionary containing various training metrics like estimated value, expected value, and losses.
+        
+        Notes:
+        This method optimizes both the actor and the critic networks.
+        """
+        self.set_train(training=True)
+        states, actions, rewards, next_states, dones = trajectory
+        critic_optimizer, actor_optimizer = self.get_optimizers()
+        
+        # Critic Update
+        target_Q = self.calculate_expected_value(rewards, next_states, dones).detach()
+        state, action = self.select_transitions(states, actions)
+
+       # Compute the target Q value
+
+        # Get current Q estimate
+        current_Q = self.critic(state, action)
+
+        # Compute critic loss
+        critic_loss = F.mse_loss(current_Q, target_Q)
+
+        # Optimize the critic
+        critic_optimizer.zero_grad()
+        critic_loss.backward()
+        critic_optimizer.step()
+
+        # Compute actor loss
+        actor_loss = -self.critic(state, self.actor.predict_action(state)).mean()
+
+        # Optimize the actor
+        actor_optimizer.zero_grad()
+        actor_loss.backward()
+        actor_optimizer.step()
+
+        self.update_model()
+
+        metrics = create_training_metrics(
+            estimated_value=current_Q,
+            expected_value=target_Q,
+            critic_loss=critic_loss,
+            actor_loss=actor_loss
+        )        
+        return metrics
+
+    def trainer_calculate_future_value(self, gamma, end_step, next_state):
+        """
+        Calculate the future value of the next state using the target networks.
+        
+        Parameters:
+        - gamma (float): Discount factor for future rewards.
+        - end_step (int): Step at which the episode ended.
+        - next_state (Tensor): The next state of the environment.
+        
+        Returns:
+        - future_value (Tensor): The calculated future value of the next state.
+        
+        Notes:
+        This method calculates the future value by using the target actor to predict the next action and the target critic to estimate the Q-value of the next state-action pair.
+        """
+        with torch.no_grad():
+            next_action = self.target_actor.predict_action(next_state)
+            future_value = (gamma**end_step) * self.target_critic(next_state, next_action)
+            # Add discounted future value element-wise for each item in the batch
+        return future_value
+    
+    
+    def update_model(self):
+        """
+        Updates the target networks and the learning rate schedulers.
+        
+        Notes:
+        This method should be called after every update to the model parameters to synchronize the target networks and learning rate schedulers with the latest model parameters.
+        """
+        self.update_target_networks()
+        self.update_schedulers()
