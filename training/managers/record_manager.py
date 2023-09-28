@@ -3,6 +3,7 @@ from utils.logger import get_log_name
 from pathlib import Path
 import os
 from utils.structure.metrics_recorder import MetricsTracker, RewardTracker
+from utils.structure.trajectory_handler import MultiEnvTrajectories
 from utils.printer import save_training_parameters_to_file
 from torch.utils.tensorboard import SummaryWriter
 
@@ -20,8 +21,10 @@ class RecordManager:
         self.log_path = self._ensure_directory_exists(log_path)
         save_training_parameters_to_file(self.log_path, trainer_name= trainer_name, rl_params=rl_params)
 
-        self.train_score = -np.inf
-        self.test_score = -np.inf
+        self.train_reward_per_step  = -np.inf
+        self.test_reward_per_step = -np.inf
+        self.train_accumulative_rewards = -np.inf
+        self.test_accumulative_rewards = -np.inf
 
         self.tracking_interval = int(rl_params.memory.buffer_size/env_config.samples_per_step) 
         self.pivot_time = None
@@ -44,19 +47,27 @@ class RecordManager:
     def compute_records(self):
         self.init_logger()
         
-        self.test_score = self.test_tracker.compute_average()
-        self.train_score = self.train_tracker.compute_average()
+        self.test_reward_per_step = self.test_tracker.compute_average()
+        self.train_reward_per_step = self.train_tracker.compute_average()
+        
+        self.test_accumulative_rewards = self.test_tracker.compute_accumulative_rewards()
+        self.train_accumulative_rewards = self.train_tracker.compute_accumulative_rewards()
+
         self.avg_metrics = self.metrics_tracker.compute_average()
+        
 
     def get_records(self):
-        return self.train_score, self.test_score, self.avg_metrics
+        return self.train_reward_per_step , self.test_reward_per_step, self.train_accumulative_rewards, self.test_accumulative_rewards, self.avg_metrics
         
-    def record_rewards(self, rewards: list):
-        self.test_tracker._add_rewards(rewards)
-
-    def record_transitions(self, transitions):        
+    def record_transitions(self, transitions: MultiEnvTrajectories, training: bool):        
+        env_ids = transitions.env_ids
+        agent_ids = transitions.agent_ids
         rewards = transitions.rewards
-        self.train_tracker._add_rewards(rewards)
+        dones = transitions.dones
+        if training:
+            self.train_tracker._add_rewards(env_ids, agent_ids, rewards, dones)
+        else:
+            self.test_tracker._add_rewards(env_ids, agent_ids, rewards, dones)
 
     def is_best_period(self):
         return self.test_tracker.is_best_record_period()

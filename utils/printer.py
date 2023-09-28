@@ -58,9 +58,11 @@ def print_step(trainer, memory, episode, time_cost):
     print(f"Time for steps is {time_cost:.2f} sec")
     
         
-def print_scores(train_score, test_score):
-    if (train_score is not None) and (test_score is not None):
-        print(f"Train: {train_score:.4f} \tTest: {test_score:.4f}")
+def print_scores(train_reward_per_step, test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards):
+    if (train_reward_per_step is not None) and (test_reward_per_step is not None):
+        print(f"TrainStepReward: {train_reward_per_step:.4f} \tTestStepReward: {test_reward_per_step:.4f}")
+    if (train_accumulative_rewards is not None) and (test_accumulative_rewards is not None):
+        print(f"TrainEpisodeRewards: {train_accumulative_rewards:.4f} \tTestEpisodeRewards: {test_accumulative_rewards:.4f}")
         
 def print_metrics(metrics):
     # Display training and testing details

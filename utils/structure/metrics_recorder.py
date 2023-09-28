@@ -166,22 +166,49 @@ def create_training_metrics(**kwargs):
 class RewardTracker:
     def __init__(self, n_steps):
         self.n_steps = n_steps
-        self.steps = np.full(n_steps, np.nan, dtype=np.float32)  # Using NaN to indicate uninitialized values
+        self.steps = np.full(n_steps, np.nan, dtype=np.float32)
         self.counts = np.full(n_steps, 0, dtype=np.int32)
         self.index = 0
+        
         self.best_reward = -np.inf
-        self.best_period = False  # flag to indicate if the current period is a recording one
-    
+        self.best_period = False
+        self.accumulative_rewards = {}
+        self.episode_accumulative_rewards = {}  # Maintain as dict to store per agent
+        
     def is_best_record_period(self):
         return self.best_period
-        
-    def _add_rewards(self, rewards: list):
+
+    def _add_rewards(self, env_ids, agent_ids, rewards, dones):
         if rewards is None:
             return 
         self.steps[self.index] = 0 if len(rewards) == 0 else np.mean(np.array(rewards, np.float32))
-        # self.steps[self.index] = np.mean(np.array(rewards, np.float32))
         self.counts[self.index] = len(rewards)
+        
+        for env_id, agent_id, reward, done in zip(env_ids, agent_ids, rewards, dones):
+            key = (env_id, agent_id)
+            self.accumulative_rewards[key] = self.accumulative_rewards.get(key, 0) + reward
+            if done:
+                self.episode_accumulative_rewards[key] = self.accumulative_rewards[key]
+                del self.accumulative_rewards[key]  # Reset accumulative reward for the episode that ended
+                
         self.index = (self.index + 1) % self.n_steps
+   
+    def compute_accumulative_rewards(self):
+        # Calculate average accumulative rewards of all episodes per agent
+        if not self.episode_accumulative_rewards:  # If there are no accumulative rewards recorded
+            return None
+        
+        total_accumulative_rewards = 0
+        num_agents = 0
+        for key, accumulative_rewards in self.episode_accumulative_rewards.items():
+            if accumulative_rewards:  # Only consider agents with recorded rewards
+                total_accumulative_rewards += accumulative_rewards
+                num_agents += 1
+        if num_agents == 0:  # Prevent division by zero
+            return None
+        
+        avg_accumulative_rewards = total_accumulative_rewards / num_agents
+        return avg_accumulative_rewards  # Return a single value representing the mean of the accumulative rewards of all agents
 
     def _update_best_reward(self, avg_reward):
         if avg_reward > self.best_reward:
@@ -191,7 +218,7 @@ class RewardTracker:
             self.best_period = False 
 
     def compute_average(self):
-        valid_indices = np.where(self.counts > 0)  # Indices where self.counts is more than 0
+        valid_indices = np.where(self.counts > 0)
         valid_rewards = self.steps[valid_indices]
         valid_counts = self.counts[valid_indices]
 

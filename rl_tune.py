@@ -21,7 +21,7 @@ class RLTune(RecordManager):
         self.trainer = trainer.initialize(env_config, device)
         
         num_trainer_env = env_config.num_test_env + env_config.num_environments
-        self.train_env = EnvGenerator.create_trainum_environments(env_config, device, num_trainer_env) 
+        self.train_env = EnvGenerator.create_train_environments(env_config, device, num_trainer_env) 
         self.test_env = EnvGenerator.create_test_env(env_config, device, use_graphics, num_trainer_env) 
         
         rl_params = trainer.rl_params
@@ -175,25 +175,26 @@ class RLTune(RecordManager):
         trainer = self.trainer
         if test_env is None:
             return
-        test_reward = test_env.fetch_rewards()
+        test_env.step_env()   
+        test_multi_env_trajectories = test_env.fetch_env()
+        self.record_transitions(test_multi_env_trajectories, training=False)
         test_env.explore_env(trainer, training=False)
-        self.record_rewards(test_reward)
 
     def collect_train_data(self, train_env) -> None:
         train_env.step_env()   
         multi_env_trajectories = train_env.fetch_env()
-        self.record_transitions(multi_env_trajectories)
+        self.record_transitions(multi_env_trajectories, training=True)
         self.push_trajectories(multi_env_trajectories)
         train_env.explore_env(self.trainer, training=True)
         return 
 
     def print_step_info(self, step) -> None:
         self.compute_records()
-        train_score, test_score, metrics = self.get_records()
-        log_data(self.trainer, self.tensor_board_logger, train_score, test_score, metrics, step, self.time_cost)
+        train_reward_per_step , test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards, metrics = self.get_records()
+        log_data(self.trainer, self.tensor_board_logger, train_reward_per_step , test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards, metrics, step, self.time_cost)
         
         if self.use_print:  
             print_step(self.trainer, self.memory, step, self.time_cost)
             print_metrics(metrics)
-            print_scores(train_score, test_score)
+            print_scores(train_reward_per_step , test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards)
         self.pivot_time = None

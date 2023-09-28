@@ -96,8 +96,3 @@ class AgentExperienceCollector:
     
         self.reset_agents()
         return np_agent_id, np_obs, np_action, np_reward, np_next_obs, np_done 
-
-    def output_rewards(self):
-        np_reward = np.concatenate(self.agent_reward[:self.num_agents])
-        self.reset_agents()
-        return np_reward

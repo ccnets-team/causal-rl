@@ -74,7 +74,7 @@ class EnvGenerator:
             start_idx = end_idx
     
     @staticmethod
-    def create_trainum_environments(env_config, device, start_env_idx= 0):
+    def create_train_environments(env_config, device, start_env_idx= 0):
         return EnvGenerator(env_config, device, test_env=False, use_graphics = False, start_env_idx = start_env_idx)
     
     @staticmethod
