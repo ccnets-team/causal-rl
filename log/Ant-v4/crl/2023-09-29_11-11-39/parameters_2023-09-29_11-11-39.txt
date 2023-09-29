@@ -1,0 +1,53 @@
+Trainer Name: crl
+
+TrainingParameters
+replay_ratio: 3
+train_frequency: 2
+batch_size: 512
+
+
+AlgorithmParameters
+discount_factor: 0.99
+num_td_steps: 1
+curiosity_factor: 0.1
+use_gae_advantage: False
+use_curiosity: False
+
+
+NetworkParameters
+network: <class 'nn.super_net.SuperNet'>
+num_layer: 4
+hidden_size: 128
+
+
+OptimizationParameters
+beta1: 0.9
+lr_gamma: 0.9998
+step_size: 32
+lr: 0.0003
+tau: 0.005
+
+
+ExplorationParameters
+noise_type: ou
+initial_exploration: 1.0
+min_exploration: 0.01
+decay_percentage: 0.8
+decay_mode: linear
+max_steps: 500000
+use_deterministic_policy: False
+
+
+MemoryParameters
+buffer_type: standard
+buffer_size: 1000000
+
+
+NormalizationParameters
+reward_scale: 0.1
+reward_shift: 0
+state_normalizer: running_z_standardizer
+reward_normalizer: none
+advantage_scaler: none
+
+
