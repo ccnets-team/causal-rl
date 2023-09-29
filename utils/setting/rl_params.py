@@ -50,7 +50,7 @@ class MemoryParameters:
         self.buffer_size = int(buffer_size)
         
 class NormalizationParameters:
-    def __init__(self, reward_scale=1, reward_shift=0, state_normalizer='running_z_standardizer', reward_normalizer='none', advantage_scaler='dynamic_scale'):
+    def __init__(self, reward_scale=1, reward_shift=0, state_normalizer='running_z_standardizer', reward_normalizer='none', advantage_scaler='none'):
         self.reward_scale = reward_scale
         self.reward_shift = reward_shift
         self.state_normalizer = state_normalizer
