@@ -1,7 +1,7 @@
 import os
 import torch.utils.data
 
-def load_trainer(trainer):
+def load_trainer(trainer, save_path):
     opimizers = trainer.get_optimizers()
     schedulers = trainer.get_schedulers()
     networks = trainer.get_networks()
@@ -11,23 +11,23 @@ def load_trainer(trainer):
     
     for idx, it in enumerate(target_networks):
         if it is not None:
-            it.load_state_dict(torch.load(trainer.save_path + f"target_network_{idx}"+ '.pth', map_location="cuda:0"))
+            it.load_state_dict(torch.load(save_path + f"target_network_{idx}"+ '.pth', map_location="cuda:0"))
     
     if state_normalizer is not None:
-        state_normalizer.load(trainer.save_path + f"state_normalizer" + '.pth')
+        state_normalizer.load(save_path + f"state_normalizer" + '.pth')
     
     if reward_normalizer is not None:
-        reward_normalizer.load(trainer.save_path + f"reward_normalizer" + '.pth')
+        reward_normalizer.load(save_path + f"reward_normalizer" + '.pth')
 
     for idx, it in enumerate(networks):
-        it.load_state_dict(torch.load(trainer.save_path + f"network_{idx}"+ '.pth', map_location="cuda:0"))
+        it.load_state_dict(torch.load(save_path + f"network_{idx}"+ '.pth', map_location="cuda:0"))
     
     for idx, it in enumerate(opimizers):
-        it.load_state_dict(torch.load(trainer.save_path + f"opt_{idx}" + '.pth', map_location="cuda:0"))
+        it.load_state_dict(torch.load(save_path + f"opt_{idx}" + '.pth', map_location="cuda:0"))
         it.param_groups[0]['capturable'] = True
         
     for idx, it in enumerate(schedulers):
-        it.load_state_dict(torch.load(trainer.save_path + f"sch_{idx}" + '.pth', map_location="cuda:0"))
+        it.load_state_dict(torch.load(save_path + f"sch_{idx}" + '.pth', map_location="cuda:0"))
         
 def save_trainer(trainer, save_path):
     opimizers = trainer.get_optimizers()

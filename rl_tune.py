@@ -127,7 +127,7 @@ class RLTune(RecordManager):
             self.train_step()
             
     def test(self):
-        load_trainer(self.trainer)
+        load_trainer(self.trainer, self.save_path)
         test_env = self.test_env
         for step in tqdm(range(self.max_steps)):
             self.init_step(step)

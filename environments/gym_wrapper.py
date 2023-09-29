@@ -114,8 +114,10 @@ class GymEnvWrapper(AgentExperienceCollector):
         next_obs = ongoing_next_obs
         reward = ongoing_reward
         self.convert_observation_spec(next_obs, self.next_observations)
-
-        self.append_agent_transition(0, self.observations.to_vector()[0], action[0], reward[0], self.next_observations.to_vector()[0], done[0])
+        if self.use_graphics:
+            self.append_agent_transition(0, self.observations.to_vector(), action, reward, self.next_observations.to_vector(), done)
+        else:
+            self.append_agent_transition(0, self.observations.to_vector()[0], action[0], reward[0], self.next_observations.to_vector()[0], done[0])
         self.observations = self.next_observations.copy()
 
         if done.any():
