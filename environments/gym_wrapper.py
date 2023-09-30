@@ -22,6 +22,7 @@ class GymEnvWrapper(AgentExperienceCollector):
             self.time_scale = 1.5
 
         env_name = env_config.env_name
+        self.env_name = env_name
         self.test_env = test_env
         self.seed = seed
         self.obs_shapes = env_config.obs_shapes
@@ -84,15 +85,15 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.agent_life[done] = False
 
         if not self.test_env:
-            self.update_for_training(done, info, action, ongoing_next_obs)
+            self.update_for_training(done, ongoing_terminated, info, action, ongoing_next_obs)
         else:
             self.update_for_test(done, action, ongoing_next_obs, ongoing_reward)
         
         return False
 
-    def update_for_training(self, done, info, action, ongoing_next_obs):
+    def update_for_training(self, done, ongoing_terminated, info, action, ongoing_next_obs):
         ongoing_immediate_reward, ongoing_future_reward = get_ongoing_rewards_from_info(info, self.num_agents)
-        final_immediate_reward, final_future_reward = get_final_rewards_from_info(info, self.num_agents)
+        final_immediate_reward, final_future_reward = get_final_rewards_from_info(ongoing_terminated, info, self.num_agents)
 
         final_next_observation = np.zeros_like(ongoing_next_obs)
         final_next_observation = get_final_observations_from_info(info, final_next_observation)
@@ -102,7 +103,6 @@ class GymEnvWrapper(AgentExperienceCollector):
         next_obs = np.where(done[:, np.newaxis], final_next_observation, ongoing_next_obs)
         self.convert_observation_spec(next_obs, self.next_observations)
 
-        future_reward[done] = 0.0
         value_diff = future_reward - self.prev_value
         reward = immediate_reward + value_diff
 

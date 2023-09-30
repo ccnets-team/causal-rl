@@ -1,7 +1,7 @@
 # import gym
 import numpy as np
 
-def get_final_rewards_from_info(info, num_agentss):
+def get_final_rewards_from_info(ongoing_terminated, info, num_agentss):
     done_sum_immediate_rewards = np.zeros(num_agentss, dtype=np.float32)
     done_sum_values = np.zeros(num_agentss, dtype=np.float32)
 
@@ -14,8 +14,13 @@ def get_final_rewards_from_info(info, num_agentss):
             for key in agent_final_info:
                 if ('linup' in key.lower() or 'impact' in key.lower() or 'ctrl' in key.lower() or 'forward' in key.lower()) and 'reward' in key.lower() and not key.startswith('_'):
                     done_sum_immediate_rewards[idx] += agent_final_info[key]
-                if ('survive' in key.lower() or 'healthy' in key.lower() or 'dist' in key.lower()) and 'reward' in key.lower() and not key.startswith('_'):
-                    done_sum_values[idx] += agent_final_info[key]
+                if ongoing_terminated[idx]:
+                    if ('dist' in key.lower() or 'near' in key.lower()) and 'reward' in key.lower() and not key.startswith('_'):
+                        done_sum_values[idx] += agent_final_info[key]
+                else:
+                    if ('survive' in key.lower() or 'healthy' in key.lower() or 'alive' in key.lower() or 'dist' in key.lower() or 'near' in key.lower()) and 'reward' in key.lower() and not key.startswith('_'):
+                        done_sum_values[idx] += agent_final_info[key]
+
     return done_sum_immediate_rewards, done_sum_values
 
 def get_ongoing_rewards_from_info(info, num_agentss):
@@ -34,7 +39,7 @@ def get_ongoing_rewards_from_info(info, num_agentss):
             ongoing_sum_immediate_rewards[idx] += reward
 
     value_keys = [key for key in info.keys() 
-                if ('survive' in key.lower() or 'healthy' in key.lower() or 'dist' in key.lower()) 
+                if ('survive' in key.lower() or 'healthy' in key.lower() or 'alive' in key.lower() or 'dist' in key.lower() or 'near' in key.lower()) 
                 and 'reward' in key.lower() 
                 and not key.startswith('_')]
 
