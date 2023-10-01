@@ -39,7 +39,7 @@ class RLTune(RecordManager):
         self.replay_ratio = training_params.replay_ratio
         self.buffer_size = memory_params.buffer_size
 
-        self.total_on_policy_iterations = self.buffer_size // (self.batch_size * self.replay_ratio)
+        self.total_on_policy_iterations = (self.buffer_size * self.replay_ratio) // self.batch_size
                 
         self.print_interval = PRINT_INTERVAL
         self.save_interval = DEFAULT_SAVE_INTERVAL
