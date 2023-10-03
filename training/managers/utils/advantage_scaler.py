@@ -1,34 +1,46 @@
-import torch
-
-def scale_advantage(advantage, norm_type, epsilon = 1e-8):
-    if norm_type == "none":
+        
+def scale_advantage(advantage, advantage_scaler, epsilon = 1e-8):
+    if advantage_scaler == "none":
         return advantage
-    elif norm_type == "batch_norm":
+    elif advantage_scaler == "batch_norm":
         mean = advantage.detach().mean()
         std = advantage.detach().std()
 
         normalized = (advantage - mean) / (std + epsilon)  # Added epsilon to avoid division by zero
+
         return normalized
     
-    elif norm_type == "L1_norm":
-        # Detach the tensor to prevent tracking of operations in the computational graph
-        detached_data = advantage.detach()
-
-        # Calculate the absolute value of the mean of detached_data
-        mean_absolute_value = detached_data.abs().mean()
-
-        scale_factor = 1 / mean_absolute_value if mean_absolute_value != 0 else 1
-
-        # Return the original data scaled by the scale_factor
-        scaled_data = advantage * scale_factor
-        return scaled_data
-
-    elif norm_type == "dynamic_scale":
-        abs_advantage = torch.abs(advantage.detach())
-        mean_abs_advantage = torch.mean(abs_advantage)
-        scaled_advantage = advantage * (mean_abs_advantage / (abs_advantage + epsilon))
+    elif advantage_scaler == "L1_norm":
+        """
+        Scales the advantage by the mean of its absolute values (L1 Norm).
+        Useful when you want to normalize the fluctuations in the magnitude
+        of individual advantage values within the batch.
+        """
+        abs_mean_advantage = advantage.detach().abs().mean()
+        scale_factor = 1 / (abs_mean_advantage + epsilon)
+        scaled_advantage = advantage * scale_factor
         return scaled_advantage
-        
+    
+    elif advantage_scaler == "abs_mean":
+        """
+        Scales the advantage by the absolute value of their mean.
+        Useful when the overall direction (sign) of the batch of advantages is of importance.
+        """
+        mean_abs_advantage = advantage.detach().mean().abs()
+        scale_factor = 1 / (mean_abs_advantage + epsilon)
+        scaled_advantage = advantage * scale_factor
+        return scaled_advantage
+    
+    elif advantage_scaler == "mixed_norm":
+        """
+        Combines both L1 Norm and the absolute value of mean of advantages for scaling.
+        Useful when a balance between the magnitude and overall direction of the advantages is needed.
+        """
+        abs_mean_advantage = advantage.detach().abs().mean()
+        mean_abs_advantage = advantage.detach().mean().abs()
+        scale_factor = abs_mean_advantage / (mean_abs_advantage + epsilon) 
+        scaled_advantage = advantage * scale_factor
+        return scaled_advantage
     else:
-        raise ValueError(f"Invalid norm_type: {norm_type}")
+        raise ValueError(f"Invalid norm_type: {advantage_scaler}")
 

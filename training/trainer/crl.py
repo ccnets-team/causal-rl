@@ -60,10 +60,13 @@ class CausalRL(BaseTrainer):
         coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost)
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
-        expected_value, advantage = self.compute_values(states, rewards, next_states, dones, estimated_value)
-
+        # If curiosity-driven learning is activated, we utilize the cooperative actor error. 
+        # This error corresponds to the invertibility of actions and serves as our intrinsic reward.
+        # It grants the agent a reward for novel experiences or for exploring new states.
         if self.use_curiosity: 
-            expected_value, advantage = self.trainer_calculate_curiosity_rewards(forward_cost, expected_value, advantage)
+            rewards = self.trainer_calculate_curiosity_rewards(coop_actor_error, rewards)
+
+        expected_value, advantage = self.compute_values(states, rewards, next_states, dones, estimated_value)
             
         value_loss = self.calculate_value_loss(estimated_value, expected_value)
 
@@ -100,12 +103,23 @@ class CausalRL(BaseTrainer):
         self.update_optimizers()
         self.update_target_networks()
         self.update_schedulers()
-            
-    def trainer_calculate_curiosity_rewards(self, cost, *args):
+      
+    def trainer_calculate_curiosity_rewards(self, intrinsic_reward, *args):
         with torch.no_grad():
-            curiosity_reward = self.curiosity_factor * cost
-            new_values = [value + curiosity_reward  for value in args]
-        return new_values if len(new_values) > 1 else new_values[0]  # Return a tuple if multiple, else a single value
+            curiosity_reward = self.curiosity_factor * intrinsic_reward
+            new_values = []
+            for value in args:
+                # If the shapes match, add curiosity_reward to the entire value
+                if curiosity_reward.dim() == value.dim():
+                    new_values.append(value + curiosity_reward)
+                # If value has one additional dimension, add curiosity_reward only to its first transition
+                elif curiosity_reward.dim() == value.dim() - 1:
+                    value[:,0] += curiosity_reward
+                    new_values.append(value)
+                else:
+                    # Asserting to catch unexpected cases
+                    assert False, f"Unexpected shapes: curiosity_reward {curiosity_reward.shape}, value {value.shape}"
+        return tuple(new_values) if len(new_values) > 1 else new_values[0]
 
     def trainer_calculate_future_value(self, gamma, end_step, next_state):
         target_network, _, _ = self.get_target_networks()
