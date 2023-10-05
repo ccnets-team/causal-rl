@@ -36,9 +36,11 @@ class SingleInputCritic(BaseCritic):
         return self._forward(emb_state)
 
 class DualInputCritic(BaseCritic):
-    def __init__(self, net, env_config, network_params, joint_type = 'cat'):
+    def __init__(self, net, env_config, network_params):
         super(DualInputCritic, self).__init__(net, env_config, network_params)
-        self.embedding_layer = DualJointLayer.create(self.state_size, self.action_size, self.hidden_size, joint_type =joint_type)
+        joint_type = network_params.critic_joint_type
+        self.embedding_layer = DualJointLayer.create(self.state_size, self.action_size, self.hidden_size, \
+            joint_type = joint_type)
         self.apply(init_weights)
 
     def forward(self, state, action):

@@ -252,8 +252,14 @@ class SingleInputActor(_BaseActor):
         return log_prob
 
 class DualInputActor(_BaseActor):
-    def __init__(self, net, env_config, network_params, exploration, joint_type = 'add'):
+    def __init__(self, net, env_config, network_params, exploration):
         super().__init__(net, env_config, network_params, exploration)
+        
+        # Comment about joint representation for the actor and reverse-env network:
+        # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
+        # However, when the reward scale is too high, addition (add) seems more robust.
+        # The decision of which method to use should be based on the specifics of the task and the nature of the data.
+        joint_type = network_params.actor_joint_type
         self.embedding_layer = DualJointLayer.create(self.state_size, self.value_size, self.hidden_size, joint_type = joint_type)
         self.apply(init_weights)
 

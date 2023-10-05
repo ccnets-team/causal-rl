@@ -20,10 +20,14 @@ class AlgorithmParameters:
         self.use_curiosity = use_curiosity
             
 class NetworkParameters:
-    def __init__(self, network = SuperNet, num_layer=4, hidden_size=128):
+    def __init__(self, network = SuperNet, num_layer=4, hidden_size=128, \
+                critic_joint_type = 'cat', actor_joint_type = 'cat', rev_env_joint_type = 'cat'):
         self.network = network
         self.num_layer = num_layer
         self.hidden_size = hidden_size
+        self.critic_joint_type = critic_joint_type
+        self.actor_joint_type = actor_joint_type
+        self.rev_env_joint_type = rev_env_joint_type
 
 class OptimizationParameters:
     def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=32, lr=3e-4, tau=5e-3):
