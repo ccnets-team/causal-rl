@@ -139,9 +139,27 @@ Incorporates curiosity-driven RL components for enhanced exploration and learnin
 
 - We're currently in the process of building our official documentation webpage to better assist you. In the meantime, if you have any specific questions or need clarifications, feel free to reach out through our other support channels. We appreciate your patience and understanding!
 
-# **Contribution**
+# **Contribution Guidelines 🌟**
 
-*We are actively seeking contributions to integrate this pioneering methodology with other frameworks, aiming to broaden its applicability and contribute to the advancement of reinforcement learning solutions.*
+- We warmly welcome contributions from everyone! Here's how you can contribute:
+
+![contribution process](https://github.com/ccnets-team/rl-tune/assets/66022264/34d55b31-5825-4e31-8407-690d00a4e502)
+
+When you submit a Pull Request (PR) to our project, here's the process it goes through:
+
+1. **Initial Check**: We first check if the PR is valid.
+    - If not, it's rejected.
+    - If valid, it proceeds to review.
+2. **Review Process**:
+    - If changes are needed, you'll receive feedback. Please make the necessary adjustments to your PR and resubmit. This review-feedback cycle may repeat until the PR is satisfactory.
+    - If no changes are needed, the PR is approved.
+3. **Testing**:
+    - Approved PRs undergo testing.
+    - If tests pass, your PR gets merged! 🎉
+    - If tests fail, you'll receive feedback. Adjust your PR accordingly and it will go through the review process again.
+
+Your contributions are invaluable to us. Please ensure you address feedback promptly to streamline the merge process.
+
 
 # **Support & Contact**
 
