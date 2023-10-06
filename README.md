@@ -1,3 +1,20 @@
+# Table of Contents
+
+- [Overview](#overview)
+   * [Introduction](#introduction)
+   * [Key Points](#key-points)
+- [Dependencies](#dependencies)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [Performance & Benchmarks](#performance--benchmarks)
+  * [Algorithm Feature Checklist](#algorithm-feature-checklist)
+- [API Documentation](#api-documentation)
+- [Contribution Guidelines 🌟](#contribution-guidelines-)
+- [Issue Reporting Policy 🐞](#issue-reporting-policy-)
+- [Support & Contact](#support--contact)
+
+
 # Overview
 
 ## **Introduction**
