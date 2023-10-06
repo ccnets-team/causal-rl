@@ -161,6 +161,39 @@ When you submit a Pull Request (PR) to our project, here's the process it goes t
 Your contributions are invaluable to us. Please ensure you address feedback promptly to streamline the merge process.
 
 
+# **Issue Reporting Policy 🐞**
+
+Thank you for taking the time to report issues and provide feedback. This helps improve our project for everyone! To ensure that your issue is handled efficiently, please follow the guidelines below:
+
+### **1. Choose the Right Template:**
+
+We provide three issue templates to streamline the reporting process:
+
+1. **Bug Report**: Use this template if you've found a bug or something isn't working as expected. Please provide as much detail as possible to help us reproduce and fix the bug.
+2. **Feature Request**: If you have an idea for a new feature or think something could be improved, this is the template to use. Describe the feature, its benefits, and how you envision it.
+3. **Custom Issue Template**: For all other issues or general feedback, use this template. Make sure to provide sufficient context and detail.
+
+### **2. Search First:**
+
+Before submitting a new issue, please search the existing issues to avoid duplicates. If you find a similar issue, you can add your information or 👍 the issue to show your support.
+
+### **3. Be Clear and Concise:**
+
+- **Title**: Use a descriptive title that summarizes the issue.
+- **Description**: Provide as much detail as necessary, but try to be concise. If reporting a bug, include steps to reproduce, expected behavior, and actual behavior.
+- **Screenshots**: If applicable, add screenshots to help explain the issue.
+
+### **4. Use Labels:**
+
+If possible, categorize your issue using the appropriate GitHub labels. This helps us prioritize and address issues faster.
+
+### **5. Stay Engaged:**
+
+After submitting an issue, please check back periodically. Maintainers or other contributors may ask for further information or provide updates.
+
+Thank you for helping improve our project! Your feedback and contributions are invaluable.
+
+
 # **Support & Contact**
 
 Facing issues or have questions about our framework? We're here to help!
