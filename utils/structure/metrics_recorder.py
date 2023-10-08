@@ -174,7 +174,8 @@ class RewardTracker:
         self.best_period = False
         self.accumulative_rewards = {}
         self.episode_accumulative_rewards = {}  # Maintain as dict to store per agent
-        
+        self.episode_counts = {}  # Track the number of episodes ended for each agent
+                
     def is_best_record_period(self):
         return self.best_period
 
@@ -183,13 +184,16 @@ class RewardTracker:
             return 
         self.steps[self.index] = 0 if len(rewards) == 0 else np.mean(np.array(rewards, np.float32))
         self.counts[self.index] = len(rewards)
-        
+
         for env_id, agent_id, reward, done in zip(env_ids, agent_ids, rewards, dones):
             key = (env_id, agent_id)
             self.accumulative_rewards[key] = self.accumulative_rewards.get(key, 0) + reward
             if done:
                 self.episode_accumulative_rewards[key] = self.accumulative_rewards[key]
                 del self.accumulative_rewards[key]  # Reset accumulative reward for the episode that ended
+                
+                # Increment episode count for the agent
+                self.episode_counts[key] = self.episode_counts.get(key, 0) + 1
                 
         self.index = (self.index + 1) % self.n_steps
    
@@ -209,7 +213,7 @@ class RewardTracker:
         
         avg_accumulative_rewards = total_accumulative_rewards / num_agents
         return avg_accumulative_rewards  # Return a single value representing the mean of the accumulative rewards of all agents
-
+    
     def _update_best_reward(self, avg_reward):
         if avg_reward > self.best_reward:
             self.best_reward = avg_reward
@@ -231,3 +235,19 @@ class RewardTracker:
         avg_reward = total_rewards / total_counts
         self._update_best_reward(avg_reward)
         return avg_reward
+
+    def get_episode_counts(self):
+        """Returns the smallest number of episodes ended among all agents."""
+        
+        # Get all agents: those with ongoing episodes and those with ended episodes
+        all_agents = set(self.accumulative_rewards.keys()).union(self.episode_counts.keys())
+        
+        # Find the smallest ended episode count among all agents
+        min_ended_episodes = None
+        for agent in all_agents:
+            ended_episodes_for_agent = self.episode_counts.get(agent, 0)  # Consider 0 if the agent has no ended episodes
+            if (min_ended_episodes is None) or (ended_episodes_for_agent < min_ended_episodes):
+                min_ended_episodes = ended_episodes_for_agent
+
+        return 0 if min_ended_episodes is None else min_ended_episodes
+         

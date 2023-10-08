@@ -50,12 +50,21 @@ class RLTune:
         for step in tqdm(range(self.max_steps)):
             self._train_step_logic(step, training_method)
 
-    def test(self):
+    def test(self, max_episodes: int = 100) -> None:
         self.helper.setup(training=False)
         self.helper.load_model()
-
-        for step in tqdm(range(self.max_steps)):
-            self._test_step_logic(step)
+        
+        step = 0
+        for episode in tqdm(range(max_episodes), desc="Testing"):
+            while True:  # This loop will run until broken by a condition inside
+                if self.helper.get_test_episode_counts() > episode:
+                    break
+                if step >= self.max_steps:
+                    break
+                self._test_step_logic(step)
+                step += 1  # Increment the global step count after processing
+            if step >= self.max_steps:
+                break
 
     # Training Logic Methods
     def _train_step_logic(self, step: int, training_method) -> None:

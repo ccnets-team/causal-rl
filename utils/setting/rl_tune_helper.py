@@ -40,6 +40,9 @@ class RLTuneHelper:
         """Loads the RL model."""
         load_trainer(self.parent.trainer, self.recorder.save_path)
 
+    def get_test_episode_counts(self):
+        return self.recorder.test_tracker.get_episode_counts()
+
     def add_train_metrics(self, train_data):
         """Add training metrics to the recorder."""
         self.recorder.metrics_tracker.add_step(train_data)
