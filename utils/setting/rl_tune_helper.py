@@ -46,7 +46,8 @@ class RLTuneHelper:
 
     def init_step(self, step):
         """Initializes the training/testing step."""        
-        self.pivot_time = time.time()
+        if self.recorder.pivot_time is None:
+            self.recorder.pivot_time = time.time()
         set_seed(step)
 
     def end_step(self, step):
@@ -129,16 +130,17 @@ class RLTuneHelper:
         """Logs information related to the given step."""        
         self.recorder.compute_records()
         metrics = self.recorder.get_records()
-        log_data(self.parent.trainer, self.recorder.tensor_board_logger, *metrics, step, time.time() - self.pivot_time)
+        log_data(self.parent.trainer, self.recorder.tensor_board_logger, *metrics, step, time.time() - self.recorder.pivot_time)
         
         if self.use_print:
             self._print_step_details(step, metrics)
         
     def _print_step_details(self, step, metrics):
         """Prints detailed information about the current step."""
-        print_step(self.parent.trainer, self.parent.memory, step, time.time() - self.pivot_time)
+        print_step(self.parent.trainer, self.parent.memory, step, time.time() - self.recorder.pivot_time)
         print_metrics(metrics[4])
         print_scores(*metrics[:4])
+        self.recorder.pivot_time = None
         
     def _should_print(self, step: int) -> bool:
        """Determines if logs should be printed for a given step."""        
