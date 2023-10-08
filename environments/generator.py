@@ -5,12 +5,12 @@ from utils.structure.trajectory_handler  import MultiEnvTrajectories
 import torch
 
 class EnvGenerator: 
-    def __init__(self, env_config, device, test_env, use_graphics, start_env_idx):
+    def __init__(self, env_config, device, test_env, use_graphics):
         super(EnvGenerator, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
         w_id = 0 if test_env else 1
-        w_id += (start_env_idx + 100)
+        w_id += 100
         self.device = device
 
         if env_config.env_type == "gym":
@@ -30,15 +30,6 @@ class EnvGenerator:
         for it in self.env_list:
             it.env.close()
 
-    def fetch_rewards(self):
-        np_reward = []
-        for env in self.env_list:
-            env.step_environment()
-        for env in self.env_list:
-            reward = env.output_rewards()
-            np_reward.extend(reward)
-        return np_reward
-
     def fetch_env(self):
         combined_transition = MultiEnvTrajectories()
 
@@ -53,7 +44,6 @@ class EnvGenerator:
 
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
-        # np_state = np.concatenate([env.states for env in self.env_list], axis=0)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
         np_life = np.concatenate([env.agent_life for env in self.env_list], axis=0)
 
@@ -74,10 +64,10 @@ class EnvGenerator:
             start_idx = end_idx
     
     @staticmethod
-    def create_train_environments(env_config, device, start_env_idx= 0):
-        return EnvGenerator(env_config, device, test_env=False, use_graphics = False, start_env_idx = start_env_idx)
+    def create_train_environments(env_config, device):
+        return EnvGenerator(env_config, device, test_env=False, use_graphics = False)
     
     @staticmethod
-    def create_test_env(env_config, device, use_graphics, start_env_idx = 0):
-        return EnvGenerator(env_config, device, test_env=True, use_graphics = use_graphics, start_env_idx = start_env_idx)
+    def create_test_environments(env_config, device, use_graphics):
+        return EnvGenerator(env_config, device, test_env=True, use_graphics = use_graphics)
 

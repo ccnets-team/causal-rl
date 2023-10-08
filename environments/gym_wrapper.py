@@ -37,7 +37,7 @@ class GymEnvWrapper(AgentExperienceCollector):
 
         self.env = gym.make(env_name, render_mode='human') if use_graphics else gym.make_vec(env_name, num_envs=self.num_agents) 
         self.use_graphics = use_graphics
-        self.reset()
+        self.reset_env()
 
     def convert_observation_spec(self, raw_observations, observations):
         offset = 0
@@ -61,7 +61,8 @@ class GymEnvWrapper(AgentExperienceCollector):
         # Assign sliced data to all agents in the observations
         all_agent_indices = list(range(observations.num_agents))
         observations[all_agent_indices] = sliced_data
-    def reset(self):
+        
+    def reset_env(self):
         self.running_cnt = 0
         random_num = np.random.randint(0, self.MAX_RANDOM_SEED)
         obs, _ = self.env.reset(seed=random_num)
@@ -121,7 +122,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.observations = self.next_observations.copy()
 
         if done.any():
-            self.reset()
+            self.reset_env()
 
     def _get_action_input(self, action):
         if self.use_graphics:

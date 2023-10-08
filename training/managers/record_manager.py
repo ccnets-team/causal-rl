@@ -55,7 +55,6 @@ class RecordManager:
 
         self.avg_metrics = self.metrics_tracker.compute_average()
         
-
     def get_records(self):
         return self.train_reward_per_step , self.test_reward_per_step, self.train_accumulative_rewards, self.test_accumulative_rewards, self.avg_metrics
         

@@ -15,17 +15,18 @@ def initialize_buffers(buffer_type, num_environments, num_agents, capacity_per_a
         raise NotImplementedError
 
 class ExperienceMemory:
-    def __init__(self, env_config, algorithm, memory, device):
+    def __init__(self, env_config, training_params, algorithm_params, memory_params, device):
         self.device = device
-        num_td_steps = algorithm.num_td_steps
+        num_td_steps = algorithm_params.num_td_steps
         
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
-        self.capacity_per_agent = int(memory.buffer_size)//(env_config.num_environments*env_config.num_agents) + num_td_steps 
+        self.capacity_per_agent = int(memory_params.buffer_size)//(env_config.num_environments*env_config.num_agents) + num_td_steps 
         
         state_size, action_size = env_config.state_size, env_config.action_size 
+        self.batch_size = training_params.batch_size 
         
-        self.buffer_type  = memory.buffer_type
+        self.buffer_type  = memory_params.buffer_type
         self.multi_buffers = initialize_buffers(self.buffer_type, self.num_environments, self.num_agents, self.capacity_per_agent, state_size, action_size, num_td_steps)
 
     def __len__(self):
@@ -51,7 +52,9 @@ class ExperienceMemory:
         for env_id, agent_id, state, action, reward, next_state, done, td_error in attributes:
             self.multi_buffers[env_id][agent_id].add(state, action, reward, next_state, done, td_error)
 
-    def get_agent_samples(self, sample_size):
+    def get_agent_samples(self, sample_size = None):
+        if sample_size is None:
+            sample_size = self.batch_size
         # Step 1: Compute cumulative sizes
         cumulative_sizes = []
         total_size = 0
@@ -87,7 +90,8 @@ class ExperienceMemory:
 
         return samples
     
-    def sample_agent_transition(self, batch_size):
+    def sample_agent_transition(self):
+        batch_size = self.batch_size
         samples = self.get_agent_samples(batch_size)
         states      = np.stack([b[0] for b in samples], axis=0)
         actions     = np.stack([b[1] for b in samples], axis=0)

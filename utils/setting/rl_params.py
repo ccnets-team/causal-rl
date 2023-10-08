@@ -1,11 +1,13 @@
 import numpy as np
 from nn.super_net import SuperNet
+DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
     def __init__(self, replay_ratio=4, train_frequency=1, batch_size=512):
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
         self.batch_size = batch_size
+        self.training_start_step = DEFAULT_TRAINING_START_STEP  
         
     def minimum_samples_per_step(self):
         samples_per_step = int(max(1, np.ceil(self.batch_size/(self.train_frequency*self.replay_ratio))))
