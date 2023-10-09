@@ -78,7 +78,7 @@ class TD3(BaseTrainer):
         self.set_train(training=True)
         critic1_optimizer, critic2_optimizer, actor_optimizer = self.get_optimizers()
         states, actions, rewards, next_states, dones = trajectory
-        state, action = self.select_transitions(states, actions)
+        state, action = self.select_first_transitions(states, actions)
 
         # Critic Training
         with torch.no_grad():            

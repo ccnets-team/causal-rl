@@ -72,12 +72,12 @@ class OrnsteinUhlenbeck(NoiseStrategy):
         return action + noise
     
 class BoltzmannExploration(NoiseStrategy):
-    def __init__(self, use_discrete, tau=10.0):
+    def __init__(self, use_discrete, tau=1.0):
         super(BoltzmannExploration, self).__init__(use_discrete)  # Assuming the superclass has these parameters.
         self.tau = tau
-        self.min_temperature = 0.01
+        self.min_temperature = 0.1
         # Adjusted decay rate as per the derived formula
-        self.decay_rate = -2 * math.log(0.1)
+        self.decay_rate = -math.log(0.1)
         
     def apply(self, x, exploration_rate):
         # Computing temperature based on the adjusted decay rate

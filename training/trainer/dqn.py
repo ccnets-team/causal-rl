@@ -78,7 +78,7 @@ class DQN(BaseTrainer):
         
         states, actions, rewards, next_states, dones = trajectory
         
-        state, action = self.select_transitions(states, actions)
+        state, action = self.select_first_transitions(states, actions)
 
         expected_value = self.calculate_expected_value(rewards, next_states, dones).detach()
         predicted_q_value, _ = self.q_network(state)

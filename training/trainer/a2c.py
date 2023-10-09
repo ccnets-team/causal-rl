@@ -72,7 +72,7 @@ class A2C(BaseTrainer):
 
         states, actions, rewards, next_states, dones = trajectory
 
-        state, action = self.select_transitions(states, actions)
+        state, action = self.select_first_transitions(states, actions)
 
         estimated_value = self.critic(state)
         

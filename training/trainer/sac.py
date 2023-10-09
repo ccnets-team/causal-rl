@@ -154,7 +154,7 @@ class SAC(BaseTrainer):
         """
         self.set_train(training=True)
         states, actions, rewards, next_states, dones = trajectory
-        state, action, reward, next_state, done = self.select_transitions(states, actions, rewards, next_states, dones)
+        state, action, reward, next_state, done = self.select_first_transitions(states, actions, rewards, next_states, dones)
         value_optimizer, policy_optimizer, critic1_optimizer, critic2_optimizer = self.get_optimizers()
         
         # ------------ Value Network Update ------------

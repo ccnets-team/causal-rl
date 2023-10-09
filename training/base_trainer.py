@@ -54,12 +54,29 @@ class BaseTrainer(TrainingManager, StrategyManager):
         advantages = compute_gae(trajectory_values, rewards, dones).detach()
         return advantages
 
-    def select_transitions(self, *tensor_sequences: torch.Tensor) -> tuple:
+    def select_first_transitions(self, *tensor_sequences: torch.Tensor):
         """Extract the appropriate input for each tensor based on the GAE flag."""
         if self.use_gae_advantage:
-            return tuple(tensor for tensor in tensor_sequences)
+            results = tuple(tensor for tensor in tensor_sequences)
         else:
-            return tuple(tensor[:, 0, :] for tensor in tensor_sequences)
+            results = tuple(tensor[:, 0, :] for tensor in tensor_sequences)
+
+        # If only one tensor is passed, return the tensor directly instead of a tuple
+        if len(results) == 1:
+            return results[0]
+        return results
+
+    def select_last_transitions(self, *tensor_sequences: torch.Tensor):
+        """Extract the appropriate input for each tensor based on the GAE flag."""
+        if self.use_gae_advantage:
+            results = tuple(tensor for tensor in tensor_sequences)
+        else:
+            results = tuple(tensor[:, -1, :] for tensor in tensor_sequences)
+
+        # If only one tensor is passed, return the tensor directly instead of a tuple
+        if len(results) == 1:
+            return results[0]
+        return results
 
     def calculate_expected_value(self, rewards, next_states, dones):
         discount_factors = self.get_discount_factors()

@@ -10,13 +10,13 @@ from environments.settings.mlagents_config import setup_mlagents_environment
 GYM_NUM_ENVIRONMENTS = 1
 MLAGENTS_ENV_SPECIFIC_ARGS = {
     "3DBall": {'max_steps': 50000},
-    "3DBallHard": {'curiosity_factor': 1, 'max_steps': 50000},
+    "3DBallHard": {'max_steps': 50000},
     "Worm": {'discount_factor': 0.995, 'max_steps': 500000},
     "Crawler": {'discount_factor': 0.995, 'hidden_size': 192, 'max_steps': 500000},
     "Walker": {'discount_factor': 0.995, 'hidden_size': 256, 'max_steps': 500000},
     "Hallway": {'state_normalizer': 'none', 'max_steps': 500000},
-    "PushBlock": {'reward_scale': 1,'state_normalizer': 'none', 'batch_size': 1024, 'max_steps': 500000},
-    "Pyramids": {'reward_scale': 1, 'hidden_size': 128, 'state_normalizer': 'none', 'discount_factor': 0.995, 'batch_size': 1024, 'buffer_size': 1000000, 'num_td_steps': 5, 'use_curiosity': True, 'use_gae_advantage': True}
+    "PushBlock": {'reward_scale': 1, 'num_td_steps': 5, 'hidden_size': 128, 'state_normalizer': 'none', 'batch_size': 1024, 'max_steps': 500000},
+    "Pyramids": {'reward_scale': 1, 'num_td_steps': 5, 'hidden_size': 256, 'state_normalizer': 'none', 'discount_factor': 0.995, 'batch_size': 1024, 'use_curiosity': True}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {

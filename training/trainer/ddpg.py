@@ -82,7 +82,7 @@ class DDPG(BaseTrainer):
         
         # Critic Update
         target_Q = self.calculate_expected_value(rewards, next_states, dones).detach()
-        state, action = self.select_transitions(states, actions)
+        state, action = self.select_first_transitions(states, actions)
 
        # Compute the target Q value
 
