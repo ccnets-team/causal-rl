@@ -154,9 +154,12 @@ class SAC(BaseTrainer):
         dict: A dictionary containing the computed value loss and actor loss metrics.
         """
         self.set_train(training=True)
-        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
         value_optimizer, policy_optimizer, critic1_optimizer, critic2_optimizer = self.get_optimizers()
         
+        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
+
+        state, action, reward, next_state, done = self.select_first_transitions(states, actions, rewards, next_states, dones)
+
         # ------------ Value Network Update ------------
         value_loss = self.update_value_network(state, next_state)
 

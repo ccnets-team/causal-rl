@@ -28,16 +28,14 @@ def get_end_next_state(next_states, end_step):
     next_state = next_states[batch_indices, state_indices, :]
     return next_state
 
-def get_discounted_rewards(rewards, dones, discount_factors):
-    shifted_dones = torch.roll(dones, shifts=1, dims=1)
-    shifted_dones[:, 0, :] = 0  # Ensure the first column remains unchanged after rolling
-    valid_rewards = rewards * (1 - shifted_dones)
+def get_discounted_rewards(rewards, discount_factors):
+    batch_size, seq_len, _ = rewards.shape
+    accumulative_rewards = torch.zeros_like(rewards)
     discount_factors = discount_factors.unsqueeze(-1)
-    return (valid_rewards * discount_factors).sum(dim=1)
 
-def get_termination_step(dones):
-    num_td_steps = dones.shape[1]
-    end_step = torch.argmax(dones, dim=1) + 1
-    done = (dones.sum(dim=1) > 0).float()
-    end_step[done == 0] = num_td_steps  # If not terminated, set to num_td_steps
-    return done, end_step
+    for t in range(seq_len):
+        end_idx = min(t + discount_factors.shape[1], seq_len)
+        offset = end_idx - t
+        accumulative_rewards[:, t, :] = (rewards[:, t:end_idx, :] * discount_factors[:, :offset]).sum(dim=1)
+
+    return accumulative_rewards

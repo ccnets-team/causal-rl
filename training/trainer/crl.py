@@ -64,24 +64,24 @@ class CausalRL(BaseTrainer):
         self.set_train(training=True)
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
-        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
+        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
                 
         # Get the estimated value of the current state from the critic network.
-        estimated_value = self.critic(state)
+        estimated_value = self.critic(states)
             
         # Predict the action that the actor would take for the current state and its estimated value.
-        inferred_action = self.actor.predict_action(state, estimated_value)
+        inferred_action = self.actor.predict_action(states, estimated_value)
         # Calculate the reversed state using the original action.
-        reversed_state = self.revEnv(next_state, action, estimated_value)
+        reversed_state = self.revEnv(next_states, actions, estimated_value)
         # Calculate the recurred state using the inferred action.
-        recurred_state = self.revEnv(next_state, inferred_action, estimated_value.detach())
+        recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach())
         
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state)
         # Compute the reverse cost by checking the discrepancy between the reversed state and the original state.
-        reverse_cost = self.cost_fn(reversed_state, state)
+        reverse_cost = self.cost_fn(reversed_state, states)
         # Compute the recurrent cost by checking the discrepancy between the recurred state and the original state.
-        recurrent_cost = self.cost_fn(recurred_state, state)
+        recurrent_cost = self.cost_fn(recurred_state, states)
         
         # Calculate the cooperative critic error using forward and reverse costs in relation to the recurrent cost.
         coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost)
@@ -94,10 +94,10 @@ class CausalRL(BaseTrainer):
         # This error corresponds to the invertibility of actions and serves as our intrinsic reward.
         # It grants the agent a reward for novel experiences or for exploring new states.
         if self.use_curiosity: 
-            reward = self.trainer_calculate_curiosity_rewards(coop_actor_error, reward)
+            rewards = self.trainer_calculate_curiosity_rewards(coop_actor_error, rewards)
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(state, reward, next_state, done, estimated_value)
+        expected_value, advantage = self.compute_values(states, rewards, next_states, dones, estimated_value)
             
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value)
@@ -158,15 +158,15 @@ class CausalRL(BaseTrainer):
                     assert False, f"Unexpected shapes: curiosity_reward {curiosity_reward.shape}, value {value.shape}"
         return tuple(new_values) if len(new_values) > 1 else new_values[0]
 
-    def trainer_calculate_future_value(self, gamma, end_step, next_state):
+    def trainer_calculate_future_value(self, next_state):
         target_network, _, _ = self.get_target_networks()
         with torch.no_grad():
-            future_value = (gamma**end_step) * target_network(next_state)
+            future_value = target_network(next_state)
         return future_value
 
     def cost_fn(self, predict, target):
         cost = (predict - target.detach()).abs()
-        cost = cost.mean(dim = -1, keepdim = True)
+        cost = cost.mean(dim=-1, keepdim=True)  # Compute the mean across the state_size dimension
         return cost
     
     def error_fn(self, predict, target):

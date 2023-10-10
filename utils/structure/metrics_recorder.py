@@ -1,17 +1,18 @@
 import numpy as np
 import torch
-
-def convert_to_float(kwargs, keys_list):
-    return {
-        key: float(value.mean()) if isinstance(value, (torch.Tensor, np.ndarray)) else value
-        for key, value in kwargs.items() if key in keys_list
-    }
-
 from collections import OrderedDict
 
 def convert_to_float(kwargs, keys_list):
+    def process_value(value):
+        if isinstance(value, (torch.Tensor, np.ndarray)):
+            if len(value.shape) >= 2:
+                value = value[:, 0, ...]  # Extract the first index of sequence
+            return float(value.mean())
+        else:
+            return value
+
     return OrderedDict(
-        (key, float(value.mean()) if isinstance(value, (torch.Tensor, np.ndarray)) else value)
+        (key, process_value(value))
         for key, value in kwargs.items() if key in keys_list
     )
 

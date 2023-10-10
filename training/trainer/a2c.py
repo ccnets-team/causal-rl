@@ -71,14 +71,16 @@ class A2C(BaseTrainer):
         self.set_train(training=True)
         critic_optimizer, actor_optimizer = self.get_optimizers()
 
-        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
+        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
 
-        state, action = self.select_first_transitions(state, action)
+        state, action = self.select_first_transitions(states, actions)
 
         estimated_value = self.critic(state)
         
         # Compute the advantage and expected value
-        expected_value, advantage = self.compute_values(state, reward, next_state, done, estimated_value)
+        expected_values, advantages = self.compute_values(states, rewards, next_states, dones, estimated_value)
+
+        expected_value, advantage = self.select_first_transitions(expected_values, advantages)
 
         # Compute critic loss
         value_loss = self.calculate_value_loss(estimated_value, expected_value)
@@ -112,18 +114,16 @@ class A2C(BaseTrainer):
         self.update_target_networks()
         self.update_schedulers()
 
-    def trainer_calculate_future_value(self, gamma, end_step, next_state):
+    def trainer_calculate_future_value(self, next_state):
         """
         Calculates the future value for a given next_state with discount factor gamma and end_step.
         
         Parameters:
-        - gamma (float): The discount factor.
-        - end_step (int): The ending step index.
         - next_state (Tensor): The next state of the environment.
         
         Returns:
         - future_value (Tensor): The calculated future value.
         """
         with torch.no_grad():
-            future_value = (gamma**end_step) * self.target_critic(next_state)
+            future_value = self.target_critic(next_state)
         return future_value

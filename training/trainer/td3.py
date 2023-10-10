@@ -78,11 +78,14 @@ class TD3(BaseTrainer):
         """
         self.set_train(training=True)
         critic1_optimizer, critic2_optimizer, actor_optimizer = self.get_optimizers()
-        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
+
+        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
+
+        state, action = self.select_first_transitions(states, actions)
 
         # Critic Training
         with torch.no_grad():            
-            target_value = self.calculate_expected_value(reward, next_state, done)
+            target_value = self.calculate_expected_value(rewards, next_states, dones)
 
         current_Q1 = self.critic1(state, action)
         current_Q2 = self.critic2(state, action)
@@ -124,7 +127,7 @@ class TD3(BaseTrainer):
         self.total_steps += 1
         self.policy_noise = self.get_exploration_rate()
 
-    def trainer_calculate_future_value(self, gamma, end_step, next_state):
+    def trainer_calculate_future_value(self, next_state):
         """
         Calculates the future value of the next state using target actor and critics.
         
@@ -136,12 +139,12 @@ class TD3(BaseTrainer):
         Returns:
         torch.Tensor: The calculated future value tensor.
         """
-        next_action = self.target_actor.predict_action(next_state)
-        noise = torch.normal(torch.zeros_like(next_action), self.policy_noise)
-        new_next_action = noise + noise
-        target_Q1 = self.target_critic1(next_state, new_next_action)
-        target_Q2 = self.target_critic2(next_state, new_next_action)
-        target_Q = torch.min(target_Q1, target_Q2)
         with torch.no_grad():
-            future_value = (gamma**end_step) * target_Q
+            next_action = self.target_actor.predict_action(next_state)
+            noise = torch.normal(torch.zeros_like(next_action), self.policy_noise)
+            new_next_action = noise + noise
+            target_Q1 = self.target_critic1(next_state, new_next_action)
+            target_Q2 = self.target_critic2(next_state, new_next_action)
+            target_Q = torch.min(target_Q1, target_Q2)
+            future_value = target_Q
         return future_value

@@ -76,14 +76,15 @@ class DQN(BaseTrainer):
         self.set_train(training=True)
         optimizer = self.get_optimizers()[0]
         
-        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
+        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
 
-        expected_value = self.calculate_expected_value(reward, next_state, done).detach()
-        predicted_q_value, _ = self.q_network(state)
+        expected_value = self.calculate_expected_value(rewards, next_states, dones).detach()
+
+        predicted_q_value, _ = self.q_network(states)
 
         # Choose the action with highest probability
-        discrete_actions = action.argmax(dim=1, keepdim=True)
-        q_value_for_action = predicted_q_value.gather(1, discrete_actions)      
+        discrete_actions = actions.argmax(dim=-1, keepdim=True)
+        q_value_for_action = predicted_q_value.gather(-1, discrete_actions)      
 
         loss = self.calculate_value_loss(q_value_for_action, expected_value)
         optimizer.zero_grad()
@@ -100,13 +101,11 @@ class DQN(BaseTrainer):
         return metrics
 
 
-    def trainer_calculate_future_value(self, gamma: float, end_step: int, next_state: Tensor):
+    def trainer_calculate_future_value(self, next_state: Tensor):
         """
         Calculates the discounted future value of the next state.
         
         Parameters:
-        - gamma (float): The discount factor.
-        - end_step (int): The step at which the episode ended.
         - next_state (Tensor): The next state of the environment.
         
         Returns:
@@ -118,7 +117,7 @@ class DQN(BaseTrainer):
         with torch.no_grad():
             next_q_values, _ = self.target_q_network(next_state)
             next_q_value, _ = next_q_values.max(dim=1, keepdim = True)
-            future_value = (gamma**end_step) * next_q_value
+            future_value = next_q_value
         return future_value
 
 

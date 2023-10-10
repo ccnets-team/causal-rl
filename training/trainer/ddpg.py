@@ -78,11 +78,15 @@ class DDPG(BaseTrainer):
         This method optimizes both the actor and the critic networks.
         """
         self.set_train(training=True)
-        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
         critic_optimizer, actor_optimizer = self.get_optimizers()
-        
+
+        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
+
+        state, action = self.select_first_transitions(states, actions)
+
         # Critic Update
-        target_Q = self.calculate_expected_value(reward, next_state, done).detach()
+        target_Qs = self.calculate_expected_value(rewards, next_states, dones).detach()
+        target_Q = self.select_first_transitions(target_Qs)
 
        # Compute the target Q value
 
@@ -115,13 +119,11 @@ class DDPG(BaseTrainer):
         )        
         return metrics
 
-    def trainer_calculate_future_value(self, gamma, end_step, next_state):
+    def trainer_calculate_future_value(self, next_state):
         """
         Calculate the future value of the next state using the target networks.
         
         Parameters:
-        - gamma (float): Discount factor for future rewards.
-        - end_step (int): Step at which the episode ended.
         - next_state (Tensor): The next state of the environment.
         
         Returns:
@@ -132,7 +134,7 @@ class DDPG(BaseTrainer):
         """
         with torch.no_grad():
             next_action = self.target_actor.predict_action(next_state)
-            future_value = (gamma**end_step) * self.target_critic(next_state, next_action)
+            future_value = self.target_critic(next_state, next_action)
             # Add discounted future value element-wise for each item in the batch
         return future_value
     
