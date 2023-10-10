@@ -26,9 +26,9 @@ class DQN(BaseTrainer):
         trainer_name = "dqn"
         self.network_names = ["q_network"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        net = network_params.network
+        policy_network = network_params.policy_network
 
-        self.q_network = QNetwork(net, env_config, network_params, exploration_params).to(device)
+        self.q_network = QNetwork(policy_network, env_config, network_params, exploration_params).to(device)
         self.target_q_network = copy.deepcopy(self.q_network)
         
         super(DQN, self).__init__(trainer_name, env_config, rl_params, \
@@ -76,18 +76,16 @@ class DQN(BaseTrainer):
         self.set_train(training=True)
         optimizer = self.get_optimizers()[0]
         
-        states, actions, rewards, next_states, dones = trajectory
-        
-        state, action = self.select_first_transitions(states, actions)
+        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
 
-        expected_value = self.calculate_expected_value(rewards, next_states, dones).detach()
+        expected_value = self.calculate_expected_value(reward, next_state, done).detach()
         predicted_q_value, _ = self.q_network(state)
 
         # Choose the action with highest probability
         discrete_actions = action.argmax(dim=1, keepdim=True)
         q_value_for_action = predicted_q_value.gather(1, discrete_actions)      
 
-        loss = F.mse_loss(q_value_for_action, expected_value)
+        loss = self.calculate_value_loss(q_value_for_action, expected_value)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

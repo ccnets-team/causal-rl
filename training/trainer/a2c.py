@@ -26,10 +26,11 @@ class A2C(BaseTrainer):
         trainer_name = "a2c"
         self.network_names = ["critic", "actor"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        network = network_params.network
+        value_network = network_params.value_network
+        policy_network = network_params.policy_network
         
-        self.critic = SingleInputCritic(network, env_config, network_params).to(device)
-        self.actor = SingleInputActor(network, env_config, network_params, exploration_params).to(device)
+        self.critic = SingleInputCritic(value_network, env_config, network_params).to(device)
+        self.actor = SingleInputActor(policy_network, env_config, network_params, exploration_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(A2C, self).__init__(trainer_name, env_config, rl_params, 
@@ -70,17 +71,17 @@ class A2C(BaseTrainer):
         self.set_train(training=True)
         critic_optimizer, actor_optimizer = self.get_optimizers()
 
-        states, actions, rewards, next_states, dones = trajectory
+        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
 
-        state, action = self.select_first_transitions(states, actions)
+        state, action = self.select_first_transitions(state, action)
 
         estimated_value = self.critic(state)
         
         # Compute the advantage and expected value
-        expected_value, advantage = self.compute_values(states, rewards, next_states, dones, estimated_value)
+        expected_value, advantage = self.compute_values(state, reward, next_state, done, estimated_value)
 
         # Compute critic loss
-        value_loss = F.mse_loss(estimated_value, expected_value)
+        value_loss = self.calculate_value_loss(estimated_value, expected_value)
         critic_optimizer.zero_grad()
         value_loss.backward()
         critic_optimizer.step()

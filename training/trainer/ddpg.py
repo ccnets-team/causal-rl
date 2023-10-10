@@ -28,10 +28,11 @@ class DDPG(BaseTrainer):
         trainer_name = "ddpg"
         self.network_names = ["critic", "actor"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        net = network_params.network
+        value_network = network_params.value_network
+        policy_network = network_params.policy_network
 
-        self.critic = DualInputCritic(net, env_config, network_params).to(device)
-        self.actor = SingleInputActor(net, env_config, network_params, exploration_params).to(device)
+        self.critic = DualInputCritic(value_network, env_config, network_params).to(device)
+        self.actor = SingleInputActor(policy_network, env_config, network_params, exploration_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
         self.target_actor = copy.deepcopy(self.actor)
 
@@ -77,12 +78,11 @@ class DDPG(BaseTrainer):
         This method optimizes both the actor and the critic networks.
         """
         self.set_train(training=True)
-        states, actions, rewards, next_states, dones = trajectory
+        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
         critic_optimizer, actor_optimizer = self.get_optimizers()
         
         # Critic Update
-        target_Q = self.calculate_expected_value(rewards, next_states, dones).detach()
-        state, action = self.select_first_transitions(states, actions)
+        target_Q = self.calculate_expected_value(reward, next_state, done).detach()
 
        # Compute the target Q value
 
@@ -90,7 +90,7 @@ class DDPG(BaseTrainer):
         current_Q = self.critic(state, action)
 
         # Compute critic loss
-        critic_loss = F.mse_loss(current_Q, target_Q)
+        critic_loss = self.calculate_value_loss(current_Q, target_Q)
 
         # Optimize the critic
         critic_optimizer.zero_grad()

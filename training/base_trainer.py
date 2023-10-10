@@ -8,6 +8,7 @@ from nn.roles.actor_network import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .trainer_utils import compute_gae, get_discounted_rewards, get_termination_step, get_end_next_state
+from utils.structure.trajectory_handler  import BatchTrajectory
 
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
@@ -24,10 +25,11 @@ class BaseTrainer(TrainingManager, StrategyManager):
         self.reward_scale = normalization_params.reward_scale
         self.advantage_scaler = normalization_params.advantage_scaler
         
+        self.use_gae_advantage = algorithm_params.use_gae_advantage
+        self.use_sequence_batch = algorithm_params.use_sequence_batch
         self.samples_per_step  = env_config.samples_per_step 
 
         self.num_td_steps = algorithm_params.num_td_steps
-        self.use_gae_advantage = algorithm_params.use_gae_advantage
         self.buffer_type = memory_params.buffer_type
 
         self.device = device
@@ -39,7 +41,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
         return advantage
 
     def calculate_value_loss(self, estimated_value, expected_value):
-        return F.mse_loss(estimated_value, expected_value)
+        return F.mse_loss(estimated_value[:, :1], expected_value[:, :1])
     
     def get_discount_factor(self):
         return self.discount_factor 
@@ -53,32 +55,32 @@ class BaseTrainer(TrainingManager, StrategyManager):
         trajectory_values = critic(trajectory_states)  # Assuming critic outputs values for each state in the trajectory
         advantages = compute_gae(trajectory_values, rewards, dones).detach()
         return advantages
-
+    
     def select_first_transitions(self, *tensor_sequences: torch.Tensor):
         """Extract the appropriate input for each tensor based on the GAE flag."""
         if self.use_gae_advantage:
             results = tuple(tensor for tensor in tensor_sequences)
         else:
             results = tuple(tensor[:, 0, :] for tensor in tensor_sequences)
+    
+        # If only one tensor is passed, return the tensor directly instead of a tuple    
+        if len(results) == 1:
+            return results[0]
+        return results
+    
+    def select_trajectory_segment(self, trajectory: BatchTrajectory):
+        """Extract and process the trajectory based on the use_sequence_batch flag."""
 
-        # If only one tensor is passed, return the tensor directly instead of a tuple
-        if len(results) == 1:
-            return results[0]
-        return results
-        
-    def select_last_transitions(self, dones, *tensor_sequences: torch.Tensor):
-        """Extract the appropriate input for each tensor based on the GAE flag."""
-        if self.use_gae_advantage:
-            results = tuple(tensor for tensor in tensor_sequences)
+        if self.use_sequence_batch or self.use_sequence_batch:
+            return trajectory
         else:
-            _, end_step = get_termination_step(dones)
-            indices = (end_step - 1).squeeze(1)
-            results = tuple(tensor[torch.arange(tensor.shape[0]), indices] for tensor in tensor_sequences)
-        
-        # If only one tensor is passed, return the tensor directly instead of a tuple
-        if len(results) == 1:
-            return results[0]
-        return results
+            states = trajectory.state[:, 0, :].unsqueeze(1)
+            actions = trajectory.action[:, 0, :].unsqueeze(1)
+            rewards = trajectory.reward[:, 0, :].unsqueeze(1)
+            next_states = trajectory.next_state[:, 0, :].unsqueeze(1)
+            dones = trajectory.done[:, 0, :].unsqueeze(1)
+
+            return BatchTrajectory(states, actions, rewards, next_states, dones)
 
     def calculate_expected_value(self, rewards, next_states, dones):
         discount_factors = self.get_discount_factors()
@@ -89,7 +91,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
         
         future_value = self.trainer_calculate_future_value(gamma, end_step, next_state)
         expected_value = discounted_rewards + (1 - done) * future_value
-        return expected_value
+        return expected_value.unsqueeze(1)
 
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():

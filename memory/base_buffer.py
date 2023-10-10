@@ -59,16 +59,22 @@ class BaseBuffer:
         
         transitions = list(zip(valid_states, valid_actions, valid_rewards, valid_next_states, valid_dones))
         return transitions
-    
+        
     def get_trajectory_indicies(self):
         buffer_len = self.size
-        valid_indices = []
         if buffer_len == self.capacity:  # Buffer is full
-            end_valid_idx = self.index - self.num_td_steps  # This is the last index that allows a complete num_td_steps without overlap
+            end_valid_idx = self.index - self.num_td_steps
             if end_valid_idx < 0:  # Check for wrap around
-                valid_indices = list(range(end_valid_idx + self.num_td_steps, end_valid_idx + buffer_len + 1))
+                possible_indices = np.arange(end_valid_idx + self.num_td_steps, end_valid_idx + buffer_len + 1) % self.capacity
             else:
-                valid_indices = list(range(end_valid_idx + self.num_td_steps, buffer_len)) + list(range(0, end_valid_idx + 1)) 
+                first_range = np.arange(end_valid_idx + self.num_td_steps, buffer_len)
+                second_range = np.arange(0, end_valid_idx + 1)
+                possible_indices = np.concatenate([first_range, second_range]) % self.capacity
         else:
-            valid_indices = list(range(0, self.index - self.num_td_steps + 1))
-        return valid_indices
+            possible_indices = np.arange(0, self.index - self.num_td_steps + 1)
+
+        # Construct expanded indices
+        expanded_indices = (np.arange(self.num_td_steps).reshape(-1, 1) + possible_indices) % self.capacity
+        valid_mask = (~self.dones[expanded_indices[:-1]].any(axis=0))
+
+        return possible_indices[valid_mask].tolist()

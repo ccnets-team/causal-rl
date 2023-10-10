@@ -25,11 +25,12 @@ class SAC(BaseTrainer):
         - device: Device to which model will be allocated.
         """
         network_params, exploration_params, optimization_params = rl_params.network, rl_params.exploration, rl_params.optimization
-        net = network_params.network
-        self.critic1 = Critic(net, env_config, network_params).to(device)
-        self.critic2 = Critic(net, env_config, network_params).to(device)
-        self.value = ValueNetwork(net, env_config, network_params).to(device)
-        self.policy = PolicyNetwork(net, env_config, network_params, exploration_params).to(device)
+        value_network = network_params.value_network
+        policy_network = network_params.policy_network
+        self.critic1 = Critic(value_network, env_config, network_params).to(device)
+        self.critic2 = Critic(value_network, env_config, network_params).to(device)
+        self.value = ValueNetwork(value_network, env_config, network_params).to(device)
+        self.policy = PolicyNetwork(policy_network, env_config, network_params, exploration_params).to(device)
         
         self.target_critic1 = copy.deepcopy(self.critic1)
         self.target_critic2 = copy.deepcopy(self.critic2)
@@ -78,7 +79,7 @@ class SAC(BaseTrainer):
             v_target = min_qf_next - self.alpha * next_log_pi
         
         v_pred = self.value(state)
-        value_loss = F.mse_loss(v_pred, v_target)
+        value_loss = self.calculate_value_loss(v_pred, v_target)
         return value_loss
 
     
@@ -103,8 +104,8 @@ class SAC(BaseTrainer):
         qf1 = self.critic1(state, action)
         qf2 = self.critic2(state, action)
 
-        qf1_loss = F.mse_loss(qf1, next_q_value)
-        qf2_loss = F.mse_loss(qf2, next_q_value)
+        qf1_loss = self.calculate_value_loss(qf1, next_q_value)
+        qf2_loss = self.calculate_value_loss(qf2, next_q_value)
         qf_loss = qf1_loss + qf2_loss
 
         return qf_loss
@@ -153,8 +154,7 @@ class SAC(BaseTrainer):
         dict: A dictionary containing the computed value loss and actor loss metrics.
         """
         self.set_train(training=True)
-        states, actions, rewards, next_states, dones = trajectory
-        state, action, reward, next_state, done = self.select_first_transitions(states, actions, rewards, next_states, dones)
+        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
         value_optimizer, policy_optimizer, critic1_optimizer, critic2_optimizer = self.get_optimizers()
         
         # ------------ Value Network Update ------------

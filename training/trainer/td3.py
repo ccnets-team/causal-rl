@@ -29,11 +29,12 @@ class TD3(BaseTrainer):
         self.total_steps = 0
         self.policy_update = 2
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        net = network_params.network
+        value_network = network_params.value_network
+        policy_network = network_params.policy_network
         
-        self.critic1 = DualInputCritic(net, env_config, network_params).to(device)
-        self.critic2 = DualInputCritic(net, env_config, network_params).to(device)
-        self.actor = SingleInputActor(net, env_config, network_params, exploration_params).to(device)
+        self.critic1 = DualInputCritic(value_network, env_config, network_params).to(device)
+        self.critic2 = DualInputCritic(value_network, env_config, network_params).to(device)
+        self.actor = SingleInputActor(policy_network, env_config, network_params, exploration_params).to(device)
         self.target_critic1 = copy.deepcopy(self.critic1)
         self.target_critic2 = copy.deepcopy(self.critic2)
         self.target_actor = copy.deepcopy(self.actor)
@@ -77,17 +78,16 @@ class TD3(BaseTrainer):
         """
         self.set_train(training=True)
         critic1_optimizer, critic2_optimizer, actor_optimizer = self.get_optimizers()
-        states, actions, rewards, next_states, dones = trajectory
-        state, action = self.select_first_transitions(states, actions)
+        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
 
         # Critic Training
         with torch.no_grad():            
-            target_value = self.calculate_expected_value(rewards, next_states, dones)
+            target_value = self.calculate_expected_value(reward, next_state, done)
 
         current_Q1 = self.critic1(state, action)
         current_Q2 = self.critic2(state, action)
-        critic1_loss = F.mse_loss(current_Q1, target_value)
-        critic2_loss = F.mse_loss(current_Q2, target_value)
+        critic1_loss = self.calculate_value_loss(current_Q1, target_value)
+        critic2_loss = self.calculate_value_loss(current_Q2, target_value)
 
         critic1_optimizer.zero_grad()
         critic1_loss.backward()

@@ -1,5 +1,6 @@
 import numpy as np
 from nn.super_net import SuperNet
+from nn.transformer import TransformerEncoder 
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
@@ -7,26 +8,29 @@ class TrainingParameters:
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
         self.batch_size = batch_size
-        self.training_start_step = DEFAULT_TRAINING_START_STEP  
+        self.training_start_step = DEFAULT_TRAINING_START_STEP
         
     def minimum_samples_per_step(self):
         samples_per_step = int(max(1, np.ceil(self.batch_size/(self.train_frequency*self.replay_ratio))))
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, discount_factor=0.99, num_td_steps=1, use_gae_advantage = False, use_curiosity = False):
+    def __init__(self, discount_factor=0.99, num_td_steps=1, use_sequence_batch = True, use_gae_advantage = False, use_curiosity = False):
         self.discount_factor = discount_factor
         self.num_td_steps = num_td_steps
         self.curiosity_factor = 0.1
         self.use_gae_advantage = use_gae_advantage
+        self.use_sequence_batch = use_sequence_batch
         self.use_curiosity = use_curiosity
             
 class NetworkParameters:
-    def __init__(self, network = SuperNet, num_layer=4, hidden_size=128, \
+    def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = TransformerEncoder,\
                 critic_joint_type = 'cat', actor_joint_type = 'cat', rev_env_joint_type = 'cat'):
-        self.network = network
         self.num_layer = num_layer
         self.hidden_size = hidden_size
+        self.value_network = value_network
+        self.policy_network = policy_network
+        self.reverse_env_network = reverse_env_network
         self.critic_joint_type = critic_joint_type
         self.actor_joint_type = actor_joint_type
         self.rev_env_joint_type = rev_env_joint_type

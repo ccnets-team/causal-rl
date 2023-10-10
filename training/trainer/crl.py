@@ -22,14 +22,16 @@ class CausalRL(BaseTrainer):
         trainer_name = "crl"
         self.network_names = ["critic", "actor", "rev_env"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        net = network_params.network
+        value_network = network_params.value_network
+        policy_network = network_params.policy_network
+        reverse_env_network = network_params.reverse_env_network
         
         self.use_curiosity = rl_params.algorithm.use_curiosity
         self.curiosity_factor = rl_params.algorithm.curiosity_factor
 
-        self.critic = SingleInputCritic(net, env_config, network_params).to(device)
-        self.actor = DualInputActor(net, env_config, network_params, exploration_params).to(device)
-        self.revEnv = RevEnv(net, env_config, network_params).to(device)
+        self.critic = SingleInputCritic(value_network, env_config, network_params).to(device)
+        self.actor = DualInputActor(policy_network, env_config, network_params, exploration_params).to(device)
+        self.revEnv = RevEnv(reverse_env_network, env_config, network_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 
@@ -60,13 +62,10 @@ class CausalRL(BaseTrainer):
         """Training method for the model."""
 
         self.set_train(training=True)
-        # Break the trajectory into individual components for training.
-        states, actions, rewards, next_states, dones = trajectory
-
-        # Select the current state, action, and next state from the trajectory.
-        state, action = self.select_first_transitions(states, actions)
-        next_state = self.select_last_transitions(dones, next_states)
-        
+    
+        # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
+        state, action, reward, next_state, done = self.select_trajectory_segment(trajectory)
+                
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(state)
             
@@ -95,10 +94,10 @@ class CausalRL(BaseTrainer):
         # This error corresponds to the invertibility of actions and serves as our intrinsic reward.
         # It grants the agent a reward for novel experiences or for exploring new states.
         if self.use_curiosity: 
-            rewards = self.trainer_calculate_curiosity_rewards(coop_actor_error, rewards)
+            reward = self.trainer_calculate_curiosity_rewards(coop_actor_error, reward)
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(states, rewards, next_states, dones, estimated_value)
+        expected_value, advantage = self.compute_values(state, reward, next_state, done, estimated_value)
             
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value)
