@@ -30,6 +30,13 @@ class TransformerEncoder(nn.Module):
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layer)
 
     def forward(self, x):
+        # Check if the input tensor is 2D, and if so, unsqueeze it to make it 3D
+        if len(x.shape) == 2:
+            x.unsqueeze_(dim=1)
+            was_unsqueezed = True
+        else:
+            was_unsqueezed = False
+
         seq_len = x.size(1)
         device = x.device  # Fetch the device from the input tensor
         
@@ -41,4 +48,9 @@ class TransformerEncoder(nn.Module):
 
         y = self.encoder(x_embed, mask=mask)
         y = y.permute(1, 0, 2)
+        
+        # If the input tensor was unsqueezed, we squeeze the output tensor to return it to its original shape
+        if was_unsqueezed:
+            y.squeeze_(dim=1)
+
         return y
