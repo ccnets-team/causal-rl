@@ -65,7 +65,7 @@ class CausalRL(BaseTrainer):
 
         # Select the current state, action, and next state from the trajectory.
         state, action = self.select_first_transitions(states, actions)
-        next_state = self.select_last_transitions(next_states)
+        next_state = self.select_last_transitions(dones, next_states)
         
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(state)

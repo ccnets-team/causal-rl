@@ -65,14 +65,16 @@ class BaseTrainer(TrainingManager, StrategyManager):
         if len(results) == 1:
             return results[0]
         return results
-
-    def select_last_transitions(self, *tensor_sequences: torch.Tensor):
+        
+    def select_last_transitions(self, dones, *tensor_sequences: torch.Tensor):
         """Extract the appropriate input for each tensor based on the GAE flag."""
         if self.use_gae_advantage:
             results = tuple(tensor for tensor in tensor_sequences)
         else:
-            results = tuple(tensor[:, -1, :] for tensor in tensor_sequences)
-
+            _, end_step = get_termination_step(dones)
+            indices = (end_step - 1).squeeze(1)
+            results = tuple(tensor[torch.arange(tensor.shape[0]), indices] for tensor in tensor_sequences)
+        
         # If only one tensor is passed, return the tensor directly instead of a tuple
         if len(results) == 1:
             return results[0]
