@@ -105,7 +105,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
             next_state = next_states[:, -1:, :] 
             future_value = self.trainer_calculate_future_value(next_state)
             future_values_discounted = gamma * discount_factors[:, -1:, :] * future_value
-            expected_value = discounted_rewards + masks[:, :1, :] * future_values_discounted
+            expected_value = discounted_rewards[:, :1, :] + masks[:, :1, :] * future_values_discounted
         return expected_value
 
     def reset_actor_noise(self, reset_noise):
