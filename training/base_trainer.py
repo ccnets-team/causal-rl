@@ -7,7 +7,7 @@ from abc import abstractmethod
 from nn.roles.actor_network import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import compute_gae, get_discounted_rewards, get_trajectory_mask, reshape_tensors_based_on_mask
+from .trainer_utils import compute_gae, get_discounted_rewards
 from utils.structure.trajectory_handler  import BatchTrajectory
 
 
@@ -130,10 +130,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
             with torch.no_grad():
                 expected_value = self.calculate_expected_value(rewards, next_states, dones)
                 advantage = self.calculate_advantage(estimated_value, expected_value)
-                mask, scaling_factor = get_trajectory_mask(dones)
-                expected_value = reshape_tensors_based_on_mask(expected_value, mask)
-                advantage = scaling_factor*(mask*advantage)
-            estimated_value = reshape_tensors_based_on_mask(estimated_value, mask)
         return estimated_value, expected_value, advantage 
                     
     @abstractmethod
