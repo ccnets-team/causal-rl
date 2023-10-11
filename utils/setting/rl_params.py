@@ -15,7 +15,7 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, discount_factor=0.99, num_td_steps=1, use_sequence_batch = True, use_gae_advantage = False, use_curiosity = False):
+    def __init__(self, discount_factor=0.99, num_td_steps=1, use_sequence_batch = False, use_gae_advantage = False, use_curiosity = False):
         self.discount_factor = discount_factor
         self.num_td_steps = num_td_steps
         self.curiosity_factor = 0.1
@@ -24,7 +24,7 @@ class AlgorithmParameters:
         self.use_curiosity = use_curiosity
             
 class NetworkParameters:
-    def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = TransformerEncoder,\
+    def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = SuperNet,\
                 critic_joint_type = 'cat', actor_joint_type = 'cat', rev_env_joint_type = 'cat'):
         self.num_layer = num_layer
         self.hidden_size = hidden_size
