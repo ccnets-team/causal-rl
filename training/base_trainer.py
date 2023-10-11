@@ -79,40 +79,35 @@ class BaseTrainer(TrainingManager, StrategyManager):
             dones = trajectory.done[:, 0, :].unsqueeze(1)
 
             return BatchTrajectory(states, actions, rewards, next_states, dones)
-
-
         
+
     def calculate_expected_value(self, rewards, next_states, dones):
         """
         Computes the expected return for transitions.
-        Considers immediate rewards and, based on configuration, 
-        uses either the entire sequence or just the first transition for future rewards estimation. 
-        Potential future rewards are considered only if the episode terminates at the last step.
+        Considers immediate rewards and potential future rewards 
+        based on the described mechanism.
         """
-        batch_size = rewards.shape[0]
-        discount_factors = self.get_discount_factors()
-        # Reversing discount factors before shaping
-        discount_factors = discount_factors.unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, 1)
-        
+        batch_size, seq_len, _ = rewards.shape
+        discount_factors = self.get_discount_factors().unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, 1)
         discounted_rewards = get_discounted_rewards(rewards, discount_factors)
-        # Deriving reversed discounted rewards
-        reversed_discount_factors = discount_factors.flip(dims=[1])
         
-        # If done is flagged at the end of the trajectory, the mask should be all zeros, otherwise, it should be all ones.
+        gamma = self.get_discount_factor()
+        
         masks = (1 - dones[:, -1:]).expand_as(dones)
         
         if self.use_sequence_batch:
-            # Shape discount_factors for batch computation
             future_values = self.trainer_calculate_future_value(next_states)
-            expected_value = discounted_rewards + reversed_discount_factors * masks * future_values
+            future_values_discounted = gamma * discount_factors * future_values
+            future_values_discounted = future_values_discounted.flip(dims=[1])
+            expected_value = discounted_rewards + masks * future_values_discounted
         else:
-            # Only consider the first transition
-            discounted_reward, reversed_discount_factor, mask, next_state = self.select_first_transitions(discounted_rewards, reversed_discount_factors, masks, next_states)
+            # compute expected_value of the first sequence only 
+            next_state = next_states[:, -1:, :] 
             future_value = self.trainer_calculate_future_value(next_state)
-            expected_value = discounted_reward + reversed_discount_factor * mask * future_value
+            future_values_discounted = gamma * discount_factors[:, -1:, :] * future_value
+            expected_value = discounted_rewards + masks[:, :1, :] * future_values_discounted
         return expected_value
 
-    
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
             if isinstance(actor, _BaseActor):
@@ -130,6 +125,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
             with torch.no_grad():
                 expected_value = self.calculate_expected_value(rewards, next_states, dones)
                 advantage = self.calculate_advantage(estimated_value, expected_value)
+
         return estimated_value, expected_value, advantage 
                     
     @abstractmethod
