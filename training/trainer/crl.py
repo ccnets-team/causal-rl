@@ -97,8 +97,8 @@ class CausalRL(BaseTrainer):
             rewards = self.trainer_calculate_curiosity_rewards(coop_actor_error, rewards)
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(states, rewards, next_states, dones, estimated_value)
-            
+        estimated_value, expected_value, advantage = self.compute_values(states, rewards, next_states, dones, estimated_value)
+        
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value)
 

@@ -7,9 +7,11 @@ from abc import abstractmethod
 from nn.roles.actor_network import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import compute_gae, get_discounted_rewards
+from .trainer_utils import compute_gae, get_discounted_rewards, get_trajectory_mask, reshape_tensors_based_on_mask
 from utils.structure.trajectory_handler  import BatchTrajectory
 
+
+    
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
         training_params, algorithm_params, network_params, \
@@ -78,6 +80,8 @@ class BaseTrainer(TrainingManager, StrategyManager):
 
             return BatchTrajectory(states, actions, rewards, next_states, dones)
 
+
+        
     def calculate_expected_value(self, rewards, next_states, dones):
         """
         Computes the expected return for transitions.
@@ -85,25 +89,29 @@ class BaseTrainer(TrainingManager, StrategyManager):
         uses either the entire sequence or just the first transition for future rewards estimation. 
         Potential future rewards are considered only if the episode terminates at the last step.
         """
+        batch_size = rewards.shape[0]
         discount_factors = self.get_discount_factors()
-        discounted_rewards = get_discounted_rewards(rewards, discount_factors)
+        # Reversing discount factors before shaping
+        discount_factors = discount_factors.unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, 1)
         
-        # Mask ensures future values are only considered if the episode terminated at the last step.
-        mask = torch.ones_like(dones)
-        mask[:, 0] = 1 - dones[:, -1]
-
+        discounted_rewards = get_discounted_rewards(rewards, discount_factors)
+        # Deriving reversed discounted rewards
+        reversed_discount_factors = discount_factors.flip(dims=[1])
+        
+        # If done is flagged at the end of the trajectory, the mask should be all zeros, otherwise, it should be all ones.
+        masks = (1 - dones[:, -1:]).expand_as(dones)
+        
         if self.use_sequence_batch:
             # Shape discount_factors for batch computation
-            batch_size = next_states.shape[0]
-            discount_factors = discount_factors.unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, 1)
             future_values = self.trainer_calculate_future_value(next_states)
-            expected_value = discounted_rewards + discount_factors * mask * future_values
+            expected_value = discounted_rewards + reversed_discount_factors * masks * future_values
         else:
             # Only consider the first transition
-            discounted_reward, next_state = self.select_first_transitions(discounted_rewards, next_states)
+            discounted_reward, reversed_discount_factor, mask, next_state = self.select_first_transitions(discounted_rewards, reversed_discount_factors, masks, next_states)
             future_value = self.trainer_calculate_future_value(next_state)
-            expected_value = discounted_reward + discount_factors[-1] * mask[:, :1] * future_value
+            expected_value = discounted_reward + reversed_discount_factor * mask * future_value
         return expected_value
+
     
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
@@ -114,14 +122,19 @@ class BaseTrainer(TrainingManager, StrategyManager):
                                              next_states: torch.Tensor, dones: torch.Tensor, 
                                              estimated_value: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         """Compute the advantage and expected value."""
-        with torch.no_grad():
-            if self.use_gae_advantage:
+        if self.use_gae_advantage:
+            with torch.no_grad():
                 advantage = self.compute_gae_advantage(states, rewards, next_states, dones)
                 expected_value = advantage + estimated_value
-            else:
+        else:
+            with torch.no_grad():
                 expected_value = self.calculate_expected_value(rewards, next_states, dones)
                 advantage = self.calculate_advantage(estimated_value, expected_value)
-        return expected_value, advantage 
+                mask, scaling_factor = get_trajectory_mask(dones)
+                expected_value = reshape_tensors_based_on_mask(expected_value, mask)
+                advantage = scaling_factor*(mask*advantage)
+            estimated_value = reshape_tensors_based_on_mask(estimated_value, mask)
+        return estimated_value, expected_value, advantage 
                     
     @abstractmethod
     def trainer_calculate_future_value(self, next_state):

@@ -31,11 +31,35 @@ def get_end_next_state(next_states, end_step):
 def get_discounted_rewards(rewards, discount_factors):
     batch_size, seq_len, _ = rewards.shape
     accumulative_rewards = torch.zeros_like(rewards)
-    discount_factors = discount_factors.unsqueeze(-1)
 
     for t in range(seq_len):
-        end_idx = min(t + discount_factors.shape[1], seq_len)
-        offset = end_idx - t
-        accumulative_rewards[:, t, :] = (rewards[:, t:end_idx, :] * discount_factors[:, :offset]).sum(dim=1)
+        accumulative_rewards[:, t, :] = (rewards[:, t:, :] * discount_factors[:, :seq_len - t, :]).sum(dim=1)
 
     return accumulative_rewards
+
+def get_trajectory_mask(dones):
+    # Create a zeros tensor of the same shape as 'dones'
+    mask = torch.zeros_like(dones)
+    
+    _dones = dones.squeeze(-1)
+
+    # For sequences where there's a 'done' signal at the end, set all values in that sequence to 1
+    mask[_dones[:, -1] == 1, :] = 1
+        
+    # For sequences without a 'done' signal at the end, set only the first transition to 1
+    mask[_dones[:, -1] == 0, 0] = 1
+    
+    scaling_factor = torch.ones_like(mask).sum() / mask.sum()
+    return mask, scaling_factor
+    
+def reshape_tensors_based_on_mask(tensor, mask):
+    """
+    Reshape the tensor by selecting only the non-zero mask values.
+    """
+    # Use the mask to filter out unwanted values in the tensor.
+    filtered_tensor = tensor[mask > 0]
+    
+    # Reshape the tensor to [batch_size*seq_size - ?, 1]
+    reshaped_tensor = filtered_tensor.view(-1, 1)
+    
+    return reshaped_tensor
