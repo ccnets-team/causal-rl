@@ -35,7 +35,7 @@ class EpsilonGreedy(NoiseStrategy):
             chosen_actions = torch.where(choose_random, random_actions, softmax_actions)
 
             # Create a new tensor with all zeros except for the chosen action's index
-            action = torch.zeros_like(y).scatter_(1, chosen_actions.unsqueeze(1), 1.0)
+            action = torch.zeros_like(y).scatter_(-1, chosen_actions.unsqueeze(-1), 1.0)
         else:            
             # Add Gaussian noise for exploration
             noise = torch.normal(mean=0, std=exploration_epsilon, size=y.shape).to(y.device)
@@ -71,7 +71,7 @@ class OrnsteinUhlenbeck(NoiseStrategy):
 
         noise = self.theta * (-self.ou_prev_state * self.dt) + self.sigma * torch.sqrt(torch.tensor(self.dt)) * torch.normal(mean=0, std=1, size=noise_shape ).to(action.device)
         
-        self.ou_prev_state = noise  # Update the state with the current noise
+        self.ou_prev_state += noise  # Update the state with the current noise
         
         if len(action.shape) == 2:  # If action is 2D
             return action + noise.squeeze(1)
