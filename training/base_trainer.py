@@ -98,7 +98,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
         """
         batch_size, seq_len, _ = rewards.shape
         discount_factors = self._expand_discount_factors(batch_size)
-        discounted_rewards = get_discounted_rewards(rewards, dones, discount_factors)
+        discounted_rewards = get_discounted_rewards(rewards, discount_factors)
         
         done, end_step = get_termination_step(dones)
         next_state = get_end_next_state(next_states, end_step)
