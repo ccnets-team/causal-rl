@@ -95,10 +95,11 @@ class CausalRL(BaseTrainer):
         # It grants the agent a reward for novel experiences or for exploring new states.
         if self.use_curiosity: 
             rewards = self.trainer_calculate_curiosity_rewards(coop_actor_error, rewards)
+            trajectory.reward = rewards
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        estimated_value, expected_value, advantage = self.compute_values(states, rewards, next_states, dones, estimated_value)
-        
+        expected_value, advantage = self.compute_values(trajectory, estimated_value)
+            
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value)
 

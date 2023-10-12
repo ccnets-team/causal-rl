@@ -78,7 +78,7 @@ class A2C(BaseTrainer):
         estimated_value = self.critic(state)
         
         # Compute the advantage and expected value
-        estimated_value, expected_values, advantages = self.compute_values(states, rewards, next_states, dones, estimated_value)
+        expected_values, advantages = self.compute_values(trajectory, estimated_value)
 
         expected_value, advantage = self.select_first_transitions(expected_values, advantages)
 

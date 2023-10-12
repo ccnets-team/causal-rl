@@ -7,11 +7,9 @@ from abc import abstractmethod
 from nn.roles.actor_network import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import compute_gae, get_discounted_rewards
+from .trainer_utils import compute_gae, get_discounted_rewards, get_end_next_state, get_termination_step
 from utils.structure.trajectory_handler  import BatchTrajectory
 
-
-    
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
         training_params, algorithm_params, network_params, \
@@ -47,9 +45,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
     
     def get_discount_factor(self):
         return self.discount_factor 
-    
-    def get_discount_factors(self):
-        return (self.discount_factor ** torch.arange(self.num_td_steps).float()).to(self.device)
 
     def compute_gae_advantage(self, states, rewards, next_states, dones):
         critic = self.get_networks()[0]
@@ -79,8 +74,22 @@ class BaseTrainer(TrainingManager, StrategyManager):
             dones = trajectory.done[:, 0, :].unsqueeze(1)
 
             return BatchTrajectory(states, actions, rewards, next_states, dones)
-        
 
+    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+        """Compute the advantage and expected value."""
+        
+        states, actions, rewards, next_states, dones = trajectory
+        
+        with torch.no_grad():
+            if self.use_gae_advantage:
+                advantage = self.compute_gae_advantage(states, rewards, next_states, dones)
+                expected_value = advantage + estimated_value
+            else:
+                expected_value = self.calculate_expected_value(rewards, next_states, dones)
+                advantage = self.calculate_advantage(estimated_value, expected_value)
+
+        return expected_value, advantage 
+            
     def calculate_expected_value(self, rewards, next_states, dones):
         """
         Computes the expected return for transitions.
@@ -88,46 +97,40 @@ class BaseTrainer(TrainingManager, StrategyManager):
         based on the described mechanism.
         """
         batch_size, seq_len, _ = rewards.shape
-        discount_factors = self.get_discount_factors().unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, 1)
-        discounted_rewards = get_discounted_rewards(rewards, discount_factors)
+        discount_factors = self._expand_discount_factors(batch_size)
+        discounted_rewards = get_discounted_rewards(rewards, dones, discount_factors)
         
-        gamma = self.get_discount_factor()
+        done, end_step = get_termination_step(dones)
+        next_state = get_end_next_state(next_states, end_step)
         
-        masks = (1 - dones[:, -1:]).expand_as(dones)
+        future_value = self.trainer_calculate_future_value(next_state)
         
         if self.use_sequence_batch:
-            future_values = self.trainer_calculate_future_value(next_states)
-            future_values_discounted = gamma * discount_factors * future_values
-            future_values_discounted = future_values_discounted.flip(dims=[1])
-            expected_value = discounted_rewards + masks * future_values_discounted
+            expected_value = discounted_rewards + self._calculate_future_values_discounted(batch_size, seq_len, done, future_value)
         else:
-            # compute expected_value of the first sequence only 
-            next_state = next_states[:, -1:, :] 
-            future_value = self.trainer_calculate_future_value(next_state)
-            future_values_discounted = gamma * discount_factors[:, -1:, :] * future_value
-            expected_value = discounted_rewards[:, :1, :] + masks[:, :1, :] * future_values_discounted
+            expected_value = self._calculate_first_sequence_expected_value(discounted_rewards, done, end_step, future_value)
+        
         return expected_value
+
+    def _expand_discount_factors(self, batch_size):
+        discount_factors = (self.discount_factor ** torch.arange(self.num_td_steps).float()).to(self.device)
+        return discount_factors.unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, 1)
+
+    def _calculate_future_values_discounted(self, batch_size, seq_len, done, future_value):
+        gamma = self.get_discount_factor()
+        flip_discount_factors = gamma * self._expand_discount_factors(batch_size).flip(dims=[1])
+        return flip_discount_factors * ((1 - done) * future_value).unsqueeze(dim=1).expand(-1, seq_len, -1)
+
+    def _calculate_first_sequence_expected_value(self, discounted_rewards, done, end_step, future_value):
+        gamma = self.get_discount_factor()
+        future_value_discounted = (1 - done) * (gamma ** end_step) * future_value
+        return (discounted_rewards[:, 0, :] + future_value_discounted).unsqueeze(dim=1)
 
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
             if isinstance(actor, _BaseActor):
                 actor.reset_noise(reset_noise)
 
-    def compute_values(self, states: torch.Tensor, rewards: torch.Tensor, 
-                                             next_states: torch.Tensor, dones: torch.Tensor, 
-                                             estimated_value: torch.Tensor) -> (torch.Tensor, torch.Tensor):
-        """Compute the advantage and expected value."""
-        if self.use_gae_advantage:
-            with torch.no_grad():
-                advantage = self.compute_gae_advantage(states, rewards, next_states, dones)
-                expected_value = advantage + estimated_value
-        else:
-            with torch.no_grad():
-                expected_value = self.calculate_expected_value(rewards, next_states, dones)
-                advantage = self.calculate_advantage(estimated_value, expected_value)
-
-        return estimated_value, expected_value, advantage 
-                    
     @abstractmethod
     def trainer_calculate_future_value(self, next_state):
         pass
