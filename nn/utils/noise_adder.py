@@ -63,14 +63,23 @@ class OrnsteinUhlenbeck(NoiseStrategy):
         correlated with the previous state of the noise, making it useful for 
         exploring environments where momentum or continuity of actions is important.
         """
-        if self.ou_prev_state is None:
-            self.ou_prev_state = torch.zeros_like(action).to(action.device)
+ 
+        noise_shape  = torch.Size([action.size(0), 1, action.size(-1)])
         
-        noise = self.theta * (-self.ou_prev_state * self.dt) + self.sigma * torch.sqrt(torch.tensor(self.dt)) * torch.normal(mean=0, std=1, size=action.shape).to(action.device)
-        self.ou_prev_state += noise  # Update the state with the current noise
+        if self.ou_prev_state is None or self.ou_prev_state.shape != noise_shape :
+            self.ou_prev_state = torch.zeros(noise_shape ).to(action.device)
 
-        return action + noise
-    
+        noise = self.theta * (-self.ou_prev_state * self.dt) + self.sigma * torch.sqrt(torch.tensor(self.dt)) * torch.normal(mean=0, std=1, size=noise_shape ).to(action.device)
+        
+        self.ou_prev_state = noise  # Update the state with the current noise
+        
+        if len(action.shape) == 2:  # If action is 2D
+            return action + noise.squeeze(1)
+        elif len(action.shape) == 3:  # If action is 3D
+            return action + noise
+        else:
+            raise ValueError("Unsupported action tensor shape.")
+        
 class BoltzmannExploration(NoiseStrategy):
     def __init__(self, use_discrete, tau=1.0):
         super(BoltzmannExploration, self).__init__(use_discrete)  # Assuming the superclass has these parameters.

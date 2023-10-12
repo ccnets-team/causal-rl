@@ -94,9 +94,9 @@ class _BaseActor(nn.Module):
             action_indices = torch.argmax(probs, dim=-1)
             # Create one-hot encoded tensor without using eye
             action = torch.zeros_like(mean)
-            action.scatter_(1, action_indices.unsqueeze(-1), 1)
+            action.scatter_(-1, action_indices.unsqueeze(-1), 1)
 
-            log_prob = torch.log(probs.gather(1, action_indices.unsqueeze(-1)))
+            log_prob = torch.log(probs.gather(-1, action_indices.unsqueeze(-1)))
         else:
             # For continuous actions, sample an action from the Gaussian distribution,
             # squash it using the tanh function, and then compute its log probability
@@ -126,7 +126,7 @@ class _BaseActor(nn.Module):
             # For discrete actions, compute log probabilities using softmax and gather
             probs = torch.softmax(mean, dim=-1)
             action_indices = torch.argmax(raw_action, dim=-1)
-            log_prob = torch.log(probs.gather(1, action_indices.unsqueeze(-1)))
+            log_prob = torch.log(probs.gather(-1, action_indices.unsqueeze(-1)))
 
         else:
             # For continuous actions, compute log probabilities using normal distribution
@@ -157,7 +157,7 @@ class _BaseActor(nn.Module):
 
                 # # Sample an action from the softmax probabilities
                 action_indices = torch.distributions.Categorical(probs=y).sample()
-                action = torch.zeros_like(y).scatter_(1, action_indices.unsqueeze(1), 1.0)
+                action = torch.zeros_like(y).scatter_(-1, action_indices.unsqueeze(-1), 1.0)
         else:
             if self.use_deterministic_policy:
                 action = mean
@@ -186,7 +186,7 @@ class _BaseActor(nn.Module):
 
                 # # Sample an action from the softmax probabilities
                 action_indices = torch.distributions.Categorical(probs=y).sample()
-                action = torch.zeros_like(y).scatter_(1, action_indices.unsqueeze(1), 1.0)
+                action = torch.zeros_like(y).scatter_(-1, action_indices.unsqueeze(-1), 1.0)
         else:
             if self.use_deterministic_policy:
                 action = mean
@@ -203,7 +203,7 @@ class _BaseActor(nn.Module):
             # Initializing a tensor of zeros for one-hot encoding.
             action = torch.zeros_like(mean)
             # Filling in '1' at the index of the selected action.
-            action.scatter_(1, action_indices.unsqueeze(-1), 1)
+            action.scatter_(-1, action_indices.unsqueeze(-1), 1)
         else:
             action = mean
         return action
