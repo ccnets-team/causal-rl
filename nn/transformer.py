@@ -26,7 +26,7 @@ class TransformerEncoder(nn.Module):
         super(TransformerEncoder, self).__init__()   
         self.hidden_size = hidden_size
         self.num_layer = num_layer
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=num_heads, dim_feedforward=hidden_size * 4, dropout=0.0)
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=num_heads, dim_feedforward=hidden_size * 4, batch_first=True, dropout=0.0)
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layer)
 
     def forward(self, x):
@@ -44,10 +44,8 @@ class TransformerEncoder(nn.Module):
         mask = create_causal_mask(seq_len, device)[:seq_len, :seq_len] 
         
         x_embed = x + pos_enc
-        x_embed = x_embed.permute(1, 0, 2)  # Permute for transformer input
 
         y = self.encoder(x_embed, mask=mask)
-        y = y.permute(1, 0, 2)
         
         # If the input tensor was unsqueezed, we squeeze the output tensor to return it to its original shape
         if was_unsqueezed:
