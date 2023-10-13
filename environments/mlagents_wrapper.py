@@ -31,6 +31,8 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         self.agent_ids = np.array([i for i in range(env_config.num_agents)], dtype=int)
         self.agent_life = np.zeros((env_config.num_agents), dtype=bool)
         self.agent_dec = np.zeros((env_config.num_agents), dtype=bool)
+        
+        self.agent_reset = np.zeros((env_config.num_agents), dtype=bool)
 
         self.reset_env()
         self.reset_agents()
@@ -65,6 +67,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
 
     def update_agent_life(self, term_agents, dec_agents):
         self.agent_life[term_agents] = False
+        self.agent_reset[term_agents] = True 
         self.agent_life[dec_agents] = True
         
     def step_environment(self):

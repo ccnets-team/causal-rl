@@ -35,6 +35,8 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.agent_dec = np.ones(self.num_agents, dtype=bool)
         self.agent_life = np.zeros(self.num_agents, dtype=bool)
 
+        self.agent_reset = np.zeros(self.num_agents, dtype=bool)
+
         self.env = gym.make(env_name, render_mode='human') if use_graphics else gym.make_vec(env_name, num_envs=self.num_agents) 
         self.use_graphics = use_graphics
         self.reset_env()
@@ -84,6 +86,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         done = np.logical_or(ongoing_terminated, ongoing_truncated)
         self.agent_life[~done] = True 
         self.agent_life[done] = False
+        self.agent_reset[done] = True 
 
         if not self.test_env:
             self.update_for_training(done, ongoing_terminated, info, action, ongoing_next_obs)

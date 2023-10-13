@@ -45,17 +45,21 @@ class EnvGenerator:
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
-        np_life = np.concatenate([env.agent_life for env in self.env_list], axis=0)
+        np_reset = np.concatenate([env.agent_reset for env in self.env_list], axis=0)
 
         state_tensor = torch.from_numpy(np_state).to(self.device)
-        life_tensor = torch.from_numpy(np_life).to(self.device)
+        reset_tensor = torch.from_numpy(np_reset).to(self.device)
 
         state_tensor = trainer.normalize_state(state_tensor)
         action_tensor = trainer.get_action(state_tensor, training=training)
 
-        trainer.reset_actor_noise(reset_noise=~life_tensor)
-        np_action = action_tensor.cpu().numpy()
+        if training:
+            trainer.reset_actor_noise(reset_noise=reset_tensor)
 
+        for env in self.env_list:
+            env.agent_reset.fill(False)
+            
+        np_action = action_tensor.cpu().numpy()
         start_idx = 0
         for env in self.env_list:
             end_idx = start_idx + len(env.agent_dec)

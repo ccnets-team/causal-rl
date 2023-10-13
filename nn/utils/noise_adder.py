@@ -52,7 +52,7 @@ class OrnsteinUhlenbeck(NoiseStrategy):
         self.ou_prev_state = None
 
     def reset(self, reset_agents = None):
-        if reset_agents is not None and self.ou_prev_state is None:
+        if reset_agents is not None and self.ou_prev_state is not None:
             self.ou_prev_state[reset_agents] = torch.zeros_like(self.ou_prev_state[reset_agents]).to(self.ou_prev_state.device)
 
     def apply(self, action, exploration_epsilon):
@@ -66,8 +66,8 @@ class OrnsteinUhlenbeck(NoiseStrategy):
  
         noise_shape  = torch.Size([action.size(0), 1, action.size(-1)])
         
-        if self.ou_prev_state is None or self.ou_prev_state.shape != noise_shape :
-            self.ou_prev_state = torch.zeros(noise_shape ).to(action.device)
+        if self.ou_prev_state is None or self.ou_prev_state.shape != noise_shape:
+            self.ou_prev_state = torch.zeros(noise_shape).to(action.device)
 
         noise = self.theta * (-self.ou_prev_state * self.dt) + self.sigma * torch.sqrt(torch.tensor(self.dt)) * torch.normal(mean=0, std=1, size=noise_shape ).to(action.device)
         
@@ -76,7 +76,7 @@ class OrnsteinUhlenbeck(NoiseStrategy):
         if len(action.shape) == 2:  # If action is 2D
             return action + noise.squeeze(1)
         elif len(action.shape) == 3:  # If action is 3D
-            return action + noise
+            return action + noise.expand_as(action)
         else:
             raise ValueError("Unsupported action tensor shape.")
         
