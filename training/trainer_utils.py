@@ -43,3 +43,22 @@ def get_termination_step(dones):
     done = (dones.sum(dim=1) > 0).float()
     end_step[done == 0] = num_td_steps  # If not terminated, set to num_td_steps
     return done, end_step
+
+def masked_mean(tensor, mask):
+    return tensor[mask > 0].flatten().mean()
+
+def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
+    """
+    Creates a mask where the initial columns are ones and subsequent columns are 
+    the inverse of the `dones` tensor shifted by one.
+
+    Args:
+    - dones (torch.Tensor): The tensor based on which the mask is created.
+
+    Returns:
+    - mask (torch.Tensor): The resultant mask tensor.
+    """
+    mask = torch.ones_like(dones)
+    mask[:, 1:, :] = 1 - dones[:, :-1, :]
+    
+    return mask

@@ -14,6 +14,7 @@ from nn.roles.actor_network import DualInputActor
 from nn.roles.reverse_env_network import RevEnv
 from utils.structure.trajectory_handler  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
+from training.trainer_utils import create_mask_from_dones, masked_mean
 
 class CausalRL(BaseTrainer):
 
@@ -26,9 +27,6 @@ class CausalRL(BaseTrainer):
         policy_network = network_params.policy_network
         reverse_env_network = network_params.reverse_env_network
         
-        self.use_curiosity = rl_params.algorithm.use_curiosity
-        self.curiosity_factor = rl_params.algorithm.curiosity_factor
-
         self.critic = SingleInputCritic(value_network, env_config, network_params).to(device)
         self.actor = DualInputActor(policy_network, env_config, network_params, exploration_params).to(device)
         self.revEnv = RevEnv(reverse_env_network, env_config, network_params).to(device)
@@ -65,7 +63,8 @@ class CausalRL(BaseTrainer):
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
         states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
-                
+        mask = create_mask_from_dones(dones)
+
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states)
             
@@ -90,27 +89,20 @@ class CausalRL(BaseTrainer):
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
-        # If curiosity-driven learning is activated, we utilize the cooperative actor error. 
-        # This error corresponds to the invertibility of actions and serves as our intrinsic reward.
-        # It grants the agent a reward for novel experiences or for exploring new states.
-        if self.use_curiosity: 
-            rewards = self.trainer_calculate_curiosity_rewards(coop_actor_error, rewards)
-            trajectory.reward = rewards
-
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
         expected_value, advantage = self.compute_values(trajectory, estimated_value)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value)
+        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss = (coop_critic_error).mean()
+        critic_loss = masked_mean(coop_critic_error, mask)
 
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss =  (advantage * coop_actor_error).mean()       
+        actor_loss =  masked_mean(advantage * coop_actor_error, mask)       
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss = (coop_revEnv_error).mean()
+        revEnv_loss = masked_mean(coop_revEnv_error, mask)
 
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
@@ -141,23 +133,6 @@ class CausalRL(BaseTrainer):
         self.update_optimizers()
         self.update_target_networks()
         self.update_schedulers()
-      
-    def trainer_calculate_curiosity_rewards(self, intrinsic_reward, *args):
-        with torch.no_grad():
-            curiosity_reward = self.curiosity_factor * intrinsic_reward
-            new_values = []
-            for value in args:
-                # If the shapes match, add curiosity_reward to the entire value
-                if curiosity_reward.dim() == value.dim():
-                    new_values.append(value + curiosity_reward)
-                # If value has one additional dimension, add curiosity_reward only to its first transition
-                elif curiosity_reward.dim() == value.dim() - 1:
-                    value[:,0] += curiosity_reward
-                    new_values.append(value)
-                else:
-                    # Asserting to catch unexpected cases
-                    assert False, f"Unexpected shapes: curiosity_reward {curiosity_reward.shape}, value {value.shape}"
-        return tuple(new_values) if len(new_values) > 1 else new_values[0]
 
     def trainer_calculate_future_value(self, next_state):
         target_network, _, _ = self.get_target_networks()

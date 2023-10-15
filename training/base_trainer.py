@@ -9,6 +9,7 @@ from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .trainer_utils import compute_gae, get_discounted_rewards, get_end_next_state, get_termination_step
 from utils.structure.trajectory_handler  import BatchTrajectory
+from nn.transformer import TransformerEncoder 
 
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
@@ -26,7 +27,13 @@ class BaseTrainer(TrainingManager, StrategyManager):
         self.advantage_scaler = normalization_params.advantage_scaler
         
         self.use_gae_advantage = algorithm_params.use_gae_advantage
-        self.use_sequence_batch = algorithm_params.use_sequence_batch
+
+        self.use_sequence_batch = False
+        for network_role in networks:
+            if isinstance(network_role.net, TransformerEncoder):
+                self.use_sequence_batch = True
+                break  # Optional: If you know there's only one instance of TransformerEncoder, you can exit the loop early
+
         self.samples_per_step  = env_config.samples_per_step 
 
         self.num_td_steps = algorithm_params.num_td_steps
@@ -40,8 +47,13 @@ class BaseTrainer(TrainingManager, StrategyManager):
             advantage = scale_advantage(advantage, self.advantage_scaler)
         return advantage
 
-    def calculate_value_loss(self, estimated_value, expected_value):
-        return F.mse_loss(estimated_value, expected_value)
+    def calculate_value_loss(self, estimated_value, expected_value, mask=None):
+        loss = (estimated_value - expected_value).square()
+        
+        if mask is not None:
+            loss = loss[mask > 0].flatten()
+            
+        return loss.mean()
     
     def get_discount_factor(self):
         return self.discount_factor 
@@ -51,7 +63,9 @@ class BaseTrainer(TrainingManager, StrategyManager):
         trajectory_states = torch.cat([states, next_states[:, -1:]], dim=1)
         trajectory_values = critic(trajectory_states)  # Assuming critic outputs values for each state in the trajectory
         advantages = compute_gae(trajectory_values, rewards, dones).detach()
-        return advantages
+        if self.use_sequence_batch:
+            return advantages
+        return advantages[:,0,:].unsqueeze(1)
     
     def select_first_transitions(self, *tensor_sequences: torch.Tensor):
         results = tuple(tensor[:, 0, :].unsqueeze(1) for tensor in tensor_sequences)
@@ -64,7 +78,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
     def select_trajectory_segment(self, trajectory: BatchTrajectory):
         """Extract and process the trajectory based on the use_sequence_batch flag."""
 
-        if self.use_sequence_batch or self.use_gae_advantage:
+        if self.use_sequence_batch:
             return trajectory
         else:
             states = trajectory.state[:, 0, :].unsqueeze(1)
@@ -74,6 +88,27 @@ class BaseTrainer(TrainingManager, StrategyManager):
             dones = trajectory.done[:, 0, :].unsqueeze(1)
 
             return BatchTrajectory(states, actions, rewards, next_states, dones)
+
+    def zero_out_values_post_done(self, dones: torch.Tensor, *tensors: torch.Tensor):
+        """
+        Shifts the 'dones' tensor and zeros out the values in the provided tensors wherever the shifted mask is True.
+        
+        Args:
+        - dones (torch.Tensor): A tensor indicating terminal states in a sequence.
+        - *tensors (torch.Tensor): Any number of tensors whose values should be zeroed out based on the shifted 'dones' tensor.
+
+        Returns:
+        - Tuple of tensors with updated values.
+        """
+        mask = torch.zeros_like(dones)
+        mask[:, 1:, :] = dones[:, :-1, :]
+        
+        zeroed_tensors = tuple(tensor.masked_fill_(mask > 0, 0) for tensor in tensors)
+        
+        # If only one tensor is passed, return the tensor directly instead of a tuple    
+        if len(zeroed_tensors) == 1:
+            return zeroed_tensors[0]
+        return zeroed_tensors
 
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         """Compute the advantage and expected value."""
@@ -87,8 +122,8 @@ class BaseTrainer(TrainingManager, StrategyManager):
             else:
                 expected_value = self.calculate_expected_value(rewards, next_states, dones)
                 advantage = self.calculate_advantage(estimated_value, expected_value)
-
-        return expected_value, advantage 
+        
+        return expected_value, advantage
             
     def calculate_expected_value(self, rewards, next_states, dones):
         """

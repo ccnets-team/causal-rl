@@ -15,13 +15,10 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, discount_factor=0.99, num_td_steps=1, use_sequence_batch = False, use_gae_advantage = False, use_curiosity = False):
+    def __init__(self, discount_factor=0.99, num_td_steps=1, use_gae_advantage = False):
         self.discount_factor = discount_factor
         self.num_td_steps = num_td_steps
-        self.curiosity_factor = 0.1
         self.use_gae_advantage = use_gae_advantage
-        self.use_sequence_batch = use_sequence_batch
-        self.use_curiosity = use_curiosity
             
 class NetworkParameters:
     def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = TransformerEncoder,\
