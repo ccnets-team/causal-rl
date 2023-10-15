@@ -19,11 +19,8 @@ class StandardBuffer(BaseBuffer):
             
     def sample(self, sample_size):
         valid_indices = self.get_trajectory_indicies()
-        if len(valid_indices) < sample_size:
-            # Return all valid trajectories
-            indices = valid_indices
-        else:
-            indices = random.sample(valid_indices, sample_size)        
+        
+        indices = random.sample(valid_indices, sample_size)        
         samples = self.get_trajectories(indices, self.num_td_steps)
         assert(len(samples) == sample_size)
         return samples

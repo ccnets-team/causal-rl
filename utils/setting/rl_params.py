@@ -24,7 +24,7 @@ class AlgorithmParameters:
         self.use_curiosity = use_curiosity
             
 class NetworkParameters:
-    def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = SuperNet,\
+    def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = TransformerEncoder,\
                 critic_joint_type = 'cat', actor_joint_type = 'cat', rev_env_joint_type = 'cat'):
         self.num_layer = num_layer
         self.hidden_size = hidden_size

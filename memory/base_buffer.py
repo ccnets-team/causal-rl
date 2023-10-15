@@ -41,23 +41,21 @@ class BaseBuffer:
         next_states_slices = self.next_states[expanded_indices].reshape(batch_size, num_td_steps, -1)
         dones_slices = self.dones[expanded_indices].reshape(batch_size, num_td_steps, -1)
         
-        # If a step is done, the subsequent steps are also flagged as done
-        done_mask = np.cumsum(dones_slices, axis=1) > 0
-        dones_slices[done_mask] = True
+        # Create the done_mask
+        cumulative_dones = np.cumsum(dones_slices, axis=1)
+        shifted_dones = np.roll(cumulative_dones, shift=1, axis=1)
+        shifted_dones[:, 0] = 0  # Set the first column to 0 after the roll
+        done_mask = shifted_dones >= 1
 
-        # Identify termination push_transitionsstep
-        done_steps = np.argmax(dones_slices, axis=1)
-        non_terminated_indices = np.where(dones_slices.sum(axis=1) == 0)[0]
-        done_steps[non_terminated_indices] = num_td_steps - 1  # If not terminated, set to the last step
+        # Zero out elements after a done signal using done_mask
+        states_slices[done_mask.repeat(self.state_size, axis=-1)] = 0
+        actions_slices[done_mask.repeat(self.action_size, axis=-1)] = 0
+        rewards_slices[done_mask] = 0
+        next_states_slices[done_mask.repeat(self.state_size, axis=-1)] = 0
+        dones_slices[done_mask] = 1
+        # Note: We don't need to modify dones_slices since the mask itself is derived from it
 
-        # Using direct indexing to extract the required transitions
-        valid_states = states_slices
-        valid_actions = actions_slices
-        valid_rewards = rewards_slices
-        valid_next_states = next_states_slices
-        valid_dones = done_mask.astype(np.float32)  # Convert to float for easy processing with tensors later on
-        
-        transitions = list(zip(valid_states, valid_actions, valid_rewards, valid_next_states, valid_dones))
+        transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions
         
     def get_trajectory_indicies(self):
@@ -73,8 +71,4 @@ class BaseBuffer:
         else:
             possible_indices = np.arange(0, self.index - self.num_td_steps + 1)
 
-        # Construct expanded indices
-        expanded_indices = (np.arange(self.num_td_steps).reshape(-1, 1) + possible_indices) % self.capacity
-        valid_mask = (~self.dones[expanded_indices[:-1]].any(axis=0))
-
-        return possible_indices[valid_mask].tolist()
+        return possible_indices.tolist()
