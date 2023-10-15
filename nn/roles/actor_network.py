@@ -7,31 +7,23 @@ import torch
 import torch.nn as nn
 
 from torch.distributions import Normal, Categorical
-from ..utils.dual_joint import DualJointLayer
-from ..utils.network_init import init_weights, create_layer
+from ..utils.network_init import init_weights
 from nn.utils.noise_adder import EpsilonGreedy, OrnsteinUhlenbeck, BoltzmannExploration
 
 log_std_min = -20
 log_std_max = 2
 
 class _BaseActor(nn.Module):
-    def __init__(self, net, env_config, network_params, exploration):
+    def __init__(self, net, env_config, network_params, exploration, input_size):
         super(_BaseActor, self).__init__()  # don't forget to call super's init in PyTorch
         self.use_deterministic_policy = exploration.use_deterministic_policy
         self.use_discrete = env_config.use_discrete
         state_size, action_size = env_config.state_size, env_config.action_size
         num_layer, hidden_size = network_params.num_layer, network_params.hidden_size
         
-        self.net = net(num_layer, hidden_size)
-        self.mean_layer = create_layer(hidden_size, action_size)
-        self.log_std_layer = create_layer(hidden_size, action_size)
-        
-        actor_final_act_fn = 'softmax' if self.use_discrete else 'tanh' 
-        self.final_layer = create_layer(act_fn = actor_final_act_fn)
-        # self.device = device
+        self.net = net(num_layer, input_size = input_size, output_size = action_size*2, hidden_size = hidden_size)
         
         use_noise_before_activation = False
-        
         self.noise_strategy = None
         
         self.noise_type = exploration.noise_type
@@ -69,8 +61,7 @@ class _BaseActor(nn.Module):
 
     def _compute_forward_pass(self, z):
         y = self.net(z)
-        mean = self.mean_layer(y)
-        log_std = self.log_std_layer(y)
+        mean, log_std = y.chunk(2, dim=-1)
         log_std = torch.clamp(log_std, log_std_min, log_std_max)
         std = log_std.exp()
         return mean, std
@@ -217,13 +208,11 @@ class _BaseActor(nn.Module):
 
 class SingleInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration):
-        super().__init__(net, env_config, network_params, exploration)
-        self.embedding_layer = create_layer(self.state_size, self.hidden_size, act_fn="tanh")
+        super().__init__(net, env_config, network_params, exploration, input_size = self.state_size)
         self.apply(init_weights)
 
     def forward(self, state):
-        z = self.embedding_layer(state)
-        mean, std = self._compute_forward_pass(z)
+        mean, std = self._compute_forward_pass(state)
         return mean, std
 
     def predict_action(self, state):
@@ -253,18 +242,18 @@ class SingleInputActor(_BaseActor):
 
 class DualInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration):
-        super().__init__(net, env_config, network_params, exploration)
+        value_size = 1
+        state_size = env_config.state_size
+        super().__init__(net, env_config, network_params, exploration, input_size = state_size + value_size)
+        self.apply(init_weights)
         
         # Comment about joint representation for the actor and reverse-env network:
         # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
         # However, when the reward scale is too high, addition (add) seems more robust.
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
-        joint_type = network_params.actor_joint_type
-        self.embedding_layer = DualJointLayer.create(self.state_size, self.value_size, self.hidden_size, joint_type = joint_type)
-        self.apply(init_weights)
 
     def forward(self, state, value):
-        z = self.embedding_layer(state, value)
+        z = torch.cat([state, value], dim = -1)
         mean, std = self._compute_forward_pass(z)
         return mean, std
 

@@ -4,7 +4,8 @@
     Author:
         PARK, JunHo
     Reference:    
-        https://www.linkedin.com/feed/update/urn:li:activity:7109901892675125248
+        Algorithm Details: https://www.linkedin.com/feed/update/urn:li:activity:7109901892675125248
+        Publication: https://patents.google.com/patent/WO2023167576A2/
 '''
 import torch
 import copy

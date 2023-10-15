@@ -21,16 +21,12 @@ class AlgorithmParameters:
         self.use_gae_advantage = use_gae_advantage
             
 class NetworkParameters:
-    def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = TransformerEncoder,\
-                critic_joint_type = 'cat', actor_joint_type = 'cat', rev_env_joint_type = 'cat'):
+    def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = TransformerEncoder):
         self.num_layer = num_layer
         self.hidden_size = hidden_size
         self.value_network = value_network
         self.policy_network = policy_network
         self.reverse_env_network = reverse_env_network
-        self.critic_joint_type = critic_joint_type
-        self.actor_joint_type = actor_joint_type
-        self.rev_env_joint_type = rev_env_joint_type
 
 class OptimizationParameters:
     def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=32, lr=3e-4, tau=5e-3):
