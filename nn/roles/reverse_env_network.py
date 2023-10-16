@@ -7,6 +7,7 @@
 import torch
 import torch.nn as nn
 from ..utils.network_init import init_weights, create_layer
+from nn.transformer import TransformerEncoder
 
 class RevEnv(nn.Module):
     def __init__(self, net, env_config, network_params):
@@ -23,7 +24,11 @@ class RevEnv(nn.Module):
         # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
         # However, when the reward scale is too high, addition (add) seems more robust.
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
-        self.net = net(num_layer, input_size = input_size, output_size = output_size, hidden_size = self.hidden_size)
+        if isinstance(net, TransformerEncoder):
+            self.net = net(num_layer, input_size, output_size, self.hidden_size, use_reverse_env_network = True)
+        else:
+            self.net = net(num_layer, input_size, output_size, self.hidden_size)
+            
         self.apply(init_weights)
         
     def forward(self, next_state, action, value):
