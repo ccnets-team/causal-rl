@@ -24,9 +24,6 @@ class BaseBuffer:
         self.next_states = np.empty((self.capacity, self.state_size))
         self.dones = np.empty(self.capacity)        
 
-    # def __len__(self):
-    #     return max(self.size - self.num_td_steps + 1, 0)
-
     def get_trajectories(self, indices, num_td_steps):
         batch_size = len(indices)
         
@@ -59,16 +56,23 @@ class BaseBuffer:
         return transitions
             
     def get_trajectory_indicies(self):
-        buffer_len = self.size
-        if buffer_len == self.capacity:  # Buffer is full
-            end_valid_idx = self.index - self.num_td_steps
-            if end_valid_idx < 0:  # Check for wrap around
-                possible_indices = np.arange(end_valid_idx + self.num_td_steps, end_valid_idx + buffer_len + 1) % self.capacity
-            else:
-                first_range = np.arange(end_valid_idx + self.num_td_steps, buffer_len)
-                second_range = np.arange(0, end_valid_idx + 1)
-                possible_indices = np.concatenate([first_range, second_range]) % self.capacity
+        if self.start_idx <= self.end_idx:
+            trajectory_slices = self.trajectories[self.start_idx:self.end_idx]
         else:
-            possible_indices = np.arange(0, self.index - self.num_td_steps + 1)
+            trajectory_slices = np.concatenate((self.trajectories[self.start_idx:], self.trajectories[:self.end_idx]), axis=0)
 
-        return possible_indices.tolist()
+        # Get the start and length values from the slices
+        starts, lengths = trajectory_slices[:, 0], trajectory_slices[:, 1]
+
+        # Compute the end indices for each trajectory, ensuring they are within the buffer capacity
+        ends = (starts + np.maximum(lengths - self.num_td_steps + 1, 0)) % self.capacity
+
+        # Create an array to hold the valid indices
+        valid_indices = np.empty(0, dtype=np.int32)  # Initialize an empty array
+
+        # Iterate through the starts and ends, expanding the indices and appending them to valid_indices
+        for start, end in zip(starts, ends):
+            new_indices = np.arange(start, end) % self.capacity  # Compute the indices for this trajectory
+            valid_indices = np.concatenate((valid_indices, new_indices))  # Append the new indices
+
+        return valid_indices.tolist()  # Convert back to a list before returning, if needed
