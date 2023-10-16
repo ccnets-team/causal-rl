@@ -64,7 +64,6 @@ class CausalRL(BaseTrainer):
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
         states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
-        mask = create_mask_from_dones(dones)
 
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states)
@@ -94,16 +93,16 @@ class CausalRL(BaseTrainer):
         expected_value, advantage = self.compute_values(trajectory, estimated_value)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)
+        value_loss = self.calculate_value_loss(estimated_value, expected_value)
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss = masked_mean(coop_critic_error, mask)
+        critic_loss = (coop_critic_error).mean()
 
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss =  masked_mean(advantage * coop_actor_error, mask)       
+        actor_loss =  (advantage * coop_actor_error).mean()     
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss = masked_mean(coop_revEnv_error, mask)
+        revEnv_loss = (coop_revEnv_error).mean()
 
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(

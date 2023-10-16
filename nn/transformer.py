@@ -17,12 +17,18 @@ def positional_encoding(max_seq_size: int, d_model: int) -> torch.Tensor:
     pos_enc[:, 1::2] = torch.cos(pos * div_term)
     return pos_enc
 
-def create_causal_mask(seq_len: int, device: torch.device) -> torch.Tensor:
+def create_forward_mask(seq_len: int, device: torch.device) -> torch.Tensor:
     mask = torch.tril(torch.ones(seq_len, seq_len, device=device))
+    mask = torch.where(mask == 0, torch.tensor(-float('inf'), device=device), mask)
+    return mask
+
+def create_reverse_mask(seq_len: int, device: torch.device) -> torch.Tensor:
+    mask = torch.triu(torch.ones(seq_len, seq_len, device=device))
+    mask = torch.where(mask == 0, torch.tensor(-float('inf'), device=device), mask)
     return mask
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, num_layer, input_size, output_size, hidden_size, num_heads: int = 8):
+    def __init__(self, num_layer, input_size, output_size, hidden_size, num_heads: int = 8, use_reverse_env_network = False):
         super(TransformerEncoder, self).__init__()   
         self.num_layer = num_layer
         layers = []
@@ -34,7 +40,7 @@ class TransformerEncoder(nn.Module):
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layer)
         self.final_layer = nn.Linear(hidden_size, output_size)
         self.hidden_size = hidden_size
-
+        self.use_reverse_env_network = use_reverse_env_network
     def forward(self, x):
         # Check if the input tensor is 2D, and if so, unsqueeze it to make it 3D
         x = self.embedding_layer(x)
@@ -48,7 +54,10 @@ class TransformerEncoder(nn.Module):
         device = x.device  # Fetch the device from the input tensor
         
         pos_enc = positional_encoding(seq_len, self.hidden_size).to(device)[:seq_len, :]
-        mask = create_causal_mask(seq_len, device)[:seq_len, :seq_len] 
+        if self.use_reverse_env_network:
+            mask = create_reverse_mask(seq_len, device)[:seq_len, :seq_len].type(x.dtype) 
+        else:
+            mask = create_forward_mask(seq_len, device)[:seq_len, :seq_len].type(x.dtype)
         
         x_embed = x + pos_enc
 
