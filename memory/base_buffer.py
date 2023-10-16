@@ -57,14 +57,18 @@ class BaseBuffer:
 
         transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions
-
+            
     def get_trajectory_indicies(self):
-        valid_indices = []
+        buffer_len = self.size
+        if buffer_len == self.capacity:  # Buffer is full
+            end_valid_idx = self.index - self.num_td_steps
+            if end_valid_idx < 0:  # Check for wrap around
+                possible_indices = np.arange(end_valid_idx + self.num_td_steps, end_valid_idx + buffer_len + 1) % self.capacity
+            else:
+                first_range = np.arange(end_valid_idx + self.num_td_steps, buffer_len)
+                second_range = np.arange(0, end_valid_idx + 1)
+                possible_indices = np.concatenate([first_range, second_range]) % self.capacity
+        else:
+            possible_indices = np.arange(0, self.index - self.num_td_steps + 1)
 
-        for start, length in self.trajectories:
-            valid_indices.extend(range(start, start + max(length - self.num_td_steps + 1, 0)))
-
-        # Convert to ensure they are within the buffer capacity
-        valid_indices = [idx % self.capacity for idx in valid_indices]
-
-        return valid_indices
+        return possible_indices.tolist()
