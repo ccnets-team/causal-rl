@@ -4,47 +4,38 @@
         PARK, JunHo
 '''
 import torch.nn as nn
-from ..utils.network_init import init_weights, create_layer
-from ..utils.dual_joint import DualJointLayer
+from ..utils.network_init import init_weights
 import torch
 
 class BaseCritic(nn.Module):
-    def __init__(self, net, env_config, network_params):
+    def __init__(self, net, env_config, network_params, input_size):
         super(BaseCritic, self).__init__()  
         hidden_size, num_layer = network_params.hidden_size, network_params.num_layer
-        self.net = net(num_layer, hidden_size)
-        self.value_size = 1
-        self.final = create_layer(hidden_size, self.value_size)
+        value_size = 1
+        self.net = net(num_layer, input_size = input_size, output_size = value_size, hidden_size = hidden_size)
 
-        self.action_size = env_config.action_size
-        self.state_size = env_config.state_size
         self.use_discrete = env_config.use_discrete
         self.hidden_size = hidden_size
         
     def _forward(self, state):
-        x = self.net(state)
-        return self.final(x)
+        return self.net(state)
 
 class SingleInputCritic(BaseCritic):
     def __init__(self, net, env_config, network_params):
-        super(SingleInputCritic, self).__init__(net, env_config, network_params)
-        self.embedding_layer = create_layer(self.state_size, self.hidden_size, act_fn = "tanh") 
+        super(SingleInputCritic, self).__init__(net, env_config, network_params, env_config.state_size)
         self.apply(init_weights)
 
     def forward(self, state):
-        emb_state = self.embedding_layer(state)
-        return self._forward(emb_state)
+        return self._forward(state)
 
 class DualInputCritic(BaseCritic):
     def __init__(self, net, env_config, network_params):
-        super(DualInputCritic, self).__init__(net, env_config, network_params)
-        joint_type = network_params.critic_joint_type
-        self.embedding_layer = DualJointLayer.create(self.state_size, self.action_size, self.hidden_size, \
-            joint_type = joint_type)
+        input_size = env_config.state_size + env_config.action_size
+        super(DualInputCritic, self).__init__(net, env_config, network_params, input_size)
         self.apply(init_weights)
 
     def forward(self, state, action):
         if not self.use_discrete:
             action = torch.tanh(action)
-        emb_state = self.embedding_layer(state, action)
-        return self._forward(emb_state)
+        x = torch.cat([state, action], dim = -1) 
+        return self._forward(x)
