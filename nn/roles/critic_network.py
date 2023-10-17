@@ -17,7 +17,9 @@ class BaseCritic(nn.Module):
         self.use_discrete = env_config.use_discrete
         self.hidden_size = hidden_size
         
-    def _forward(self, state):
+    def _forward(self, state, mask = None):
+        if mask is not None:
+            return self.net(state, mask)
         return self.net(state)
 
 class SingleInputCritic(BaseCritic):
@@ -25,8 +27,8 @@ class SingleInputCritic(BaseCritic):
         super(SingleInputCritic, self).__init__(net, env_config, network_params, env_config.state_size)
         self.apply(init_weights)
 
-    def forward(self, state):
-        return self._forward(state)
+    def forward(self, state, mask=None):
+        return self._forward(state, mask)
 
 class DualInputCritic(BaseCritic):
     def __init__(self, net, env_config, network_params):
@@ -34,8 +36,8 @@ class DualInputCritic(BaseCritic):
         super(DualInputCritic, self).__init__(net, env_config, network_params, input_size)
         self.apply(init_weights)
 
-    def forward(self, state, action):
+    def forward(self, state, action, mask=None):
         if not self.use_discrete:
             action = torch.tanh(action)
         x = torch.cat([state, action], dim = -1) 
-        return self._forward(x)
+        return self._forward(x, mask)

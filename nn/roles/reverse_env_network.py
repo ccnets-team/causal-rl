@@ -24,17 +24,19 @@ class RevEnv(nn.Module):
         # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
         # However, when the reward scale is too high, addition (add) seems more robust.
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
-        if isinstance(net, TransformerEncoder):
-            self.net = net(num_layer, input_size, output_size, self.hidden_size, use_reverse_env_network = True)
-        else:
-            self.net = net(num_layer, input_size, output_size, self.hidden_size)
+        self.net = net(num_layer, input_size, output_size, self.hidden_size)
             
         self.apply(init_weights)
-        
-    def forward(self, next_state, action, value):
+
+    def forward(self, next_state, action, value, mask=None):
         if not self.use_discrete:
             action = torch.tanh(action)
-        z = torch.cat([next_state, action, value], dim = -1)
-        return self.net(z)
-
-
+        z = torch.cat([next_state, action, value], dim=-1)
+        if len(z.shape) >= 3:
+            if mask is None:
+                state = self.net(z, reverse=True)
+            else:
+                state = self.net(z, reverse=True, src_key_padding_mask=mask)
+        else:
+            state = self.net(z)
+        return state

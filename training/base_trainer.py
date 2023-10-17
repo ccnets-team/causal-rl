@@ -47,9 +47,14 @@ class BaseTrainer(TrainingManager, StrategyManager):
             advantage = scale_advantage(advantage, self.advantage_scaler)
         return advantage
 
-    def calculate_value_loss(self, estimated_value, expected_value):
-        return F.mse_loss(estimated_value, expected_value)
-    
+    def calculate_value_loss(self, estimated_value, expected_value, mask=None):
+        loss = (estimated_value - expected_value).square()
+        
+        if mask is not None:
+            loss = loss[mask > 0].flatten()
+            
+        return loss.mean()
+        
     def get_discount_factor(self):
         return self.discount_factor 
 

@@ -28,7 +28,7 @@ def create_reverse_mask(seq_len: int, device: torch.device) -> torch.Tensor:
     return mask
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, num_layer, input_size, output_size, hidden_size, num_heads: int = 8, use_reverse_env_network = False):
+    def __init__(self, num_layer, input_size, output_size, hidden_size, num_heads: int = 8):
         super(TransformerEncoder, self).__init__()   
         self.num_layer = num_layer
         layers = []
@@ -40,8 +40,8 @@ class TransformerEncoder(nn.Module):
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layer)
         self.final_layer = nn.Linear(hidden_size, output_size)
         self.hidden_size = hidden_size
-        self.use_reverse_env_network = use_reverse_env_network
-    def forward(self, x):
+        
+    def forward(self, x, reverse = False, src_key_padding_mask = None):
         # Check if the input tensor is 2D, and if so, unsqueeze it to make it 3D
         x = self.embedding_layer(x)
         if len(x.shape) == 2:
@@ -54,14 +54,16 @@ class TransformerEncoder(nn.Module):
         device = x.device  # Fetch the device from the input tensor
         
         pos_enc = positional_encoding(seq_len, self.hidden_size).to(device)[:seq_len, :]
-        if self.use_reverse_env_network:
-            mask = create_reverse_mask(seq_len, device)[:seq_len, :seq_len].type(x.dtype) 
+        if reverse:
+            mask = create_reverse_mask(seq_len, device)[:seq_len, :seq_len].type(x.dtype)
         else:
             mask = create_forward_mask(seq_len, device)[:seq_len, :seq_len].type(x.dtype)
+
+        if src_key_padding_mask is not None:
+            src_key_padding_mask = src_key_padding_mask.squeeze(dim=-1)
         
         x_embed = x + pos_enc
-
-        y = self.encoder(x_embed, mask=mask)
+        y = self.encoder(x_embed, mask=mask, src_key_padding_mask = src_key_padding_mask)
         
         # If the input tensor was unsqueezed, we squeeze the output tensor to return it to its original shape
         if was_unsqueezed:
