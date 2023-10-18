@@ -94,36 +94,9 @@ rl_params.normalization.state_normalizer = "running_z_standardizer"
 
 RL-Tune features comprehensive modules including memory, normalization, noise, exploration, and strategy managers, enabling a cohesive and seamless problem-solving experience in the RL domain.
 
-**3. Flexible Network Role Assignments:**
 
-RL-Tune’s flexible architecture facilitates distinct role assignments to different networks, optimizing the processes of development and management for various network configurations.
 
-```python
-from nn.roles.actor_network import SingleInputActor as QNetwork
-from nn.roles.critic_network import SingleInputCritic
-from nn.roles.reverse_env_network import RevEnv
-
-q_network = QNetwork(network, env_config, network_params, exploration_params)
-critic = SingleInputCritic(network, env_config, network_params)
-reverse_env = RevEnv(network, env_config, network_params)
-
-```
-
-**4. Custom Algorithm Formulation with BaseTrainer Class:**
-
-RL-Tune is built around the BaseTrainer class, empowering users to formulate custom algorithms and utilize commonalized functions for crafting powerful and efficient RL solutions.
-
-```python
-class BaseTrainer:
-    def compute_values(self, states: torch.Tensor, rewards: torch.Tensor,
-                       next_states: torch.Tensor, dones: torch.Tensor,
-                       estimated_value: torch.Tensor) -> (torch.Tensor, torch.Tensor):
-		...
-
-class YourRLTrainer(BaseTrainer):
-```
-
-**5. Enhanced Algorithmic Components:**
+**3. Enhanced Algorithmic Components:**
     
 - Numerical n-td steps:
 Supports configurable numerical n-td steps for effective planning and learning.
