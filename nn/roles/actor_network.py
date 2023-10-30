@@ -6,22 +6,26 @@
 import torch
 import torch.nn as nn
 
-from torch.distributions import Normal, Categorical
-from ..utils.network_init import init_weights
+from torch.distributions import Normal
+from ..utils.network_init import init_weights, create_layer
 from nn.utils.noise_adder import EpsilonGreedy, OrnsteinUhlenbeck, BoltzmannExploration
+
+from ..utils.joint_embedding_layer import JointEmbeddingLayer
 
 log_std_min = -20
 log_std_max = 2
 
 class _BaseActor(nn.Module):
-    def __init__(self, net, env_config, network_params, exploration, input_size):
+    def __init__(self, net, env_config, network_params, exploration):
         super(_BaseActor, self).__init__()  # don't forget to call super's init in PyTorch
         self.use_deterministic_policy = exploration.use_deterministic_policy
         self.use_discrete = env_config.use_discrete
         state_size, action_size = env_config.state_size, env_config.action_size
         num_layer, hidden_size = network_params.num_layer, network_params.hidden_size
         
-        self.net = net(num_layer, input_size = input_size, output_size = action_size*2, hidden_size = hidden_size)
+        self.net = net(num_layer, hidden_size)
+        self.mean_layer = create_layer(hidden_size, action_size, act_fn = 'none')
+        self.log_std_layer = create_layer(hidden_size, action_size, act_fn = 'none')
         
         use_noise_before_activation = False
         self.noise_strategy = None
@@ -61,7 +65,7 @@ class _BaseActor(nn.Module):
 
     def _compute_forward_pass(self, z, mask = None):
         y = self.net(z) if mask is None else self.net(z, mask)
-        mean, log_std = y.chunk(2, dim=-1)
+        mean, log_std = self.mean_layer(y), self.log_std_layer(y)
         log_std = torch.clamp(log_std, log_std_min, log_std_max)
         std = log_std.exp()
         return mean, std
@@ -208,11 +212,14 @@ class _BaseActor(nn.Module):
 
 class SingleInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration):
-        super().__init__(net, env_config, network_params, exploration, input_size = self.state_size)
+        super().__init__(net, env_config, network_params, exploration)
+        state_size = env_config.state_size
+        self.embedding_layer = create_layer(state_size, self.hidden_size, act_fn="tanh")
         self.apply(init_weights)
 
     def forward(self, state, mask = None):
-        mean, std = self._compute_forward_pass(state, mask)
+        z = self.embedding_layer(state)
+        mean, std = self._compute_forward_pass(z, mask)
         return mean, std
 
     def predict_action(self, state):
@@ -242,9 +249,11 @@ class SingleInputActor(_BaseActor):
 
 class DualInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration):
-        value_size = 1
+        super().__init__(net, env_config, network_params, exploration)
         state_size = env_config.state_size
-        super().__init__(net, env_config, network_params, exploration, input_size = state_size + value_size)
+        value_size = 1
+        self.embedding_layer = JointEmbeddingLayer(state_size, value_size, \
+            output_size=self.hidden_size, joint_type="cat")
         self.apply(init_weights)
         
         # Comment about joint representation for the actor and reverse-env network:
@@ -253,7 +262,7 @@ class DualInputActor(_BaseActor):
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
 
     def forward(self, state, value, mask = None):
-        z = torch.cat([state, value], dim = -1)
+        z = self.embedding_layer(state, value)
         mean, std = self._compute_forward_pass(z, mask)
         return mean, std
 

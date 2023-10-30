@@ -28,22 +28,15 @@ def create_reverse_mask(seq_len: int, device: torch.device) -> torch.Tensor:
     return mask
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, num_layer, input_size, output_size, hidden_size, num_heads: int = 8):
+    def __init__(self, num_layer, hidden_size, num_heads: int = 8):
         super(TransformerEncoder, self).__init__()   
+        self.hidden_size = hidden_size
         self.num_layer = num_layer
-        layers = []
-        layers.append(nn.Linear(input_size, hidden_size))
-        layers.append(nn.ReLU())
-        self.embedding_layer = nn.Sequential(*layers)
-            
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=num_heads, dim_feedforward=hidden_size * 4, batch_first=True, dropout=0.0)
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layer)
-        self.final_layer = nn.Linear(hidden_size, output_size)
-        self.hidden_size = hidden_size
         
     def forward(self, x, reverse = False, src_key_padding_mask = None):
         # Check if the input tensor is 2D, and if so, unsqueeze it to make it 3D
-        x = self.embedding_layer(x)
         if len(x.shape) == 2:
             x.unsqueeze_(dim=1)
             was_unsqueezed = True
@@ -68,6 +61,4 @@ class TransformerEncoder(nn.Module):
         # If the input tensor was unsqueezed, we squeeze the output tensor to return it to its original shape
         if was_unsqueezed:
             y.squeeze_(dim=1)
-        
-        y = self.final_layer(y)
         return y

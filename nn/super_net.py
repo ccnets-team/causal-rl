@@ -20,15 +20,13 @@ class SuperNetBlock(nn.Module):
         return out
 
 class SuperNet(nn.Module):
-    def __init__(self, num_layer, input_size, output_size, hidden_size):
+    def __init__(self, num_layer, hidden_size):
         super(SuperNet, self).__init__()
         self.num_layer = num_layer
+
         layers = []
-        layers.append(nn.Linear(input_size, hidden_size))
-        layers.append(nn.ReLU())
         for i in range(self.num_layer):
             layers.append(SuperNetBlock(hidden_size, hidden_size))
-        layers.append(nn.Linear(hidden_size, output_size))
         self.net = nn.Sequential(*layers)
 
     def forward(self, x):
