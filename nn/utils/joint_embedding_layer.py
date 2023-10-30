@@ -21,7 +21,7 @@ class JointEmbeddingLayer(nn.Module):
         if len(input_sizes) == 0:
             raise ValueError("At least one input dimension must be provided")
         
-        if not all(isinstance(dim, int) and dim > 0 for dim in input_sizes):
+        if not all(dim > 0 for dim in input_sizes):
             raise TypeError("All input dimensions must be positive integers")        
 
         self.joint_type = joint_type
