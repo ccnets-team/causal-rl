@@ -21,7 +21,7 @@ class AlgorithmParameters:
         self.use_gae_advantage = use_gae_advantage
             
 class NetworkParameters:
-    def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = TransformerDecoder):
+    def __init__(self,  num_layer=4, hidden_size=128, value_network = SuperNet, policy_network = SuperNet, reverse_env_network = SuperNet):
         self.num_layer = num_layer
         self.hidden_size = hidden_size
         self.value_network = value_network
