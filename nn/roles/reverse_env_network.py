@@ -24,6 +24,12 @@ class RevEnv(nn.Module):
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
         self.embedding_layer = JointEmbeddingLayer(env_config.state_size, env_config.action_size, \
             self.value_size, output_size = self.hidden_size, joint_type = "cat")
+
+        self.embedding_layer1 = create_layer(env_config.state_size,  \
+            output_size = self.hidden_size, act_fn = "tanh")
+        self.embedding_layer2 = JointEmbeddingLayer(env_config.action_size, \
+            self.value_size, output_size = self.hidden_size, joint_type = "cat")
+
         self.net = net(num_layer, self.hidden_size)
         self.final_layer = create_layer(self.hidden_size, env_config.state_size, act_fn = 'none') 
             
@@ -32,13 +38,15 @@ class RevEnv(nn.Module):
     def forward(self, next_state, action, value, mask=None):
         if not self.use_discrete:
             action = torch.tanh(action)
-        z = self.embedding_layer(next_state, action, value)
-        if len(z.shape) >= 3:
+        if len(next_state.shape) >= 3:
+            z1 = self.embedding_layer1(next_state)
+            z2 = self.embedding_layer2(action, value)
             if mask is None:
-                state = self.net(z, reverse=True)
+                state = self.net(z1, z2, reverse=True)
             else:
-                state = self.net(z, reverse=True, src_key_padding_mask=mask)
+                state = self.net(z1, z2, reverse=True, src_key_padding_mask=mask)
         else:
+            z = self.embedding_layer(next_state, action, value)
             state = self.net(z)
         state = self.final_layer(state)            
         return state
