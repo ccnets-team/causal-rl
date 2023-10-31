@@ -19,22 +19,16 @@ class RevEnv(nn.Module):
         self.hidden_size = network_params.hidden_size
         num_layer = network_params.num_layer
 
-        self.use_transformer : bool = False 
+        self.use_transformer_encoder : bool = False 
 
-        if type(net) is TransformerEncoder or type(net) is TransformerDecoder:
-            self.use_transformer = True
+        if type(net) is TransformerEncoder:
+            self.use_transformer_encoder = True
         # Comment about joint representation for the actor and reverse-env network:
         # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
         # However, when the reward scale is too high, addition (add) seems more robust.
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
         self.embedding_layer = JointEmbeddingLayer(env_config.state_size, env_config.action_size, \
             self.value_size, output_size = self.hidden_size, joint_type = "cat")
-
-        self.embedding_layer1 = create_layer(env_config.state_size,  \
-            output_size = self.hidden_size, act_fn = "tanh")
-        self.embedding_layer2 = JointEmbeddingLayer(env_config.action_size, \
-            self.value_size, output_size = self.hidden_size, joint_type = "cat")
-
         self.net = net(num_layer, self.hidden_size)
         self.final_layer = create_layer(self.hidden_size, env_config.state_size, act_fn = 'none') 
             
@@ -43,15 +37,8 @@ class RevEnv(nn.Module):
     def forward(self, next_state, action, value, mask=None):
         if not self.use_discrete:
             action = torch.tanh(action)
-        if self.use_transformer:
-            z1 = self.embedding_layer1(next_state)
-            z2 = self.embedding_layer2(action, value)
-            if mask is None:
-                state = self.net(z1, z2, reverse=True)
-            else:
-                state = self.net(z1, z2, reverse=True, src_key_padding_mask=mask)
-        else:
+        if self.use_transformer_encoder:
             z = self.embedding_layer(next_state, action, value)
-            state = self.net(z)
+            state = self.net(z, reverse=True, mask=mask)
         state = self.final_layer(state)            
         return state

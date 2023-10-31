@@ -20,11 +20,8 @@ class BaseCritic(nn.Module):
         self.use_discrete = env_config.use_discrete
         self.hidden_size = hidden_size
         
-    def _forward(self, state, mask = None):
-        if mask is None:
-            value = self.net(state)
-        else:
-            value = self.net(state, mask)
+    def _forward(self, state):
+        value = self.net(state)
         return self.final_layer(value)
 
 class SingleInputCritic(BaseCritic):
@@ -33,9 +30,9 @@ class SingleInputCritic(BaseCritic):
         self.embedding_layer = create_layer(env_config.state_size, self.hidden_size, act_fn = 'tanh')
         self.apply(init_weights)
 
-    def forward(self, state, mask=None):
+    def forward(self, state):
         z = self.embedding_layer(state)
-        return self._forward(z, mask)
+        return self._forward(z)
 
 class DualInputCritic(BaseCritic):
     def __init__(self, net, env_config, network_params):
@@ -44,8 +41,8 @@ class DualInputCritic(BaseCritic):
             output_size = self.hidden_size, joint_type="cat")
         self.apply(init_weights)
 
-    def forward(self, state, action, mask=None):
+    def forward(self, state, action):
         if not self.use_discrete:
             action = torch.tanh(action)
         x = self.embedding_layer(state, action)
-        return self._forward(x, mask)
+        return self._forward(x)

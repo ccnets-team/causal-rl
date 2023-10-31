@@ -63,8 +63,8 @@ class _BaseActor(nn.Module):
         if self.noise_type == "ou" and reset is not None:
             return self.noise_strategy.reset(reset)
 
-    def _compute_forward_pass(self, z, mask = None):
-        y = self.net(z) if mask is None else self.net(z, mask)
+    def _compute_forward_pass(self, z):
+        y = self.net(z) 
         mean, log_std = self.mean_layer(y), self.log_std_layer(y)
         log_std = torch.clamp(log_std, log_std_min, log_std_max)
         std = log_std.exp()
@@ -217,9 +217,9 @@ class SingleInputActor(_BaseActor):
         self.embedding_layer = create_layer(state_size, self.hidden_size, act_fn="tanh")
         self.apply(init_weights)
 
-    def forward(self, state, mask = None):
+    def forward(self, state):
         z = self.embedding_layer(state)
-        mean, std = self._compute_forward_pass(z, mask)
+        mean, std = self._compute_forward_pass(z)
         return mean, std
 
     def predict_action(self, state):
@@ -261,9 +261,9 @@ class DualInputActor(_BaseActor):
         # However, when the reward scale is too high, addition (add) seems more robust.
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
 
-    def forward(self, state, value, mask = None):
+    def forward(self, state, value):
         z = self.embedding_layer(state, value)
-        mean, std = self._compute_forward_pass(z, mask)
+        mean, std = self._compute_forward_pass(z)
         return mean, std
 
     def predict_action(self, state, value):
