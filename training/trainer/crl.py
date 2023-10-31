@@ -67,10 +67,10 @@ class CausalRL(BaseTrainer):
         mask = create_mask_from_dones(dones)
 
         # Get the estimated value of the current state from the critic network.
-        estimated_value = self.critic(states)
+        estimated_value = self.critic(states, mask)
             
         # Predict the action that the actor would take for the current state and its estimated value.
-        inferred_action = self.actor.predict_action(states, estimated_value)
+        inferred_action = self.actor.predict_action(states, estimated_value, mask)
         
         # Calculate the reversed state using the original action.
         reversed_state = self.revEnv(next_states, actions, estimated_value, mask)

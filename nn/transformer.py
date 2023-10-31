@@ -79,7 +79,8 @@ class TransformerEncoder(nn.Module):
 
         if mask is not None:
             src_key_padding_mask_bool = mask.squeeze(dim=-1).bool()
-            src_key_padding_mask = torch.where(src_key_padding_mask_bool, torch.tensor(0.0, dtype=x.dtype), torch.tensor(-float('inf'), dtype=x.dtype))
+            src_key_padding_mask = torch.where(src_key_padding_mask_bool, torch.tensor(0.0, dtype=x.dtype, device = device), \
+                torch.tensor(-float('inf'), dtype=x.dtype, device = device))
             atten_mask = expand_attention_mask(atten_mask, src_key_padding_mask, self.num_heads)
             
         y = self.encoder(x, mask=atten_mask)
@@ -119,7 +120,7 @@ class TransformerDecoder(nn.Module):
         if mask is not None:
             src_key_padding_mask_bool = mask.squeeze(dim=-1).bool()
             src_key_padding_mask = torch.where(src_key_padding_mask_bool, torch.tensor(0.0, dtype=x.dtype), torch.tensor(-float('inf'), dtype=x.dtype))
-            atten_mask = correct_attention_mask(atten_mask, src_key_padding_mask)
+            atten_mask = expand_attention_mask(atten_mask, src_key_padding_mask)
             
         y = self.decoder(x, memory, tgt_mask=atten_mask, tgt_key_padding_mask=src_key_padding_mask, memory_key_padding_mask=src_key_padding_mask)
 
