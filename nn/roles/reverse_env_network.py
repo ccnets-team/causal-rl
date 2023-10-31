@@ -19,17 +19,20 @@ class RevEnv(nn.Module):
         self.hidden_size = network_params.hidden_size
         num_layer = network_params.num_layer
 
-        self.use_transformer_encoder: bool = False 
-
-        if net is TransformerEncoder:
-            self.use_transformer_encoder = True
+        use_transformer = False
+        if net is TransformerEncoder or net is TransformerDecoder:
+            use_transformer = True
+            
         # Comment about joint representation for the actor and reverse-env network:
         # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
         # However, when the reward scale is too high, addition (add) seems more robust.
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
         self.embedding_layer = JointEmbeddingLayer(env_config.state_size, env_config.action_size, \
             self.value_size, output_size = self.hidden_size, joint_type = "cat")
-        self.net = net(num_layer, self.hidden_size)
+        
+        self.net = net(num_layer, self.hidden_size) if not use_transformer else net(num_layer, self.hidden_size, reverse = True)
+        self.use_mask = use_transformer
+        
         self.final_layer = create_layer(self.hidden_size, env_config.state_size, act_fn = 'none') 
             
         self.apply(init_weights)
@@ -38,9 +41,6 @@ class RevEnv(nn.Module):
         if not self.use_discrete:
             action = torch.tanh(action)
         z = self.embedding_layer(next_state, action, value)
-        if self.use_transformer_encoder:
-            state = self.net(z, reverse=True, mask=mask)
-        else:
-            state = self.net(z)
+        state = self.net(z) if (mask is None or not self.use_mask) else self.net(z, mask=mask)
         state = self.final_layer(state)            
         return state

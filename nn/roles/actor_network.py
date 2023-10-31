@@ -23,8 +23,8 @@ class _BaseActor(nn.Module):
         self.use_discrete = env_config.use_discrete
         state_size, action_size = env_config.state_size, env_config.action_size
         num_layer, hidden_size = network_params.num_layer, network_params.hidden_size
-        
-        self.net = net(num_layer, hidden_size)
+
+        self.net = net(num_layer, hidden_size) 
         self.mean_layer = create_layer(hidden_size, action_size, act_fn = 'none')
         self.log_std_layer = create_layer(hidden_size, action_size, act_fn = 'none')
         
@@ -53,9 +53,10 @@ class _BaseActor(nn.Module):
         self.hidden_size = hidden_size
         self.value_size = 1
 
-        self.use_transformer_encoder = False
-        if net is TransformerEncoder:
-            self.use_transformer_encoder = True
+        use_transformer = False
+        if net is TransformerEncoder or net is TransformerDecoder:
+            use_transformer = True
+        self.use_mask = use_transformer
 
     def apply_noise(self, y, exploration_rate = None):
         if self.noise_strategy is None:
@@ -69,7 +70,7 @@ class _BaseActor(nn.Module):
             return self.noise_strategy.reset(reset)
 
     def _compute_forward_pass(self, z, mask = None):
-        y = self.net(z) if not self.use_transformer_encoder else self.net(z, mask = mask)
+        y = self.net(z) if (mask is None or not self.use_mask) else self.net(z, mask = mask)
         mean, log_std = self.mean_layer(y), self.log_std_layer(y)
         log_std = torch.clamp(log_std, log_std_min, log_std_max)
         std = log_std.exp()

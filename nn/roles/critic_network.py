@@ -20,13 +20,14 @@ class BaseCritic(nn.Module):
 
         self.use_discrete = env_config.use_discrete
         self.hidden_size = hidden_size
-        
-        self.use_transformer_encoder: bool = False 
-        if net is TransformerEncoder:
-            self.use_transformer_encoder = True
+
+        use_transformer = False
+        if net is TransformerEncoder or net is TransformerDecoder:
+            use_transformer = True
+        self.use_mask = use_transformer
         
     def _forward(self, z, mask=None):
-        value = self.net(z) if not self.use_transformer_encoder else self.net(z, mask=mask)
+        value = self.net(z) if (mask is None or not self.use_mask) else self.net(z, mask=mask)
         return self.final_layer(value)
 
 class SingleInputCritic(BaseCritic):

@@ -47,17 +47,17 @@ def expand_attention_mask(mask: torch.Tensor, src_key_padding_mask: torch.Tensor
     
     return combined_mask.repeat(num_heads, 1, 1)
 
-
 class TransformerEncoder(nn.Module):
-    def __init__(self, num_layer, hidden_size, num_heads: int = 8):
+    def __init__(self, num_layer, hidden_size, num_heads: int = 8, reverse=False):
         super(TransformerEncoder, self).__init__()   
         self.hidden_size = hidden_size
         self.num_layer = num_layer
         self.num_heads = num_heads
+        self.reverse = reverse
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=num_heads, dim_feedforward=hidden_size * 4, batch_first=True, dropout=0.0)
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layer)
             
-    def forward(self, x, reverse=False, mask=None):
+    def forward(self, x, mask=None):
         # Check if the input tensor is 2D, and if so, unsqueeze it to make it 3D
         
         if len(x.shape) == 2:
@@ -72,7 +72,7 @@ class TransformerEncoder(nn.Module):
         pos_enc = positional_encoding(seq_len, self.hidden_size).to(device)
         x = x + pos_enc  # Add positional encoding to the input
         
-        if reverse:
+        if self.reverse:
             atten_mask = create_reverse_mask(seq_len, device).type_as(x)
         else:
             atten_mask = create_forward_mask(seq_len, device).type_as(x)
