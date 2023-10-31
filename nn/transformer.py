@@ -23,30 +23,37 @@ def create_forward_mask(seq_len: int, device: torch.device) -> torch.Tensor:
 def create_reverse_mask(seq_len: int, device: torch.device) -> torch.Tensor:
     return torch.tril(torch.ones(seq_len, seq_len, device=device) * -float('inf'), diagonal=-1)
 
-def correct_attention_mask(mask: torch.Tensor, src_key_padding_mask: torch.Tensor) -> torch.Tensor:
+def expand_attention_mask(mask: torch.Tensor, src_key_padding_mask: torch.Tensor, num_heads: int) -> torch.Tensor:
     assert mask.dim() == 2, "Attention mask must be 2D with shape [seq_len, seq_len]"
     assert src_key_padding_mask.dim() == 2, "Source key padding mask must be 2D with shape [batch_size, seq_len]"
     
-    corrected_mask = mask.clone()
-    padding_mask = src_key_padding_mask.unsqueeze(1).to(mask.dtype)
-    combined_mask = corrected_mask.unsqueeze(0) + padding_mask
+    # Ensure mask and src_key_padding_mask are compatible for broadcasting
+    src_key_padding_mask = src_key_padding_mask.unsqueeze(1)
     
-    # Find positions in the combined mask that have all zero attention weights
-    positions_to_correct = (combined_mask.sum(dim=-1) <= 0).all(dim=0)
+    # Extend mask by considering src_key_padding_mask
+    combined_mask = mask.unsqueeze(0) + src_key_padding_mask
+    
+    # Find positions in the combined mask that have all -inf values
+    all_inf_positions = (combined_mask == float('-inf')).all(dim=-1)
+    
+    # Create a diagonal mask using torch.eye
+    diag_mask = torch.eye(combined_mask.size(-1), device=combined_mask.device).unsqueeze(0).bool()
+    
+    # Expand all_inf_positions to [B, S, S]
+    expanded_all_inf_positions = all_inf_positions.unsqueeze(-1) & diag_mask
+    
+    # Set the diagonal elements to 0.0 where all values in the last dimension are -inf
+    combined_mask[expanded_all_inf_positions] = 0.0
+    
+    return combined_mask.repeat(num_heads, 1, 1)
 
-    # For each position, if it is completely masked out across all batches, 
-    # unmask the first non-padded position in any of the batches
-    for pos in range(positions_to_correct.size(0)):
-        if positions_to_correct[pos]:
-            corrected_mask[pos,:] = 0.0
-                    
-    return corrected_mask
 
 class TransformerEncoder(nn.Module):
     def __init__(self, num_layer, hidden_size, num_heads: int = 8):
         super(TransformerEncoder, self).__init__()   
         self.hidden_size = hidden_size
         self.num_layer = num_layer
+        self.num_heads = num_heads
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=hidden_size, nhead=num_heads, dim_feedforward=hidden_size * 4, batch_first=True, dropout=0.0)
         self.encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=self.num_layer)
             
@@ -70,13 +77,12 @@ class TransformerEncoder(nn.Module):
         else:
             atten_mask = create_forward_mask(seq_len, device).type_as(x)
 
-        src_key_padding_mask = None
         if mask is not None:
             src_key_padding_mask_bool = mask.squeeze(dim=-1).bool()
             src_key_padding_mask = torch.where(src_key_padding_mask_bool, torch.tensor(0.0, dtype=x.dtype), torch.tensor(-float('inf'), dtype=x.dtype))
-            atten_mask = correct_attention_mask(atten_mask, src_key_padding_mask)
+            atten_mask = expand_attention_mask(atten_mask, src_key_padding_mask, self.num_heads)
             
-        y = self.encoder(x, mask=atten_mask, src_key_padding_mask=src_key_padding_mask)
+        y = self.encoder(x, mask=atten_mask)
         
         # If the input was unsqueezed, squeeze it back to its original shape
         if was_unsqueezed:

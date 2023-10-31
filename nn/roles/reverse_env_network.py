@@ -37,8 +37,8 @@ class RevEnv(nn.Module):
     def forward(self, next_state, action, value, mask=None):
         if not self.use_discrete:
             action = torch.tanh(action)
+        z = self.embedding_layer(next_state, action, value)
         if self.use_transformer_encoder:
-            z = self.embedding_layer(next_state, action, value)
             state = self.net(z, reverse=True, mask=mask)
         else:
             state = self.net(z)
