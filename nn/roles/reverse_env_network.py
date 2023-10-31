@@ -19,9 +19,9 @@ class RevEnv(nn.Module):
         self.hidden_size = network_params.hidden_size
         num_layer = network_params.num_layer
 
-        self.use_transformer_encoder : bool = False 
+        self.use_transformer_encoder: bool = False 
 
-        if type(net) is TransformerEncoder:
+        if net is TransformerEncoder:
             self.use_transformer_encoder = True
         # Comment about joint representation for the actor and reverse-env network:
         # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
@@ -40,5 +40,7 @@ class RevEnv(nn.Module):
         if self.use_transformer_encoder:
             z = self.embedding_layer(next_state, action, value)
             state = self.net(z, reverse=True, mask=mask)
+        else:
+            state = self.net(z)
         state = self.final_layer(state)            
         return state
