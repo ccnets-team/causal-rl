@@ -31,11 +31,12 @@ RL-Tune is a customizable Reinforcement Learning framework designed to offer fle
 
 ```python
 conda create -name crl python=3.9
-conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 pip install mlagents==0.30
 pip install protobuf==3.20
 pip install gymnasium
 pip install jupyter
+pip install transformers==4.34.1
 ```
 # **Installation**
 
