@@ -9,7 +9,8 @@ from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .trainer_utils import compute_gae, get_discounted_rewards, get_end_next_state, get_termination_step
 from utils.structure.trajectory_handler  import BatchTrajectory
-from nn.transformer import TransformerEncoder 
+from nn.transformer import TransformerEncoder, TransformerDecoder
+from nn.gpt import GPT2
 
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
@@ -30,7 +31,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
 
         self.use_sequence_batch = False
         for network_role in networks:
-            if isinstance(network_role.net, TransformerEncoder):
+            if isinstance(network_role.net, TransformerEncoder) or isinstance(network_role.net, TransformerDecoder) or isinstance(network_role.net, GPT2):
                 self.use_sequence_batch = True
                 break  # Optional: If you know there's only one instance of TransformerEncoder, you can exit the loop early
 
