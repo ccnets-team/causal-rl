@@ -31,7 +31,6 @@ class RevEnv(nn.Module):
         self.embedding_layer = JointEmbeddingLayer(env_config.state_size, env_config.action_size, \
             self.value_size, output_size = self.hidden_size, joint_type = "cat")
         
-        self.use_mask = use_transformer
         self.net = net(num_layer, self.hidden_size) if not use_transformer else net(num_layer, self.hidden_size, reverse = True)
         self.final_layer = create_layer(self.hidden_size, env_config.state_size, act_fn = 'none') 
             
@@ -41,6 +40,6 @@ class RevEnv(nn.Module):
         if not self.use_discrete:
             action = torch.tanh(action)
         z = self.embedding_layer(next_state, action, value)
-        state = self.net(z) if (mask is None or not self.use_mask) else self.net(z, mask=mask)
+        state = self.net(z) if mask is None else self.net(z, mask=mask)
         state = self.final_layer(state)            
         return state
