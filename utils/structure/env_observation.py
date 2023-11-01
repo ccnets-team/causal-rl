@@ -1,7 +1,7 @@
 import numpy as np
 import copy
 
-class EnvObservationTrajectory:
+class EnvObservation:
     def __init__(self, obs_shapes, obs_types, num_agents, num_td_steps):
         assert len(obs_shapes) == len(obs_types), "The length of obs_shapes and obs_types must be the same."
         self.obs_shapes = obs_shapes
@@ -39,7 +39,7 @@ class EnvObservationTrajectory:
             new_num_agents = self.num_agents
             agent_indices = slice(None)
 
-        new_observation = EnvObservationTrajectory(self.obs_shapes, self.obs_types, num_agents=new_num_agents, num_td_steps=self.num_td_steps)
+        new_observation = EnvObservation(self.obs_shapes, self.obs_types, num_agents=new_num_agents, num_td_steps=self.num_td_steps)
         for obs_type in self.obs_types:
             new_observation.data[obs_type] = self.data[obs_type][agent_indices, td_idx]
 
@@ -51,17 +51,21 @@ class EnvObservationTrajectory:
     
     def reset(self):
         self.data = self._create_empty_data()
-                
-    def shift(self, term_agents, dec_agents):
+                    
+    def shift(self, term_agents, dec_agents=None):
         """
         Shift the data to the left and handle 'term_agents' and 'dec_agents'.
         :param term_agents: numpy.ndarray, indices of agents that terminated
-        :param dec_agents: numpy.ndarray, indices of agents that made a decision
+        :param dec_agents: numpy.ndarray or None, indices of agents that made a decision; if None, all agents are considered
         """
         assert isinstance(term_agents, np.ndarray), "'term_agents' must be a NumPy ndarray"
-        assert isinstance(dec_agents, np.ndarray), "'dec_agents' must be a NumPy ndarray"
-
+        if dec_agents is not None:
+            assert isinstance(dec_agents, np.ndarray), "'dec_agents' must be a NumPy ndarray or None"
+        
+        all_agents = np.arange(self.num_agents)
+        dec_agents = all_agents if dec_agents is None else dec_agents
         all_agents_to_shift = np.unique(np.concatenate((term_agents, dec_agents)))
+
         self.data = {key: np.roll(value, shift=-1, axis=1) for key, value in self.data.items()}
         self.mask = np.roll(self.mask, shift=-1, axis=1)
         

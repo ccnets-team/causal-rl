@@ -2,8 +2,7 @@ from mlagents_envs.environment import UnityEnvironment, ActionTuple
 from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
 import numpy as np
 from .settings.agent_experience_collector import AgentExperienceCollector
-from utils.structure.env_observations import EnvObservations
-from utils.structure.env_observation_trajectory import EnvObservationTrajectory
+from utils.structure.env_observation import EnvObservation
 
 class MLAgentsEnvWrapper(AgentExperienceCollector):
     def __init__(self, env_config, test_env, use_graphics: bool, worker_id, seed = 0, time_scale = 256):
@@ -27,7 +26,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         num_td_steps = env_config.num_td_steps
 
         self.actions = np.zeros((env_config.num_agents, env_config.action_size), dtype = np.float32)
-        self.observations = EnvObservationTrajectory(self.obs_shapes, self.obs_types, self.num_agents, num_td_steps)
+        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, num_td_steps)
 
         self.agent_ids = np.array([i for i in range(env_config.num_agents)], dtype=int)
         self.agent_life = np.zeros((env_config.num_agents), dtype=bool)

@@ -2,7 +2,7 @@ import gymnasium as gym
 import numpy as np
 from .settings.agent_experience_collector import AgentExperienceCollector
 from environments.settings.gym_rewards import get_ongoing_rewards_from_info, get_final_rewards_from_info, get_final_observations_from_info
-from utils.structure.env_observations import EnvObservations
+from utils.structure.env_observation import EnvObservation
 
 class GymEnvWrapper(AgentExperienceCollector):
     MAX_RANDOM_SEED = 1000  # class constant
@@ -29,8 +29,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.obs_types = env_config.obs_types
 
         self.agents = np.arange(self.num_agents)
-        self.observations = EnvObservations(self.obs_shapes, self.obs_types, self.num_agents)
-        self.next_observations = EnvObservations(self.obs_shapes, self.obs_types, self.num_agents)
+        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, env_config.num_td_steps)
 
         self.agent_dec = np.ones(self.num_agents, dtype=bool)
         self.agent_life = np.zeros(self.num_agents, dtype=bool)
@@ -46,14 +45,13 @@ class GymEnvWrapper(AgentExperienceCollector):
         # We will create a dictionary to store slices of data for each observation type
         sliced_data = {}
         for key in observations.obs_types:
-            shape = observations.data[key].shape[1:]  # Exclude num_agents dimension
+            shape = observations.data[key].shape[2:]  # Exclude num_agents dimension
             end_offset = offset + np.prod(shape)
 
             # Reshape slice to match observation shape
             if self.use_graphics:
                 slice_data = raw_observations[offset:end_offset].reshape((-1, *shape))
                 sliced_data[key] = np.array(slice_data, dtype=np.float32)
-                # sliced_data[key] = np.array([slice_data], dtype=np.float32)
             else:
                 slice_data = raw_observations[:, offset:end_offset].reshape((-1, *shape))
                 sliced_data[key] = np.array(slice_data, dtype=np.float32)
@@ -62,7 +60,7 @@ class GymEnvWrapper(AgentExperienceCollector):
 
         # Assign sliced data to all agents in the observations
         all_agent_indices = list(range(observations.num_agents))
-        observations[all_agent_indices] = sliced_data
+        observations[all_agent_indices, -1] = sliced_data
         
     def reset_env(self):
         self.running_cnt = 0
@@ -105,24 +103,27 @@ class GymEnvWrapper(AgentExperienceCollector):
         immediate_reward = np.where(done, final_immediate_reward, ongoing_immediate_reward)
         future_reward = np.where(done, final_future_reward, ongoing_future_reward)
         next_obs = np.where(done[:, np.newaxis], final_next_observation, ongoing_next_obs)
-        self.convert_observation_spec(next_obs, self.next_observations)
 
         value_diff = future_reward - self.prev_value
         reward = immediate_reward + value_diff
 
-        self.update_agent_data(self.agents, self.observations.to_vector(), action, reward, self.next_observations.to_vector(), done)
+        self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, done)
         self.prev_value = ongoing_future_reward.copy()
+        term_agents = np.where(done)[0]
+        self.observations.shift(term_agents=term_agents)
         self.convert_observation_spec(ongoing_next_obs, self.observations)
 
     def update_for_test(self, done, action, ongoing_next_obs, ongoing_reward):
         next_obs = ongoing_next_obs
         reward = ongoing_reward
-        self.convert_observation_spec(next_obs, self.next_observations)
         if self.use_graphics:
-            self.append_agent_transition(0, self.observations.to_vector(), action, reward, self.next_observations.to_vector(), done)
+            self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, reward, next_obs, done)
         else:
-            self.append_agent_transition(0, self.observations.to_vector()[0], action[0], reward[0], self.next_observations.to_vector()[0], done[0])
-        self.observations = self.next_observations.copy()
+            self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], reward[0], next_obs[0], done[0])
+
+        term_agents = np.where(done)[0]
+        self.observations.shift(term_agents=term_agents)
+        self.convert_observation_spec(next_obs, self.observations)
 
         if done.any():
             self.reset_env()
