@@ -4,7 +4,7 @@ from training.managers.training_manager import TrainingManager
 from training.managers.strategy_manager import StrategyManager 
 from training.managers.utils.advantage_scaler import scale_advantage
 from abc import abstractmethod
-from nn.roles.actor_network import _BaseActor
+from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .trainer_utils import compute_gae, get_discounted_rewards, get_end_next_state, get_termination_step
@@ -172,6 +172,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
         pass
 
     @abstractmethod
-    def get_action(self, state, training):
+    def get_action(self, state, mask = None, training: bool = False):
         pass
     

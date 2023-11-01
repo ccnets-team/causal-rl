@@ -1,6 +1,5 @@
 import numpy as np
 import copy
-from .env_observations import EnvObservations
 
 class EnvObservationTrajectory:
     def __init__(self, obs_shapes, obs_types, num_agents, num_td_steps):
@@ -10,6 +9,7 @@ class EnvObservationTrajectory:
         self.num_agents = num_agents
         self.num_td_steps = num_td_steps
         self.data = self._create_empty_data()
+        self.mask = np.ones((self.num_agents, self.num_td_steps), dtype=np.float32)
 
     def _create_empty_data(self):
         observations = {}
@@ -52,11 +52,29 @@ class EnvObservationTrajectory:
     def reset(self):
         self.data = self._create_empty_data()
                 
-    def shift(self):
-        self.data = {key: np.roll(value, shift=-1, axis=1) for key, value in self.data.items()}  # Shift along the second dimension to the left
-        for key in self.data:
-            self.data[key][:, -1] = 0  # Set the last time dimension to 0
+    def shift(self, term_agents, dec_agents):
+        """
+        Shift the data to the left and handle 'term_agents' and 'dec_agents'.
+        :param term_agents: numpy.ndarray, indices of agents that terminated
+        :param dec_agents: numpy.ndarray, indices of agents that made a decision
+        """
+        assert isinstance(term_agents, np.ndarray), "'term_agents' must be a NumPy ndarray"
+        assert isinstance(dec_agents, np.ndarray), "'dec_agents' must be a NumPy ndarray"
 
+        all_agents_to_shift = np.unique(np.concatenate((term_agents, dec_agents)))
+        self.data = {key: np.roll(value, shift=-1, axis=1) for key, value in self.data.items()}
+        self.mask = np.roll(self.mask, shift=-1, axis=1)
+        
+        # Handle 'term_agents'
+        for agent_idx in term_agents:
+            self.mask[agent_idx, :] = 0  # Mask out all previous data for this agent
+            self.mask[agent_idx, -1] = 1  # The last timestep is the start of a new episode
+
+        # Set the last time dimension to 0 for data of 'dec_agents' (and 'term_agents' since they are a subset)
+        for key in self.data:
+            self.data[key][all_agents_to_shift, -1] = 0
+        self.mask[all_agents_to_shift, -1] = 1
+        
     def to_vector(self):
         """
         Convert the observations to a vector format.

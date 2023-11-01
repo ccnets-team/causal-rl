@@ -25,7 +25,7 @@ class ResMLP(nn.Module):
             *(ResBlock(hidden_dim) for _ in range(num_blocks))
         )
 
-    def forward(self, x):
+    def forward(self, x, mask = None):
         out = self.layers(x)
         return out
     
@@ -41,7 +41,7 @@ class MLP(nn.Module):
         super(MLP, self).__init__()   
         self.deep = self.create_deep_modules([hidden_size] + [int(hidden_size) for i in range(num_layer)])
                 
-    def forward(self, x):
+    def forward(self, x, mask = None):
         x = self.deep(x)
         return x
     

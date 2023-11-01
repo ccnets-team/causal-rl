@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 from training.base_trainer import BaseTrainer
 from utils.structure.trajectory_handler  import BatchTrajectory
-from nn.roles.actor_network import SingleInputActor as QNetwork
+from nn.roles.actor import SingleInputActor as QNetwork
 import copy
 import torch as Tensor
 from utils.structure.metrics_recorder import create_training_metrics
@@ -37,7 +37,7 @@ class DQN(BaseTrainer):
                                    device = device
                                    )
 
-    def get_action(self, state, training: bool):
+    def get_action(self, state, mask = None, training: bool = False):
         """
         Determines the action to be taken based on the current state.
         
@@ -53,10 +53,10 @@ class DQN(BaseTrainer):
         """
         with torch.no_grad():
             if training:
-                epsilon = self.get_exploration_rate() 
-                action = self.q_network.sample_action(state, epsilon)
+                exploration_rate = self.get_exploration_rate() 
+                action = self.q_network.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
-                action = self.q_network.select_action(state)
+                action = self.q_network.select_action(state, mask=mask)
         return action
     
 

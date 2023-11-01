@@ -29,5 +29,5 @@ class SuperNet(nn.Module):
             layers.append(SuperNetBlock(hidden_size, hidden_size))
         self.net = nn.Sequential(*layers)
 
-    def forward(self, x):
+    def forward(self, x, mask = None):
         return self.net(x)

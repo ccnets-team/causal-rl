@@ -9,8 +9,8 @@ import copy
 import torch.nn.functional as F
 from training.base_trainer import BaseTrainer
 from utils.structure.trajectory_handler  import BatchTrajectory
-from nn.roles.critic_network import SingleInputCritic
-from nn.roles.actor_network import SingleInputActor
+from nn.roles.critic import SingleInputCritic
+from nn.roles.actor import SingleInputActor
 from utils.structure.metrics_recorder import create_training_metrics
 
 class A2C(BaseTrainer):
@@ -39,7 +39,7 @@ class A2C(BaseTrainer):
                                   device = device
                                   )
 
-    def get_action(self, state, training):
+    def get_action(self, state, mask = None, training: bool = False):
         """
         Obtains an action for a given state and whether it is in training or evaluation mode.
         
@@ -52,10 +52,10 @@ class A2C(BaseTrainer):
         """
         with torch.no_grad():
             if training:
-                epsilon = self.get_exploration_rate()
-                action = self.actor.sample_action(state, epsilon)
+                exploration_rate = self.get_exploration_rate()
+                action = self.actor.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
-                action = self.actor.select_action(state)
+                action = self.actor.select_action(state, mask=mask)
         return action
 
     def train_model(self, trajectory: BatchTrajectory):

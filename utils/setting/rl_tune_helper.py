@@ -1,6 +1,6 @@
 
 import time
-from environments.generator import EnvGenerator
+from environments.environment_pool import EnvironmentPool
 from utils.init import set_seed
 from utils.printer import print_step, print_metrics, print_scores
 from utils.logger import log_data
@@ -106,11 +106,11 @@ class RLTuneHelper:
 
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
-            self.parent.train_env = EnvGenerator.create_train_environments(self.env_config, self.parent.device)
+            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.parent.device)
 
     def _ensure_test_environment_exists(self):
         if not self.parent.test_env:
-            self.parent.test_env = EnvGenerator.create_test_environments(self.env_config, self.parent.device, self.use_graphics)
+            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.parent.device, self.use_graphics)
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:

@@ -11,7 +11,6 @@ from ..utils.network_init import init_weights, create_layer
 from nn.utils.noise_adder import EpsilonGreedy, OrnsteinUhlenbeck, BoltzmannExploration
 
 from ..utils.joint_embedding_layer import JointEmbeddingLayer
-from nn.transformer import TransformerEncoder, TransformerDecoder   
 
 log_std_min = -20
 log_std_max = 2
@@ -64,8 +63,8 @@ class _BaseActor(nn.Module):
         if self.noise_type == "ou" and reset is not None:
             return self.noise_strategy.reset(reset)
 
-    def _compute_forward_pass(self, z):
-        y = self.net(z) 
+    def _compute_forward_pass(self, z, mask = None):
+        y = self.net(z, mask = mask) 
         mean, log_std = self.mean_layer(y), self.log_std_layer(y)
         log_std = torch.clamp(log_std, log_std_min, log_std_max)
         std = log_std.exp()
@@ -218,33 +217,33 @@ class SingleInputActor(_BaseActor):
         self.embedding_layer = create_layer(state_size, self.hidden_size, act_fn="tanh")
         self.apply(init_weights)
 
-    def forward(self, state):
+    def forward(self, state, mask = None):
         z = self.embedding_layer(state)
-        mean, std = self._compute_forward_pass(z)
+        mean, std = self._compute_forward_pass(z, mask)
         return mean, std
 
-    def predict_action(self, state):
-        mean, _ = self.forward(state)
+    def predict_action(self, state, mask = None):
+        mean, _ = self.forward(state, mask)
         action = self._predict_action(mean)
         return action
 
-    def sample_action(self, state, exploration_rate = None):
-        mean, std = self.forward(state)
+    def sample_action(self, state, mask = None, exploration_rate = None):
+        mean, std = self.forward(state, mask)
         action = self._sample_action(mean, std, exploration_rate)
         return action
 
-    def select_action(self, state):
-        mean, _ = self.forward(state)
+    def select_action(self, state, mask = None):
+        mean, _ = self.forward(state, mask)
         action = self._select_action(mean)
         return action
 
-    def evaluate_action(self, state):
-        mean, std = self.forward(state)
+    def evaluate_action(self, state, mask = None):
+        mean, std = self.forward(state, mask)
         action, log_prob = self._evaluate_action(mean, std)
         return action, log_prob
 
-    def log_prob(self, state, action):
-        mean, std = self.forward(state)
+    def log_prob(self, state, action, mask = None):
+        mean, std = self.forward(state, mask)
         log_prob = self._log_prob(mean, std, action)
         return log_prob
 
@@ -262,22 +261,22 @@ class DualInputActor(_BaseActor):
         # However, when the reward scale is too high, addition (add) seems more robust.
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
 
-    def forward(self, state, value):
+    def forward(self, state, value, mask = None):
         z = self.embedding_layer(state, value)
-        mean, std = self._compute_forward_pass(z)
+        mean, std = self._compute_forward_pass(z, mask)
         return mean, std
 
-    def predict_action(self, state, value):
-        mean, _ = self.forward(state, value)
+    def predict_action(self, state, value, mask = None):
+        mean, _ = self.forward(state, value, mask)
         action = self._predict_action(mean)
         return action
 
-    def sample_action(self, state, value, exploration_rate = None):
-        mean, std = self.forward(state, value)
+    def sample_action(self, state, value, mask = None, exploration_rate = None):
+        mean, std = self.forward(state, value, mask)
         action = self._sample_action(mean, std, exploration_rate)
         return action
     
-    def select_action(self, state, value):
-        mean, _ = self.forward(state, value)
+    def select_action(self, state, value, mask = None):
+        mean, _ = self.forward(state, value, mask)
         action = self._select_action(mean)
         return action

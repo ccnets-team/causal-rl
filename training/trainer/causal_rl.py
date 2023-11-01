@@ -10,9 +10,9 @@
 import torch
 import copy
 from training.base_trainer import BaseTrainer
-from nn.roles.critic_network import SingleInputCritic
-from nn.roles.actor_network import DualInputActor
-from nn.roles.reverse_env_network import RevEnv
+from nn.roles.critic import SingleInputCritic
+from nn.roles.actor import DualInputActor
+from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectory_handler  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from training.trainer_utils import create_mask_from_dones, masked_mean
@@ -41,14 +41,14 @@ class CausalRL(BaseTrainer):
 
     # This function uses the critic to estimate the value of a state, and then uses the actor to determine the action to take.
     # If in training mode, it samples an action based on exploration rate. Otherwise, it simply selects the most likely action.        
-    def get_action(self, state, training):
+    def get_action(self, state, mask = None, training: bool = False):
         exploration_rate = self.get_exploration_rate()
         with torch.no_grad():
             estimated_value = self.critic(state)
             if training:
-                action = self.actor.sample_action(state, estimated_value, exploration_rate)
+                action = self.actor.sample_action(state, estimated_value, mask=mask, exploration_rate=exploration_rate)
             else:
-                action = self.actor.select_action(state, estimated_value)
+                action = self.actor.select_action(state, estimated_value, mask)
         return action
 
     # This is the core training method of our Causal RL approach.

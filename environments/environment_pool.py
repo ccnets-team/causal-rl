@@ -4,9 +4,9 @@ from .gym_wrapper import GymEnvWrapper
 from utils.structure.trajectory_handler  import MultiEnvTrajectories
 import torch
 
-class EnvGenerator: 
+class EnvironmentPool: 
     def __init__(self, env_config, device, test_env, use_graphics):
-        super(EnvGenerator, self).__init__()
+        super(EnvironmentPool, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
         w_id = 0 if test_env else 1
@@ -45,13 +45,15 @@ class EnvGenerator:
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
+        np_mask = np.concatenate([env.observations.mask for env in self.env_list], axis=0)
         np_reset = np.concatenate([env.agent_reset for env in self.env_list], axis=0)
 
         state_tensor = torch.from_numpy(np_state).to(self.device)
+        mask_tensor = torch.from_numpy(np_mask).to(self.device)
         reset_tensor = torch.from_numpy(np_reset).to(self.device)
 
         state_tensor = trainer.normalize_state(state_tensor)
-        action_tensor = trainer.get_action(state_tensor, training=training)
+        action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
 
         if training:
             trainer.reset_actor_noise(reset_noise=reset_tensor)
@@ -71,9 +73,9 @@ class EnvGenerator:
 
     @staticmethod
     def create_train_environments(env_config, device):
-        return EnvGenerator(env_config, device, test_env=False, use_graphics = False)
+        return EnvironmentPool(env_config, device, test_env=False, use_graphics = False)
     
     @staticmethod
     def create_test_environments(env_config, device, use_graphics):
-        return EnvGenerator(env_config, device, test_env=True, use_graphics = use_graphics)
+        return EnvironmentPool(env_config, device, test_env=True, use_graphics = use_graphics)
 

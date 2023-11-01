@@ -53,7 +53,6 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         agent_ids = self.agent_ids[self.agent_life]
         states = self.observations[self.agent_life, -1].to_vector()
         
-        # states = self.observations[self.agent_life].to_vector()
         actions = self.actions[self.agent_life]
         self.agent_dec.fill(False)
         return agent_ids, states, actions
@@ -79,7 +78,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         self.update_agent_life(term_agents, dec_agents)
 
         # Shift the trajectory data to make room for the new observations
-        self.observations.shift()
+        self.observations.shift(term_agents, dec_agents)
                 
         # Update observations with new data
         self.observations[dec_agents, -1] = dec_next_obs  # Update only the most recent time step

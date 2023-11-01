@@ -40,6 +40,6 @@ class RevEnv(nn.Module):
         if not self.use_discrete:
             action = torch.tanh(action)
         z = self.embedding_layer(next_state, action, value)
-        state = self.net(z) if mask is None else self.net(z, mask=mask)
+        state = self.net(z, mask=mask)
         state = self.final_layer(state)            
         return state

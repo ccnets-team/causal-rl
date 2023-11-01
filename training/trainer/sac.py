@@ -9,9 +9,9 @@ import torch.nn.functional as F
 import copy
 from utils.structure.trajectory_handler  import BatchTrajectory
 from training.base_trainer import BaseTrainer
-from nn.roles.critic_network import DualInputCritic as Critic
-from nn.roles.actor_network import SingleInputActor as PolicyNetwork
-from nn.roles.critic_network import SingleInputCritic as ValueNetwork
+from nn.roles.critic import DualInputCritic as Critic
+from nn.roles.actor import SingleInputActor as PolicyNetwork
+from nn.roles.critic import SingleInputCritic as ValueNetwork
 from utils.structure.metrics_recorder import create_training_metrics
 
 class SAC(BaseTrainer):
@@ -45,7 +45,7 @@ class SAC(BaseTrainer):
         self.alpha = self.log_alpha.exp().item()
         self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=optimization_params.lr)        
 
-    def get_action(self, state, training):
+    def get_action(self, state, mask = None, training: bool = False):
         """
         Given a state, selects an action using the policy network.
         
@@ -58,7 +58,7 @@ class SAC(BaseTrainer):
         """
         with torch.no_grad():
             actor = self.policy  # Simplifying by using the policy directly
-            action = actor.select_action(state)
+            action = actor.select_action(state, mask=mask)
         return action
     
     def update_value_network(self, state, next_state):

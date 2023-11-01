@@ -1,4 +1,4 @@
-from training.trainer.crl import CausalRL
+from training.trainer.causal_rl import CausalRL
 from training.trainer.ddpg import DDPG
 from training.trainer.sac import SAC
 from training.trainer.a2c import A2C
