@@ -64,9 +64,11 @@ class EnvGenerator:
         for env in self.env_list:
             end_idx = start_idx + len(env.agent_dec)
             valid_action = np_action[start_idx:end_idx][env.agent_dec]
+            if len(valid_action.shape) > 2:
+                valid_action = valid_action[:,-1,:]
             env.update(valid_action)
             start_idx = end_idx
-    
+
     @staticmethod
     def create_train_environments(env_config, device):
         return EnvGenerator(env_config, device, test_env=False, use_graphics = False)
