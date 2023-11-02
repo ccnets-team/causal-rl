@@ -26,9 +26,9 @@ class DQN(BaseTrainer):
         trainer_name = "dqn"
         self.network_names = ["q_network"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        policy_network = network_params.policy_network
+        neural_network = network_params.neural_network
 
-        self.q_network = QNetwork(policy_network, env_config, network_params, exploration_params).to(device)
+        self.q_network = QNetwork(neural_network, env_config, network_params, exploration_params).to(device)
         self.target_q_network = copy.deepcopy(self.q_network)
         
         super(DQN, self).__init__(trainer_name, env_config, rl_params, \

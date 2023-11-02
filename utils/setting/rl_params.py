@@ -1,6 +1,4 @@
 import numpy as np
-from nn.super_net import SuperNet
-from nn.transformer import TransformerEncoder, TransformerDecoder
 from nn.gpt import GPT2
 
 DEFAULT_TRAINING_START_STEP = 1000
@@ -17,18 +15,16 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, discount_factor=0.99, num_td_steps=1, use_gae_advantage = False):
+    def __init__(self, discount_factor=0.99, num_td_steps=10, use_gae_advantage = False):
         self.discount_factor = discount_factor
         self.num_td_steps = num_td_steps
         self.use_gae_advantage = use_gae_advantage
             
 class NetworkParameters:
-    def __init__(self,  num_layer=4, hidden_size=128, value_network = GPT2, policy_network = GPT2, reverse_env_network = GPT2):
+    def __init__(self,  num_layer=4, hidden_size=128, neural_network = GPT2):
         self.num_layer = num_layer
         self.hidden_size = hidden_size
-        self.value_network = value_network
-        self.policy_network = policy_network
-        self.reverse_env_network = reverse_env_network
+        self.neural_network = neural_network
 
 class OptimizationParameters:
     def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=32, lr=3e-4, tau=5e-3):
@@ -55,12 +51,11 @@ class MemoryParameters:
         self.buffer_size = int(buffer_size)
         
 class NormalizationParameters:
-    def __init__(self, reward_scale=1, reward_shift=0, state_normalizer='running_z_standardizer', reward_normalizer='none', advantage_scaler='none'):
+    def __init__(self, reward_scale=1, reward_shift=0, state_normalizer='running_z_standardizer', reward_normalizer='none'):
         self.reward_scale = reward_scale
         self.reward_shift = reward_shift
         self.state_normalizer = state_normalizer
         self.reward_normalizer = reward_normalizer
-        self.advantage_scaler = advantage_scaler
 
 class RLParameters:
     def __init__(self,

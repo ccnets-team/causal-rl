@@ -25,12 +25,11 @@ class SAC(BaseTrainer):
         - device: Device to which model will be allocated.
         """
         network_params, exploration_params, optimization_params = rl_params.network, rl_params.exploration, rl_params.optimization
-        value_network = network_params.value_network
-        policy_network = network_params.policy_network
-        self.critic1 = Critic(value_network, env_config, network_params).to(device)
-        self.critic2 = Critic(value_network, env_config, network_params).to(device)
-        self.value = ValueNetwork(value_network, env_config, network_params).to(device)
-        self.policy = PolicyNetwork(policy_network, env_config, network_params, exploration_params).to(device)
+        neural_network = network_params.neural_network
+        self.critic1 = Critic(neural_network, env_config, network_params).to(device)
+        self.critic2 = Critic(neural_network, env_config, network_params).to(device)
+        self.value = ValueNetwork(neural_network, env_config, network_params).to(device)
+        self.policy = PolicyNetwork(neural_network, env_config, network_params, exploration_params).to(device)
         
         self.target_critic1 = copy.deepcopy(self.critic1)
         self.target_critic2 = copy.deepcopy(self.critic2)
@@ -61,7 +60,7 @@ class SAC(BaseTrainer):
             action = actor.select_action(state, mask=mask)
         return action
     
-    def update_value_network(self, state, next_state):
+    def update_model_network(self, state, next_state):
         """
         Updates the value network based on the given state and the next_state.
         
@@ -110,7 +109,7 @@ class SAC(BaseTrainer):
 
         return qf_loss
 
-    def update_policy_network(self, state):
+    def update_model_network(self, state):
         """
         Updates the policy network based on the given state.
         
@@ -161,7 +160,7 @@ class SAC(BaseTrainer):
         state, action, reward, next_state, done = self.select_first_transitions(states, actions, rewards, next_states, dones)
 
         # ------------ Value Network Update ------------
-        value_loss = self.update_value_network(state, next_state)
+        value_loss = self.update_model_network(state, next_state)
 
         value_optimizer.zero_grad()
         value_loss.backward()
@@ -178,7 +177,7 @@ class SAC(BaseTrainer):
         critic2_optimizer.step()
 
         # ------------ Policy Network Update ------------
-        policy_loss, log_pi = self.update_policy_network(state)
+        policy_loss, log_pi = self.update_model_network(state)
         
         policy_optimizer.zero_grad()
         policy_loss.backward()

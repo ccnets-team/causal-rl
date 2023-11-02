@@ -2,14 +2,12 @@ import torch
 from torch.functional import F
 from training.managers.training_manager import TrainingManager 
 from training.managers.strategy_manager import StrategyManager 
-from training.managers.utils.advantage_scaler import scale_advantage
 from abc import abstractmethod
 from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .trainer_utils import compute_gae, get_discounted_rewards, get_end_next_state, get_termination_step
 from utils.structure.trajectory_handler  import BatchTrajectory
-from nn.transformer import TransformerEncoder, TransformerDecoder
 from nn.gpt import GPT2
 
 class BaseTrainer(TrainingManager, StrategyManager):
@@ -25,13 +23,12 @@ class BaseTrainer(TrainingManager, StrategyManager):
         self.discount_factor = algorithm_params.discount_factor
         self.batch_size = training_params.batch_size
         self.reward_scale = normalization_params.reward_scale
-        self.advantage_scaler = normalization_params.advantage_scaler
         
         self.use_gae_advantage = algorithm_params.use_gae_advantage
 
         self.use_sequence_batch = False
         for network_role in networks:
-            if isinstance(network_role.net, TransformerEncoder) or isinstance(network_role.net, TransformerDecoder) or isinstance(network_role.net, GPT2):
+            if isinstance(network_role.net, GPT2):
                 self.use_sequence_batch = True
                 break  # Optional: If you know there's only one instance of TransformerEncoder, you can exit the loop early
 
@@ -45,7 +42,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
     def calculate_advantage(self, estimated_value, expected_value):
         with torch.no_grad():
             advantage = (expected_value - estimated_value)
-            advantage = scale_advantage(advantage, self.advantage_scaler)
         return advantage
 
     def calculate_value_loss(self, estimated_value, expected_value, mask=None):

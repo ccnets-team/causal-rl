@@ -24,13 +24,11 @@ class CausalRL(BaseTrainer):
         trainer_name = "crl"
         self.network_names = ["critic", "actor", "rev_env"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        value_network = network_params.value_network
-        policy_network = network_params.policy_network
-        reverse_env_network = network_params.reverse_env_network
+        neural_network = network_params.neural_network
         
-        self.critic = SingleInputCritic(value_network, env_config, network_params).to(device)
-        self.actor = DualInputActor(policy_network, env_config, network_params, exploration_params).to(device)
-        self.revEnv = RevEnv(reverse_env_network, env_config, network_params).to(device)
+        self.critic = SingleInputCritic(neural_network, env_config, network_params).to(device)
+        self.actor = DualInputActor(neural_network, env_config, network_params, exploration_params).to(device)
+        self.revEnv = RevEnv(neural_network, env_config, network_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 
@@ -67,10 +65,10 @@ class CausalRL(BaseTrainer):
         mask = create_mask_from_dones(dones)
 
         # Get the estimated value of the current state from the critic network.
-        estimated_value = self.critic(states)
+        estimated_value = self.critic(states, mask)
             
         # Predict the action that the actor would take for the current state and its estimated value.
-        inferred_action = self.actor.predict_action(states, estimated_value)
+        inferred_action = self.actor.predict_action(states, estimated_value, mask)
         
         # Calculate the reversed state using the original action.
         reversed_state = self.revEnv(next_states, actions, estimated_value, mask)

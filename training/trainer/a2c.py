@@ -26,11 +26,10 @@ class A2C(BaseTrainer):
         trainer_name = "a2c"
         self.network_names = ["critic", "actor"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        value_network = network_params.value_network
-        policy_network = network_params.policy_network
+        neural_network = network_params.neural_network
         
-        self.critic = SingleInputCritic(value_network, env_config, network_params).to(device)
-        self.actor = SingleInputActor(policy_network, env_config, network_params, exploration_params).to(device)
+        self.critic = SingleInputCritic(neural_network, env_config, network_params).to(device)
+        self.actor = SingleInputActor(neural_network, env_config, network_params, exploration_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(A2C, self).__init__(trainer_name, env_config, rl_params, 

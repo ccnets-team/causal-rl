@@ -8,7 +8,6 @@ from ..utils.network_init import init_weights, create_layer
 import torch
 
 from ..utils.joint_embedding_layer import JointEmbeddingLayer
-from nn.transformer import TransformerEncoder, TransformerDecoder   
 
 class BaseCritic(nn.Module):
     def __init__(self, net, env_config, network_params):

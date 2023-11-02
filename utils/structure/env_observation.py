@@ -9,19 +9,13 @@ class EnvObservation:
         self.num_agents = num_agents
         self.num_td_steps = num_td_steps
         self.data = self._create_empty_data()
-        self.mask = np.ones((self.num_agents, self.num_td_steps), dtype=np.float32)
+        self.mask = np.zeros((self.num_agents, self.num_td_steps), dtype=np.float32)
 
     def _create_empty_data(self):
         observations = {}
         for obs_type, shape in zip(self.obs_types, self.obs_shapes):
             observations[obs_type] = np.zeros((self.num_agents, self.num_td_steps, *shape), dtype=np.float32)
         return observations
-
-    def copy(self):
-        new_instance = self.__class__(self.obs_shapes, self.obs_types, self.num_agents, self.num_td_steps)
-        for obs_type in self.obs_types:
-            new_instance.data[obs_type] = copy.copy(self.data[obs_type])
-        return new_instance
 
     def __getitem__(self, key):
         if isinstance(key, tuple):
