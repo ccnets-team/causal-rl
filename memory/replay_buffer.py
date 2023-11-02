@@ -90,12 +90,9 @@ class ExperienceMemory:
 
         return samples
     
-    def get_random_td_steps(self):
-        return random.randint(1, self.num_td_steps)
-    
     def sample_agent_transition(self):
         batch_size = self.batch_size
-        td_steps = self.get_random_td_steps()
+        td_steps = self.num_td_steps
         samples = self.get_agent_samples(batch_size, td_steps) 
         states      = np.stack([b[0] for b in samples], axis=0)
         actions     = np.stack([b[1] for b in samples], axis=0)
