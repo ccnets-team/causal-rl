@@ -51,34 +51,33 @@ class EnvObservation:
     
     def reset(self):
         self.data = self._create_empty_data()
-                    
+                        
     def shift(self, term_agents, dec_agents=None):
         """
-        Shift the data to the left and handle 'term_agents' and 'dec_agents'.
+        Shift the data to the left for 'dec_agents' and handle 'term_agents' by applying mask.
         :param term_agents: numpy.ndarray, indices of agents that terminated
         :param dec_agents: numpy.ndarray or None, indices of agents that made a decision; if None, all agents are considered
         """
         assert isinstance(term_agents, np.ndarray), "'term_agents' must be a NumPy ndarray"
         if dec_agents is not None:
             assert isinstance(dec_agents, np.ndarray), "'dec_agents' must be a NumPy ndarray or None"
-        
+
         all_agents = np.arange(self.num_agents)
         dec_agents = all_agents if dec_agents is None else dec_agents
-        all_agents_to_shift = np.unique(np.concatenate((term_agents, dec_agents)))
 
-        self.data = {key: np.roll(value, shift=-1, axis=1) for key, value in self.data.items()}
-        self.mask = np.roll(self.mask, shift=-1, axis=1)
-        
-        # Handle 'term_agents'
-        for agent_idx in term_agents:
-            self.mask[agent_idx, :] = 0  # Mask out all previous data for this agent
-            self.mask[agent_idx, -1] = 1  # The last timestep is the start of a new episode
-
-        # Set the last time dimension to 0 for data of 'dec_agents' (and 'term_agents' since they are a subset)
+        # Roll data and mask for 'dec_agents'
         for key in self.data:
-            self.data[key][all_agents_to_shift, -1] = 0
-        self.mask[all_agents_to_shift, -1] = 1
-        
+            self.data[key][dec_agents] = np.roll(self.data[key][dec_agents], shift=-1, axis=1)
+        self.mask[dec_agents] = np.roll(self.mask[dec_agents], shift=-1, axis=1)
+
+        # Mask out all previous data for 'term_agents' and indicate the start of a new episode
+        self.mask[term_agents, :] = 0  
+
+        # Set the last time dimension to 0 for data of 'dec_agents' (which might include 'term_agents')
+        for key in self.data:
+            self.data[key][dec_agents, -1] = 0
+        self.mask[dec_agents, -1] = 1
+
     def to_vector(self):
         """
         Convert the observations to a vector format.
