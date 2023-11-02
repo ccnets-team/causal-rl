@@ -64,7 +64,7 @@ class EnvObservation:
     
     def reset(self):
         self.data = self._create_empty_data()
-                        
+                            
     def shift(self, term_agents, dec_agents=None):
         """
         Shift the data to the left for 'dec_agents' and handle 'term_agents' by applying mask.
@@ -72,8 +72,19 @@ class EnvObservation:
         :param dec_agents: numpy.ndarray or None, indices of agents that made a decision; if None, all agents are considered
         """
         assert isinstance(term_agents, np.ndarray), "'term_agents' must be a NumPy ndarray"
+        
+        # Ensure term_agents has only one dimension greater than 1
+        dims_greater_than_one = np.sum(np.array(term_agents.shape) > 1)
+        assert dims_greater_than_one <= 1, "Only one dimension in 'term_agents' can be greater than 1"
+        term_agents = term_agents.ravel()
+        
         if dec_agents is not None:
             assert isinstance(dec_agents, np.ndarray), "'dec_agents' must be a NumPy ndarray or None"
+            
+            # Ensure dec_agents has only one dimension greater than 1
+            dims_greater_than_one = np.sum(np.array(dec_agents.shape) > 1)
+            assert dims_greater_than_one <= 1, "Only one dimension in 'dec_agents' can be greater than 1"
+            dec_agents = dec_agents.ravel()
 
         all_agents = np.arange(self.num_agents)
         dec_agents = all_agents if dec_agents is None else dec_agents
@@ -83,13 +94,15 @@ class EnvObservation:
             self.data[key][dec_agents] = np.roll(self.data[key][dec_agents], shift=-1, axis=1)
         self.mask[dec_agents] = np.roll(self.mask[dec_agents], shift=-1, axis=1)
 
-        # Mask out all previous data for 'term_agents' and indicate the start of a new episode
-        self.mask[term_agents, :] = 0  
+        if term_agents.size > 0:
+            # Mask out all previous data for 'term_agents' and indicate the start of a new episode
+            self.mask[term_agents, :] = 0  
 
-        # Set the last time dimension to 0 for data of 'dec_agents' (which might include 'term_agents')
-        for key in self.data:
-            self.data[key][dec_agents, -1] = 0
-        self.mask[dec_agents, -1] = 1
+            # Set the last time dimension to 0 for data of 'term_agents'
+            for key in self.data:
+                self.data[key][term_agents, -1] = 0
+            self.mask[term_agents, -1] = 1
+
 
     def to_vector(self):
         """

@@ -15,7 +15,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
         training_params, algorithm_params, network_params, \
             optimization_params, exploration_params, memory_params, normalization_params = rl_parmas
         TrainingManager.__init__(self, optimization_params, networks, target_networks)
-        StrategyManager.__init__(self, env_config, algorithm_params, exploration_params, normalization_params, device)
+        StrategyManager.__init__(self, env_config, exploration_params, normalization_params, device)
         
         self.env_config: EnvConfig = env_config
         

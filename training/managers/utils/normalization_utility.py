@@ -36,11 +36,9 @@ class NormalizerBase:
         return data
     
 class NormalizationUtils:
-    def __init__(self, env_config, algorithm, normalization, device):
+    def __init__(self, env_config, normalization, device):
         self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization, device=device)
-        self.reward_manager = NormalizerBase(algorithm.num_td_steps, 'reward_normalizer', normalization, device=device)
         self.reward_scale = normalization.reward_scale
-        self.reward_shift = normalization.reward_shift
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
@@ -51,13 +49,10 @@ class NormalizationUtils:
         return self.state_manager.normalize_data(state)
 
     def transform_reward(self, reward):
-        return reward*self.reward_scale + self.reward_shift
+        return reward*self.reward_scale
     
     def get_state_normalizer(self):
         return self.state_manager.normalizer
-        
-    def get_reward_normalizer(self):
-        return self.reward_manager.normalizer
 
     def transform_transition(self, trans: BatchTrajectory):
         trans.state = self.normalize_state(trans.state)

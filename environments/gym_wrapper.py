@@ -59,13 +59,13 @@ class GymEnvWrapper(AgentExperienceCollector):
             offset = end_offset
 
         # Assign sliced data to all agents in the observations
-        all_agent_indices = list(range(observations.num_agents))
-        observations[all_agent_indices, -1] = sliced_data
+        observations[:, -1] = sliced_data
         
     def reset_env(self):
         self.running_cnt = 0
         random_num = np.random.randint(0, self.MAX_RANDOM_SEED)
         obs, _ = self.env.reset(seed=random_num)
+        self.observations.reset()
         self.convert_observation_spec(obs, self.observations)
 
     def step_environment(self):
