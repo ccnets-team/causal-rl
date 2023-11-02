@@ -3,6 +3,7 @@ from .mlagents_wrapper import MLAgentsEnvWrapper
 from .gym_wrapper import GymEnvWrapper
 from utils.structure.trajectory_handler  import MultiEnvTrajectories
 import torch
+import random
 
 class EnvironmentPool: 
     def __init__(self, env_config, device, test_env, use_graphics):
@@ -12,6 +13,7 @@ class EnvironmentPool:
         w_id = 0 if test_env else 1
         w_id += 100
         self.device = device
+        self.num_td_steps = env_config.num_td_steps
 
         if env_config.env_type == "gym":
             self.env_list = [GymEnvWrapper(env_config, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
@@ -41,7 +43,10 @@ class EnvironmentPool:
     def step_env(self):
         for env in self.env_list:
             env.step_environment()
-
+    
+    def get_random_td_steps(self):
+        return random.randint(1, self.num_td_steps)
+    
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
@@ -50,8 +55,15 @@ class EnvironmentPool:
 
         state_tensor = torch.from_numpy(np_state).to(self.device)
         mask_tensor = torch.from_numpy(np_mask).to(self.device)
+        if training:
+            # Randomly sample a number between 1 and num_td_steps
+            random_td_steps = self.get_random_td_steps()
+            
+            # Use only the later parts of state_tensor and mask_tensor
+            state_tensor = state_tensor[:, -random_td_steps:]
+            mask_tensor = mask_tensor[:, -random_td_steps:]        
+        
         reset_tensor = torch.from_numpy(np_reset).to(self.device)
-
         state_tensor = trainer.normalize_state(state_tensor)
         action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
 
