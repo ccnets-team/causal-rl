@@ -60,8 +60,8 @@ class EnvironmentPool:
             random_td_steps = self.get_random_td_steps()
             
             # Use only the later parts of state_tensor and mask_tensor
-            state_tensor = state_tensor[:, -random_td_steps:]
-            mask_tensor = mask_tensor[:, -random_td_steps:]        
+            state_tensor = state_tensor[:, 1-random_td_steps:]
+            mask_tensor = mask_tensor[:, 1-random_td_steps:]  
         
         reset_tensor = torch.from_numpy(np_reset).to(self.device)
         state_tensor = trainer.normalize_state(state_tensor)
