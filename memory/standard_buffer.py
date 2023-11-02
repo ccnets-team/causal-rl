@@ -17,11 +17,11 @@ class StandardBuffer(BaseBuffer):
         if self.size < self.capacity:
             self.size += 1
             
-    def sample(self, sample_size):
+    def sample(self, sample_size, td_steps):
         valid_indices = self.get_trajectory_indicies()
         
         indices = random.sample(valid_indices, sample_size)        
-        samples = self.get_trajectories(indices, self.num_td_steps)
+        samples = self.get_trajectories(indices, td_steps)
         assert(len(samples) == sample_size)
         return samples
             

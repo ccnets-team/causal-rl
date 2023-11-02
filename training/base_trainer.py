@@ -129,7 +129,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
         based on the described mechanism.
         """
         batch_size, seq_len, _ = rewards.shape
-        discount_factors = self._expand_discount_factors(batch_size)
+        discount_factors = self._expand_discount_factors(batch_size, seq_len)
         discounted_rewards = get_discounted_rewards(rewards, discount_factors)
         
         done, end_step = get_termination_step(dones)
@@ -144,13 +144,13 @@ class BaseTrainer(TrainingManager, StrategyManager):
         
         return expected_value
 
-    def _expand_discount_factors(self, batch_size):
-        discount_factors = (self.discount_factor ** torch.arange(self.num_td_steps).float()).to(self.device)
+    def _expand_discount_factors(self, batch_size, seq_len):
+        discount_factors = (self.discount_factor ** torch.arange(seq_len).float()).to(self.device)
         return discount_factors.unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, 1)
 
     def _calculate_future_values_discounted(self, batch_size, seq_len, done, future_value):
         gamma = self.get_discount_factor()
-        flip_discount_factors = gamma * self._expand_discount_factors(batch_size).flip(dims=[1])
+        flip_discount_factors = gamma * self._expand_discount_factors(batch_size, seq_len).flip(dims=[1])
         return flip_discount_factors * ((1 - done) * future_value).unsqueeze(dim=1).expand(-1, seq_len, -1)
 
     def _calculate_first_sequence_expected_value(self, discounted_rewards, done, end_step, future_value):

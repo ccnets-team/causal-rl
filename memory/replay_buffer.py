@@ -25,7 +25,7 @@ class ExperienceMemory:
         
         state_size, action_size = env_config.state_size, env_config.action_size 
         self.batch_size = training_params.batch_size 
-        
+        self.num_td_steps = num_td_steps
         self.buffer_type  = memory_params.buffer_type
         self.multi_buffers = initialize_buffers(self.buffer_type, self.num_environments, self.num_agents, self.capacity_per_agent, state_size, action_size, num_td_steps)
 
@@ -35,8 +35,8 @@ class ExperienceMemory:
     def reset_buffers(self):
         return [buf._reset() for env in self.multi_buffers for buf in env]
 
-    def sample_from_buffer(self, env_id, agent_id, sample_size):
-        return self.multi_buffers[env_id][agent_id].sample(sample_size)
+    def sample_from_buffer(self, env_id, agent_id, sample_size, td_steps):
+        return self.multi_buffers[env_id][agent_id].sample(sample_size, td_steps)
 
     def push_env_trajectories(self, multi_env_trajectories: MultiEnvTrajectories):
         tr = multi_env_trajectories
@@ -52,7 +52,7 @@ class ExperienceMemory:
         for env_id, agent_id, state, action, reward, next_state, done, td_error in attributes:
             self.multi_buffers[env_id][agent_id].add(state, action, reward, next_state, done, td_error)
 
-    def get_agent_samples(self, sample_size = None):
+    def get_agent_samples(self, sample_size = None, td_steps = 1):
         if sample_size is None:
             sample_size = self.batch_size
         # Step 1: Compute cumulative sizes
@@ -79,20 +79,24 @@ class ExperienceMemory:
 
         # Step 4: Fetch the experiences using sample_from_buffer
         samples = []
-        for buffer_id, n_samples in buffer_sample_counts.items():
+        for buffer_id, sample_size in buffer_sample_counts.items():
             # Map buffer_id back to env_id and agent_id
             env_id = buffer_id // self.num_agents
             agent_id = buffer_id % self.num_agents
 
             # Fetch the experience
-            batch = self.sample_from_buffer(env_id, agent_id, n_samples)
+            batch = self.sample_from_buffer(env_id, agent_id, sample_size, td_steps)
             samples.extend(batch)
 
         return samples
     
+    def random_td_steps(self):
+        return random.randint(1, self.num_td_steps)
+    
     def sample_agent_transition(self):
         batch_size = self.batch_size
-        samples = self.get_agent_samples(batch_size)
+        td_steps = self.random_td_steps()
+        samples = self.get_agent_samples(batch_size, td_steps) 
         states      = np.stack([b[0] for b in samples], axis=0)
         actions     = np.stack([b[1] for b in samples], axis=0)
         rewards     = np.stack([b[2] for b in samples], axis=0)

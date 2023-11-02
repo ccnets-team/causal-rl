@@ -27,19 +27,19 @@ class BaseBuffer:
     def __len__(self):
         return max(self.size - self.num_td_steps + 1, 0)
 
-    def get_trajectories(self, indices, num_td_steps):
+    def get_trajectories(self, indices, td_steps):
         batch_size = len(indices)
         
         # Expand indices for num_td_steps steps and wrap around using modulo operation
-        expanded_indices = np.array([range(i, i + num_td_steps) for i in indices]) % self.capacity
-        expanded_indices = expanded_indices.reshape(batch_size, num_td_steps)
+        expanded_indices = np.array([range(i, i + td_steps) for i in indices]) % self.capacity
+        expanded_indices = expanded_indices.reshape(batch_size, td_steps)
         
         # Fetch the slices
-        states_slices = self.states[expanded_indices].reshape(batch_size, num_td_steps, -1)
-        actions_slices = self.actions[expanded_indices].reshape(batch_size, num_td_steps, -1)
-        rewards_slices = self.rewards[expanded_indices].reshape(batch_size, num_td_steps, -1)
-        next_states_slices = self.next_states[expanded_indices].reshape(batch_size, num_td_steps, -1)
-        dones_slices = self.dones[expanded_indices].reshape(batch_size, num_td_steps, -1)
+        states_slices = self.states[expanded_indices].reshape(batch_size, td_steps, -1)
+        actions_slices = self.actions[expanded_indices].reshape(batch_size, td_steps, -1)
+        rewards_slices = self.rewards[expanded_indices].reshape(batch_size, td_steps, -1)
+        next_states_slices = self.next_states[expanded_indices].reshape(batch_size, td_steps, -1)
+        dones_slices = self.dones[expanded_indices].reshape(batch_size, td_steps, -1)
         
         # Create the done_mask
         cumulative_dones = np.cumsum(dones_slices, axis=1)
