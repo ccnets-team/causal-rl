@@ -37,7 +37,8 @@ class GymEnvWrapper(AgentExperienceCollector):
 
         self.env = gym.make(env_name, render_mode='human') if use_graphics else gym.make_vec(env_name, num_envs=self.num_agents) 
         self.use_graphics = use_graphics
-        self.all_dec_agents = list(range(self.num_agents))
+        all_dec_agents = list(range(self.num_agents))
+        self.all_dec_agents = np.array(all_dec_agents)
         self.reset_env()
 
     def convert_observation_spec(self, raw_observations, observations):
