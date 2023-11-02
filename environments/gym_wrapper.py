@@ -27,7 +27,6 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.seed = seed
         self.obs_shapes = env_config.obs_shapes
         self.obs_types = env_config.obs_types
-
         self.agents = np.arange(self.num_agents)
         self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, env_config.num_td_steps)
 
@@ -38,6 +37,7 @@ class GymEnvWrapper(AgentExperienceCollector):
 
         self.env = gym.make(env_name, render_mode='human') if use_graphics else gym.make_vec(env_name, num_envs=self.num_agents) 
         self.use_graphics = use_graphics
+        self.all_dec_agents = list(range(self.num_agents))
         self.reset_env()
 
     def convert_observation_spec(self, raw_observations, observations):
@@ -110,7 +110,8 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, done)
         self.prev_value = ongoing_future_reward.copy()
         term_agents = np.where(done)[0]
-        self.observations.shift(term_agents=term_agents)
+        dec_agents = self.all_dec_agents
+        self.observations.shift(term_agents, dec_agents)
         self.convert_observation_spec(ongoing_next_obs, self.observations)
 
     def update_for_test(self, done, action, ongoing_next_obs, ongoing_reward):
@@ -122,7 +123,8 @@ class GymEnvWrapper(AgentExperienceCollector):
             self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], reward[0], next_obs[0], done[0])
 
         term_agents = np.where(done)[0]
-        self.observations.shift(term_agents=term_agents)
+        dec_agents = self.all_dec_agents
+        self.observations.shift(term_agents, dec_agents)
         self.convert_observation_spec(next_obs, self.observations)
 
         if done.any():

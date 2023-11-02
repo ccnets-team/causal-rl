@@ -65,7 +65,7 @@ class EnvObservation:
     def reset(self):
         self.data = self._create_empty_data()
                             
-    def shift(self, term_agents, dec_agents=None):
+    def shift(self, term_agents, dec_agents):
         """
         Shift the data to the left for 'dec_agents' and handle 'term_agents' by applying mask.
         :param term_agents: numpy.ndarray, indices of agents that terminated
@@ -85,9 +85,6 @@ class EnvObservation:
             dims_greater_than_one = np.sum(np.array(dec_agents.shape) > 1)
             assert dims_greater_than_one <= 1, "Only one dimension in 'dec_agents' can be greater than 1"
             dec_agents = dec_agents.ravel()
-
-        all_agents = np.arange(self.num_agents)
-        dec_agents = all_agents if dec_agents is None else dec_agents
 
         # Roll data and mask for 'dec_agents'
         for key in self.data:
