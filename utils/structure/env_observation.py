@@ -19,26 +19,45 @@ class EnvObservation:
 
     def __getitem__(self, key):
         if isinstance(key, tuple):
-            agent_indices, td_idx = key
-        else:
+            agent_indices, td_indices = key
+        elif isinstance(key, slice) or isinstance(key, list) or isinstance(key, np.ndarray):
             agent_indices = key
-            td_idx = slice(None)
-
-        if isinstance(agent_indices, int):
-            agent_indices = [agent_indices]
-
-        if isinstance(agent_indices, list):
-            new_num_agents = len(agent_indices)
+            td_indices = None
         else:
-            new_num_agents = self.num_agents
-            agent_indices = slice(None)
+            raise TypeError("Invalid key type. Must be a tuple, slice, list, or numpy array.")
 
-        new_observation = EnvObservation(self.obs_shapes, self.obs_types, num_agents=new_num_agents, num_td_steps=self.num_td_steps)
+        new_agent_indices = None
+        if isinstance(agent_indices, int):
+            new_agent_indices = np.array([agent_indices])
+        elif isinstance(agent_indices, slice):
+            new_agent_indices = np.arange(self.num_agents)[agent_indices]
+        elif isinstance(agent_indices, list) or isinstance(agent_indices, np.ndarray):
+            new_agent_indices = np.array(agent_indices)
+        else:
+            raise TypeError("Invalid type for agent_indices. Must be int, slice, list, or numpy array.")
+
+        new_td_indices = None
+        if td_indices is None:
+            new_td_indices = np.arange(self.num_td_steps)
+        elif isinstance(td_indices, int):
+            new_td_indices = np.array([td_indices])
+        elif isinstance(td_indices, slice):
+            new_td_indices = np.arange(self.num_td_steps)[td_indices]
+        elif isinstance(td_indices, list) or isinstance(td_indices, np.ndarray):
+            new_td_indices = np.array(td_indices)
+        else:
+            raise TypeError("Invalid type for td_indices. Must be int, slice, list, numpy array, or None.")
+
+        new_num_agents = len(new_agent_indices)
+        new_num_td_steps = len(new_td_indices)
+
+        new_observation = EnvObservation(self.obs_shapes, self.obs_types, num_agents=new_num_agents, num_td_steps=new_num_td_steps)
         for obs_type in self.obs_types:
-            new_observation.data[obs_type] = self.data[obs_type][agent_indices, td_idx]
+            new_observation.data[obs_type] = self.data[obs_type][new_agent_indices, new_td_indices]
+        new_observation.mask = self.mask[new_agent_indices, new_td_indices]
 
         return new_observation
-
+    
     def __setitem__(self, agent_indices, values):
         for obs_type in self.obs_types:
             self.data[obs_type][agent_indices] = values[obs_type]
@@ -83,7 +102,7 @@ class EnvObservation:
         for obs_type, shape in zip(self.obs_types, self.obs_shapes):
             # Checking if the shape after num_agents is 1D
             if len(shape) == 1:
-                data = self.data[obs_type][:, :]  # Select the first time step for all agents
+                data = self.data[obs_type]  # Select the first time step for all agents
                 vectors.append(data)
         
         concatenated_data = np.concatenate(vectors, axis=-1)  # Concatenate along the data dimension
