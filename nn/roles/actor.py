@@ -18,7 +18,6 @@ log_std_max = 2
 class _BaseActor(nn.Module):
     def __init__(self, net, env_config, network_params, exploration):
         super(_BaseActor, self).__init__()  # don't forget to call super's init in PyTorch
-        self.use_deterministic_policy = exploration.use_deterministic_policy
         self.use_discrete = env_config.use_discrete
         state_size, action_size = env_config.state_size, env_config.action_size
         num_layer, hidden_size = network_params.num_layer, network_params.hidden_size
@@ -140,26 +139,19 @@ class _BaseActor(nn.Module):
         if self.use_discrete:
             y = mean
             # Get the softmax probabilities from the mean (logits)network_params
-            if self.use_deterministic_policy:
-                y = torch.softmax(y, dim=-1)
-                action = y
-            else:
-                if self.use_noise_before_activation:
-                    y = self.apply_noise(y, exploration_rate)
-                y = torch.softmax(y, dim=-1)
-                if not self.use_noise_before_activation:
-                    y = self.apply_noise(y, exploration_rate)
+            if self.use_noise_before_activation:
+                y = self.apply_noise(y, exploration_rate)
+            y = torch.softmax(y, dim=-1)
+            if not self.use_noise_before_activation:
+                y = self.apply_noise(y, exploration_rate)
 
-                # # Sample an action from the softmax probabilities
-                action_indices = torch.distributions.Categorical(probs=y).sample()
-                action = torch.zeros_like(y).scatter_(-1, action_indices.unsqueeze(-1), 1.0)
+            # # Sample an action from the softmax probabilities
+            action_indices = torch.distributions.Categorical(probs=y).sample()
+            action = torch.zeros_like(y).scatter_(-1, action_indices.unsqueeze(-1), 1.0)
         else:
-            if self.use_deterministic_policy:
-                action = mean
-            else:
-                action = torch.normal(mean, std).to(mean.device)
-                if self.use_noise_before_activation:
-                    action = self.apply_noise(action, exploration_rate)
+            action = torch.normal(mean, std).to(mean.device)
+            if self.use_noise_before_activation:
+                action = self.apply_noise(action, exploration_rate)
         return action
 
     def _sample_action(self, mean, std, exploration_rate=None):
@@ -169,26 +161,19 @@ class _BaseActor(nn.Module):
         if self.use_discrete:
             y = mean
             # Get the softmax probabilities from the mean (logits)
-            if self.use_deterministic_policy:
-                y = torch.softmax(y, dim=-1)
-                action = y
-            else:
-                if self.use_noise_before_activation:
-                    y = self.apply_noise(y, exploration_rate)
-                y = torch.softmax(y, dim=-1)
-                if not self.use_noise_before_activation:
-                    y = self.apply_noise(y, exploration_rate)
+            if self.use_noise_before_activation:
+                y = self.apply_noise(y, exploration_rate)
+            y = torch.softmax(y, dim=-1)
+            if not self.use_noise_before_activation:
+                y = self.apply_noise(y, exploration_rate)
 
-                # # Sample an action from the softmax probabilities
-                action_indices = torch.distributions.Categorical(probs=y).sample()
-                action = torch.zeros_like(y).scatter_(-1, action_indices.unsqueeze(-1), 1.0)
+            # # Sample an action from the softmax probabilities
+            action_indices = torch.distributions.Categorical(probs=y).sample()
+            action = torch.zeros_like(y).scatter_(-1, action_indices.unsqueeze(-1), 1.0)
         else:
-            if self.use_deterministic_policy:
-                action = mean
-            else:
-                action = torch.normal(mean, std).to(mean.device)
-                if self.use_noise_before_activation:
-                    action = self.apply_noise(action, exploration_rate)
+            action = torch.normal(mean, std).to(mean.device)
+            if self.use_noise_before_activation:
+                action = self.apply_noise(action, exploration_rate)
         return action
 
     def _select_action(self, mean):

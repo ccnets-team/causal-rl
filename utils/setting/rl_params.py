@@ -36,14 +36,13 @@ class OptimizationParameters:
 
 class ExplorationParameters:
     def __init__(self, noise_type = None, initial_exploration = 1.0, min_exploration = 0.01, decay_percentage = 0.8, decay_mode = 'linear', \
-        max_steps=1000000, use_deterministic_policy = False):
+        max_steps=1000000):
         self.noise_type = noise_type
         self.initial_exploration = initial_exploration
         self.min_exploration = min_exploration
         self.decay_percentage = decay_percentage
         self.decay_mode = decay_mode
         self.max_steps = max_steps
-        self.use_deterministic_policy = use_deterministic_policy
 
 class MemoryParameters:
     def __init__(self, buffer_type = 'standard', buffer_size = 1000000):
