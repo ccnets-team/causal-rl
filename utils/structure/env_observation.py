@@ -1,5 +1,4 @@
 import numpy as np
-import copy
 
 class EnvObservation:
     def __init__(self, obs_shapes, obs_types, num_agents, num_td_steps):

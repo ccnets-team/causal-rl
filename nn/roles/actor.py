@@ -16,40 +16,42 @@ log_std_min = -20
 log_std_max = 2
 
 class _BaseActor(nn.Module):
-    def __init__(self, net, env_config, network_params, exploration):
-        super(_BaseActor, self).__init__()  # don't forget to call super's init in PyTorch
+    def __init__(self, net, env_config, network_params, exploration_params):
+        super(_BaseActor, self).__init__()
+        
+        # Environment and network configuration
         self.use_discrete = env_config.use_discrete
-        state_size, action_size = env_config.state_size, env_config.action_size
-        num_layer, hidden_size = network_params.num_layer, network_params.hidden_size
+        self.state_size, self.action_size = env_config.state_size, env_config.action_size
+        self.num_layer, self.hidden_size = network_params.num_layer, network_params.hidden_size
 
-        self.net = net(num_layer, hidden_size) 
-        self.mean_layer = create_layer(hidden_size, action_size, act_fn = 'none')
-        self.log_std_layer = create_layer(hidden_size, action_size, act_fn = 'none')
+        # Actor network layers
+        self.net = net(self.num_layer, self.hidden_size) 
+        self.mean_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
+        self.log_std_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
+        self.value_size = 1
         
+        # Exploration strategy initialization
+        self.noise_strategy, self.use_noise_before_activation = self._initialize_noise_strategy(
+            exploration_params
+        )
+        
+    def _initialize_noise_strategy(self, exploration_params):
+        noise_strategy = None
         use_noise_before_activation = False
-        self.noise_strategy = None
-        
-        self.noise_type = exploration.noise_type
-        if exploration.noise_type == "epsilon_greedy":
-            self.noise_strategy = EpsilonGreedy(self.use_discrete)
-            if self.use_discrete:
-                use_noise_before_activation = False
-            else:
-                use_noise_before_activation = True
-        elif exploration.noise_type == "ou" and not self.use_discrete:
-            self.noise_strategy = OrnsteinUhlenbeck(self.use_discrete)
+
+        if exploration_params.noise_type == "epsilon_greedy":
+            noise_strategy = EpsilonGreedy(self.use_discrete)
+            use_noise_before_activation = not self.use_discrete
+        elif exploration_params.noise_type == "ou" and not self.use_discrete:
+            noise_strategy = OrnsteinUhlenbeck(self.use_discrete)
             use_noise_before_activation = True
-        elif exploration.noise_type == "boltzmann" and self.use_discrete:
-            self.noise_strategy = BoltzmannExploration(self.use_discrete)
+        elif exploration_params.noise_type == "boltzmann" and self.use_discrete:
+            noise_strategy = BoltzmannExploration(self.use_discrete)
             use_noise_before_activation = True
         else:
-            self.noise_type = None
-            
-        self.use_noise_before_activation = use_noise_before_activation
-        self.action_size = action_size
-        self.state_size = state_size
-        self.hidden_size = hidden_size
-        self.value_size = 1
+            raise ValueError(f"Unsupported noise type: {exploration_params.noise_type}")
+
+        return noise_strategy, use_noise_before_activation
         
     def apply_noise(self, y, exploration_rate = None):
         if self.noise_strategy is None:

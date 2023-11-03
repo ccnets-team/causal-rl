@@ -5,8 +5,25 @@ from environments.settings.gym_rewards import get_ongoing_rewards_from_info, get
 from utils.structure.env_observation import EnvObservation
 
 class GymEnvWrapper(AgentExperienceCollector):
-    MAX_RANDOM_SEED = 1000  # class constant
-    def __init__(self, env_config, test_env, use_graphics=False, seed=0):
+    """
+    A wrapper class for gym environments to collect agent experiences and interact with the environment.
+    
+    Attributes:
+        MAX_RANDOM_SEED (int): The maximum value for environment random seeding.
+        ...
+    """
+    MAX_RANDOM_SEED = 1000  # Maximum value for environment random seed
+
+    def __init__(self, env_config, test_env: bool, use_graphics: bool = False, seed: int = 0):
+        """
+        Initializes the gym environment with the given configuration.
+        
+        Parameters:
+            env_config: An object containing environment configuration such as number of agents.
+            test_env (bool): A flag indicating if this is a test environment.
+            use_graphics (bool): A flag indicating if graphics should be used (visual rendering).
+            seed (int): A seed for environment randomization.
+        """
         num_agents = 1 if test_env or use_graphics else env_config.num_agents
         super(GymEnvWrapper, self).__init__(num_agents, env_config)
         self.num_agents = num_agents
@@ -41,7 +58,14 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.all_dec_agents = np.array(all_dec_agents)
         self.reset_env()
 
-    def convert_observation_spec(self, raw_observations, observations):
+    def format_and_assign_observations(self, raw_observations: np.ndarray, observations):
+        """
+        Processes raw observations from the environment and assigns them to the agents.
+        
+        Parameters:
+            raw_observations (np.ndarray): The raw observations obtained from the environment.
+            observations: The EnvObservation object to be populated with processed observations.
+        """
         offset = 0
         # We will create a dictionary to store slices of data for each observation type
         sliced_data = {}
@@ -63,16 +87,34 @@ class GymEnvWrapper(AgentExperienceCollector):
         observations[:, -1] = sliced_data
         
     def reset_env(self):
+        """
+        Resets the environment and prepares for a new episode.
+        """
         self.running_cnt = 0
         random_num = np.random.randint(0, self.MAX_RANDOM_SEED)
         obs, _ = self.env.reset(seed=random_num)
         self.observations.reset()
-        self.convert_observation_spec(obs, self.observations)
-
-    def step_environment(self):
+        self.format_and_assign_observations(obs, self.observations)
+        
+    def step_environment(self) -> bool:
+        """
+        Steps the environment with the given action input.
+        
+        Returns:
+            A boolean indicating whether the step was successful.
+        """
         return False
     
-    def update(self, action):
+    def update(self, action) -> bool:
+        """
+        Updates the environment state with the given action.
+        
+        Parameters:
+            action: The action to be taken in the environment.
+            
+        Returns:
+            A boolean indicating whether the update was successful.
+        """
         self.running_cnt += 1
         action_input = self._get_action_input(action)
 
@@ -94,7 +136,17 @@ class GymEnvWrapper(AgentExperienceCollector):
         
         return False
 
-    def update_for_training(self, done, ongoing_terminated, info, action, ongoing_next_obs):
+    def update_for_training(self, done: np.ndarray, ongoing_terminated: np.ndarray, info, action, ongoing_next_obs: np.ndarray):
+        """
+        Processes the information for training update.
+        
+        Parameters:
+            done (np.ndarray): An array indicating which agents are done.
+            ongoing_terminated (np.ndarray): An array indicating which agents are terminated.
+            info: The info provided by the environment after stepping through it.
+            action: The action taken by the agents.
+            ongoing_next_obs (np.ndarray): The next observations for the agents.
+        """
         ongoing_immediate_reward, ongoing_future_reward = get_ongoing_rewards_from_info(info, self.num_agents)
         final_immediate_reward, final_future_reward = get_final_rewards_from_info(ongoing_terminated, info, self.num_agents)
 
@@ -110,12 +162,20 @@ class GymEnvWrapper(AgentExperienceCollector):
 
         self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, done)
         self.prev_value = ongoing_future_reward.copy()
-        term_agents = np.where(done)[0]
-        dec_agents = self.all_dec_agents
-        self.observations.shift(term_agents, dec_agents)
-        self.convert_observation_spec(ongoing_next_obs, self.observations)
+        
+        self.process_terminated_and_decision_agents(done, ongoing_next_obs)
 
-    def update_for_test(self, done, action, ongoing_next_obs, ongoing_reward):
+
+    def update_for_test(self, done: np.ndarray, action, ongoing_next_obs: np.ndarray, ongoing_reward: np.ndarray):
+        """
+        Processes the information for test update.
+        
+        Parameters:
+            done (np.ndarray): An array indicating which agents are done.
+            action: The action taken by the agents.
+            ongoing_next_obs (np.ndarray): The next observations for the agents.
+            ongoing_reward (np.ndarray): The immediate rewards received by the agents.
+        """
         next_obs = ongoing_next_obs
         reward = ongoing_reward
         if self.use_graphics:
@@ -123,15 +183,33 @@ class GymEnvWrapper(AgentExperienceCollector):
         else:
             self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], reward[0], next_obs[0], done[0])
 
-        term_agents = np.where(done)[0]
-        dec_agents = self.all_dec_agents
-        self.observations.shift(term_agents, dec_agents)
-        self.convert_observation_spec(next_obs, self.observations)
+        self.process_terminated_and_decision_agents(done, next_obs)
 
         if done.any():
             self.reset_env()
 
-    def _get_action_input(self, action):
+    def process_terminated_and_decision_agents(self, done: np.ndarray, next_obs: np.ndarray):
+        """
+        Handles the observations and state updates for terminated and decision-required agents.
+        
+        Parameters:
+            done (np.ndarray): An array indicating which agents are done.
+            next_obs (np.ndarray): The next observations for the agents.
+        """
+        term_agents = np.where(done)[0]
+        self.observations.shift(term_agents, self.all_dec_agents)
+        self.format_and_assign_observations(next_obs, self.observations)
+        
+    def _get_action_input(self, action) -> np.ndarray:
+        """
+        Processes the action input based on the current settings (discrete/continuous).
+        
+        Parameters:
+            action: The raw action input from the agent(s).
+        
+        Returns:
+            The processed action input suitable for the environment.
+        """
         if self.use_graphics:
             action_input = action[0]
         else:

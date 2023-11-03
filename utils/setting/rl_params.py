@@ -1,5 +1,5 @@
 import numpy as np
-from nn.gpt import GPT2
+from nn.gpt import GPT
 
 DEFAULT_TRAINING_START_STEP = 1000
 
@@ -15,13 +15,13 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, discount_factor=0.99, num_td_steps=10, use_gae_advantage = False):
+    def __init__(self, discount_factor=0.99, num_td_steps=5, use_gae_advantage = False):
         self.discount_factor = discount_factor
         self.num_td_steps = num_td_steps
         self.use_gae_advantage = use_gae_advantage
             
 class NetworkParameters:
-    def __init__(self,  num_layer=4, hidden_size=128, neural_network = GPT2):
+    def __init__(self,  num_layer=4, hidden_size=128, neural_network = GPT):
         self.num_layer = num_layer
         self.hidden_size = hidden_size
         self.neural_network = neural_network

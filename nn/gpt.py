@@ -8,9 +8,9 @@ import torch
 import torch.nn as nn
 from transformers import GPT2Model, GPT2Config 
 
-class GPT2(nn.Module):
+class GPT(nn.Module):
     def __init__(self, num_layer, hidden_size, num_heads: int = 8, reverse=False):
-        super(GPT2, self).__init__()   
+        super(GPT, self).__init__()   
         config = GPT2Config(
             vocab_size=1,
             n_embd=hidden_size,
