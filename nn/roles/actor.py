@@ -31,9 +31,10 @@ class _BaseActor(nn.Module):
         self.value_size = 1
         
         # Exploration strategy initialization
-        self.noise_strategy, self.use_noise_before_activation = self._initialize_noise_strategy(
+        self.noise_strategy, self.use_noise_before_activation, = self._initialize_noise_strategy(
             exploration_params
         )
+        self.noise_type = exploration_params.noise_type 
         
     def _initialize_noise_strategy(self, exploration_params):
         noise_strategy = None
@@ -198,8 +199,8 @@ class _BaseActor(nn.Module):
         return action
 
 class SingleInputActor(_BaseActor):
-    def __init__(self, net, env_config, network_params, exploration):
-        super().__init__(net, env_config, network_params, exploration)
+    def __init__(self, net, env_config, network_params, exploration_params):
+        super().__init__(net, env_config, network_params, exploration_params)
         state_size = env_config.state_size
         self.embedding_layer = create_layer(state_size, self.hidden_size, act_fn="tanh")
         self.apply(init_weights)
@@ -235,8 +236,8 @@ class SingleInputActor(_BaseActor):
         return log_prob
 
 class DualInputActor(_BaseActor):
-    def __init__(self, net, env_config, network_params, exploration):
-        super().__init__(net, env_config, network_params, exploration)
+    def __init__(self, net, env_config, network_params, exploration_params):
+        super().__init__(net, env_config, network_params, exploration_params)
         state_size = env_config.state_size
         value_size = 1
         self.embedding_layer = JointEmbeddingLayer(state_size, value_size, \
