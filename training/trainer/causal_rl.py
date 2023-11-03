@@ -61,7 +61,7 @@ class CausalRL(BaseTrainer):
         self.set_train(training=True)
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
-        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
+        states, actions, rewards, next_states, dones = trajectory
         mask = create_mask_from_dones(dones)
 
         # Get the estimated value of the current state from the critic network.
@@ -134,10 +134,10 @@ class CausalRL(BaseTrainer):
         self.update_target_networks()
         self.update_schedulers()
 
-    def trainer_calculate_future_value(self, next_state):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         target_network, _, _ = self.get_target_networks()
         with torch.no_grad():
-            future_value = target_network(next_state)
+            future_value = target_network(next_state, mask=mask)
         return future_value
 
     def cost_fn(self, predict, target):

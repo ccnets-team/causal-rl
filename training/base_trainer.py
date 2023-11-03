@@ -6,7 +6,7 @@ from abc import abstractmethod
 from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import compute_gae, get_discounted_rewards, get_end_next_state, get_termination_step
+from .trainer_utils import compute_gae, get_discounted_rewards, get_end_future_value, get_termination_step, create_mask_from_dones
 from utils.structure.trajectory_handler  import BatchTrajectory
 from nn.gpt import GPT2
 
@@ -25,13 +25,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
         self.reward_scale = normalization_params.reward_scale
         
         self.use_gae_advantage = algorithm_params.use_gae_advantage
-
-        self.use_sequence_batch = False
-        for network_role in networks:
-            if isinstance(network_role.net, GPT2):
-                self.use_sequence_batch = True
-                break  # Optional: If you know there's only one instance of TransformerEncoder, you can exit the loop early
-
         self.samples_per_step  = env_config.samples_per_step 
 
         self.num_td_steps = algorithm_params.num_td_steps
@@ -60,9 +53,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
         trajectory_states = torch.cat([states, next_states[:, -1:]], dim=1)
         trajectory_values = critic(trajectory_states)  # Assuming critic outputs values for each state in the trajectory
         advantages = compute_gae(trajectory_values, rewards, dones).detach()
-        if self.use_sequence_batch:
-            return advantages
-        return advantages[:,0,:].unsqueeze(1)
+        return advantages
     
     def select_first_transitions(self, *tensor_sequences: torch.Tensor):
         results = tuple(tensor[:, 0, :].unsqueeze(1) for tensor in tensor_sequences)
@@ -71,20 +62,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
         if len(results) == 1:
             return results[0]
         return results
-    
-    def select_trajectory_segment(self, trajectory: BatchTrajectory):
-        """Extract and process the trajectory based on the use_sequence_batch flag."""
-
-        if self.use_sequence_batch:
-            return trajectory
-        else:
-            states = trajectory.state[:, 0, :].unsqueeze(1)
-            actions = trajectory.action[:, 0, :].unsqueeze(1)
-            rewards = trajectory.reward[:, 0, :].unsqueeze(1)
-            next_states = trajectory.next_state[:, 0, :].unsqueeze(1)
-            dones = trajectory.done[:, 0, :].unsqueeze(1)
-
-            return BatchTrajectory(states, actions, rewards, next_states, dones)
 
     def zero_out_values_post_done(self, dones: torch.Tensor, *tensors: torch.Tensor):
         """
@@ -133,14 +110,12 @@ class BaseTrainer(TrainingManager, StrategyManager):
         discounted_rewards = get_discounted_rewards(rewards, discount_factors)
         
         done, end_step = get_termination_step(dones)
-        next_state = get_end_next_state(next_states, end_step)
+        mask = create_mask_from_dones(dones)
         
-        future_value = self.trainer_calculate_future_value(next_state)
+        future_values = self.trainer_calculate_future_value(next_states, mask)
+        future_value = get_end_future_value(future_values, end_step)
         
-        if self.use_sequence_batch:
-            expected_value = discounted_rewards + self._calculate_future_values_discounted(batch_size, seq_len, done, future_value)
-        else:
-            expected_value = self._calculate_first_sequence_expected_value(discounted_rewards, done, end_step, future_value)
+        expected_value = discounted_rewards + self._calculate_future_values_discounted(batch_size, seq_len, done, future_value)
         
         return expected_value
 
@@ -164,7 +139,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
                 actor.reset_noise(reset_noise)
 
     @abstractmethod
-    def trainer_calculate_future_value(self, next_state):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         pass
 
     @abstractmethod

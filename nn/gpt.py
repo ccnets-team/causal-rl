@@ -30,24 +30,21 @@ class GPT2(nn.Module):
         self.reverse = reverse
 
     def forward(self, input_tensor, mask=None):
-        if len(input_tensor.shape) == 2:
-            input_tensor = input_tensor.unsqueeze(dim=1)
-            was_unsqueezed = True
-        else:
-            was_unsqueezed = False
-            
         if self.reverse:
             input_tensor = torch.flip(input_tensor, dims=(1,))
 
         attention_mask = None
         if mask is not None:
             attention_mask = torch.flip(mask, dims=(1,)).long() if self.reverse else mask.long()
+            if attention_mask.dim() == 3:
+                attention_mask = attention_mask.squeeze(-1)
 
         output = self.net(inputs_embeds=input_tensor, attention_mask=attention_mask)
         output_tensor = output.last_hidden_state
         output_tensor = torch.flip(output_tensor, dims=(1,)) if self.reverse else output_tensor
     
-        if was_unsqueezed:
-            output_tensor = output_tensor.squeeze(dim=1)
+        if attention_mask is not None:
+            broadcasted_mask = attention_mask.unsqueeze(-1).expand_as(output_tensor)            
+            output_tensor[broadcasted_mask == 0].zero_().detach_()          
             
         return output_tensor

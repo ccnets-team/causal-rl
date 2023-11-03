@@ -70,7 +70,7 @@ class A2C(BaseTrainer):
         self.set_train(training=True)
         critic_optimizer, actor_optimizer = self.get_optimizers()
 
-        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
+        states, actions, rewards, next_states, dones = trajectory
 
         state, action = self.select_first_transitions(states, actions)
 
@@ -113,7 +113,7 @@ class A2C(BaseTrainer):
         self.update_target_networks()
         self.update_schedulers()
 
-    def trainer_calculate_future_value(self, next_state):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         """
         Calculates the future value for a given next_state with discount factor gamma and end_step.
         
@@ -124,5 +124,5 @@ class A2C(BaseTrainer):
         - future_value (Tensor): The calculated future value.
         """
         with torch.no_grad():
-            future_value = self.target_critic(next_state)
+            future_value = self.target_critic(next_state, mask=mask)
         return future_value

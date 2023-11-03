@@ -17,16 +17,16 @@ def compute_gae(values, rewards, dones, gamma=0.99, tau=0.95):
 
     return advantages
 
-def get_end_next_state(next_states, end_step):
+def get_end_future_value(future_values, end_step):
     # Create batch indices tensor with the same device as end_step
     batch_indices = torch.arange(end_step.size(0)).to(end_step.device)
 
     # Compute indices for next_state based on end_step
-    state_indices = (end_step - 1).squeeze().long()
+    seq_indices = (end_step - 1).squeeze().long()
 
     # Extract the corresponding next_states using the computed indices
-    next_state = next_states[batch_indices, state_indices, :]
-    return next_state
+    future_value = future_values[batch_indices, seq_indices]
+    return future_value
 
 def get_discounted_rewards(rewards, discount_factors):
     batch_size, seq_len, _ = rewards.shape

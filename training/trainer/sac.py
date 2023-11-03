@@ -155,7 +155,7 @@ class SAC(BaseTrainer):
         self.set_train(training=True)
         value_optimizer, policy_optimizer, critic1_optimizer, critic2_optimizer = self.get_optimizers()
         
-        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
+        states, actions, rewards, next_states, dones = trajectory
 
         state, action, reward, next_state, done = self.select_first_transitions(states, actions, rewards, next_states, dones)
 
