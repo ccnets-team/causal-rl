@@ -41,10 +41,7 @@ class GPT2(nn.Module):
 
         output = self.net(inputs_embeds=input_tensor, attention_mask=attention_mask)
         output_tensor = output.last_hidden_state
+            
         output_tensor = torch.flip(output_tensor, dims=(1,)) if self.reverse else output_tensor
-    
-        if attention_mask is not None:
-            broadcasted_mask = attention_mask.unsqueeze(-1).expand_as(output_tensor)            
-            output_tensor[broadcasted_mask == 0].zero_().detach_()          
             
         return output_tensor

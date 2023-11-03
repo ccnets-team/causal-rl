@@ -17,33 +17,6 @@ def compute_gae(values, rewards, dones, gamma=0.99, tau=0.95):
 
     return advantages
 
-def get_end_future_value(future_values, end_step):
-    # Create batch indices tensor with the same device as end_step
-    batch_indices = torch.arange(end_step.size(0)).to(end_step.device)
-
-    # Compute indices for next_state based on end_step
-    seq_indices = (end_step - 1).squeeze().long()
-
-    # Extract the corresponding next_states using the computed indices
-    future_value = future_values[batch_indices, seq_indices]
-    return future_value
-
-def get_discounted_rewards(rewards, discount_factors):
-    batch_size, seq_len, _ = rewards.shape
-    accumulative_rewards = torch.zeros_like(rewards)
-
-    for t in range(seq_len):
-        accumulative_rewards[:, t, :] = (rewards[:, t:, :] *  discount_factors[:, :seq_len - t, :]).sum(dim=1)
-
-    return accumulative_rewards
-
-def get_termination_step(dones):
-    num_td_steps = dones.shape[1]
-    end_step = torch.argmax(dones, dim=1) + 1
-    done = (dones.sum(dim=1) > 0).float()
-    end_step[done == 0] = num_td_steps  # If not terminated, set to num_td_steps
-    return done, end_step
-
 def masked_mean(tensor, mask):
     return tensor[mask > 0].flatten().mean()
 

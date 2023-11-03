@@ -6,9 +6,8 @@ from abc import abstractmethod
 from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import compute_gae, get_discounted_rewards, get_end_future_value, get_termination_step, create_mask_from_dones
+from .trainer_utils import compute_gae
 from utils.structure.trajectory_handler  import BatchTrajectory
-from nn.gpt import GPT2
 
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
@@ -63,30 +62,8 @@ class BaseTrainer(TrainingManager, StrategyManager):
             return results[0]
         return results
 
-    def zero_out_values_post_done(self, dones: torch.Tensor, *tensors: torch.Tensor):
-        """
-        Shifts the 'dones' tensor and zeros out the values in the provided tensors wherever the shifted mask is True.
-        
-        Args:
-        - dones (torch.Tensor): A tensor indicating terminal states in a sequence.
-        - *tensors (torch.Tensor): Any number of tensors whose values should be zeroed out based on the shifted 'dones' tensor.
-
-        Returns:
-        - Tuple of tensors with updated values.
-        """
-        mask = torch.zeros_like(dones)
-        mask[:, 1:, :] = dones[:, :-1, :]
-        
-        zeroed_tensors = tuple(tensor.masked_fill_(mask > 0, 0) for tensor in tensors)
-        
-        # If only one tensor is passed, return the tensor directly instead of a tuple    
-        if len(zeroed_tensors) == 1:
-            return zeroed_tensors[0]
-        return zeroed_tensors
-
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor) -> (torch.Tensor, torch.Tensor):
         """Compute the advantage and expected value."""
-        
         states, actions, rewards, next_states, dones = trajectory
         
         with torch.no_grad():
@@ -96,7 +73,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
             else:
                 expected_value = self.calculate_expected_value(rewards, next_states, dones)
                 advantage = self.calculate_advantage(estimated_value, expected_value)
-        
         return expected_value, advantage
             
     def calculate_expected_value(self, rewards, next_states, dones):
@@ -105,33 +81,9 @@ class BaseTrainer(TrainingManager, StrategyManager):
         Considers immediate rewards and potential future rewards 
         based on the described mechanism.
         """
-        batch_size, seq_len, _ = rewards.shape
-        discount_factors = self._expand_discount_factors(batch_size, seq_len)
-        discounted_rewards = get_discounted_rewards(rewards, discount_factors)
-        
-        done, end_step = get_termination_step(dones)
-        mask = create_mask_from_dones(dones)
-        
-        future_values = self.trainer_calculate_future_value(next_states, mask)
-        future_value = get_end_future_value(future_values, end_step)
-        
-        expected_value = discounted_rewards + self._calculate_future_values_discounted(batch_size, seq_len, done, future_value)
-        
+        future_values = self.trainer_calculate_future_value(next_states)
+        expected_value = rewards + (1 - dones)*self.discount_factor*future_values
         return expected_value
-
-    def _expand_discount_factors(self, batch_size, seq_len):
-        discount_factors = (self.discount_factor ** torch.arange(seq_len).float()).to(self.device)
-        return discount_factors.unsqueeze(0).unsqueeze(-1).expand(batch_size, -1, 1)
-
-    def _calculate_future_values_discounted(self, batch_size, seq_len, done, future_value):
-        gamma = self.get_discount_factor()
-        flip_discount_factors = gamma * self._expand_discount_factors(batch_size, seq_len).flip(dims=[1])
-        return flip_discount_factors * ((1 - done) * future_value).unsqueeze(dim=1).expand(-1, seq_len, -1)
-
-    def _calculate_first_sequence_expected_value(self, discounted_rewards, done, end_step, future_value):
-        gamma = self.get_discount_factor()
-        future_value_discounted = (1 - done) * (gamma ** end_step) * future_value
-        return (discounted_rewards[:, 0, :] + future_value_discounted).unsqueeze(dim=1)
 
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
