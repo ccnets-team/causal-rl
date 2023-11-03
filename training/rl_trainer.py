@@ -19,7 +19,7 @@ class RLTrainer:
     def initialize(self, env_config, device):
         self.saved_trainer = None
         trainer_map = {
-            "crl": CausalRL,
+            "causal_rl": CausalRL,
             "ddpg": DDPG,
             "a2c": A2C,
             "dqn": DQN,

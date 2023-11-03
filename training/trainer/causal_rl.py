@@ -16,19 +16,20 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectory_handler  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from training.trainer_utils import create_mask_from_dones, masked_mean
+from nn.super_net import SuperNet
 
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
     def __init__(self, env_config, rl_params, device):
-        trainer_name = "crl"
+        trainer_name = "causal_rl"
         self.network_names = ["critic", "actor", "rev_env"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
         neural_network = network_params.neural_network
         
         self.critic = SingleInputCritic(neural_network, env_config, network_params).to(device)
         self.actor = DualInputActor(neural_network, env_config, network_params, exploration_params).to(device)
-        self.revEnv = RevEnv(neural_network, env_config, network_params).to(device)
+        self.revEnv = RevEnv(SuperNet, env_config, network_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 

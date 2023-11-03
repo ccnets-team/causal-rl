@@ -6,9 +6,9 @@ from abc import abstractmethod
 from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import compute_gae
 from utils.structure.trajectory_handler  import BatchTrajectory
-
+from .trainer_utils import compute_gae, compute_end_step, calculate_accumulative_rewards, get_end_future_value, compute_discounted_future_value
+from nn.gpt import GPT
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
         training_params, algorithm_params, network_params, \
@@ -16,20 +16,10 @@ class BaseTrainer(TrainingManager, StrategyManager):
         TrainingManager.__init__(self, optimization_params, networks, target_networks)
         StrategyManager.__init__(self, env_config, exploration_params, normalization_params, device)
         
-        self.env_config: EnvConfig = env_config
-        
-        self.trainer_name = trainer_name
-        self.discount_factor = algorithm_params.discount_factor
-        self.batch_size = training_params.batch_size
-        self.reward_scale = normalization_params.reward_scale
-        
-        self.use_gae_advantage = algorithm_params.use_gae_advantage
-        self.samples_per_step  = env_config.samples_per_step 
-
-        self.num_td_steps = algorithm_params.num_td_steps
-        self.buffer_type = memory_params.buffer_type
-
         self.device = device
+        self.discount_factor = algorithm_params.discount_factor
+        self.use_gae_advantage = algorithm_params.use_gae_advantage
+        self.use_single_step_value = all(isinstance(network, GPT) for network in networks)
         
     def calculate_advantage(self, estimated_value, expected_value):
         with torch.no_grad():
@@ -74,17 +64,31 @@ class BaseTrainer(TrainingManager, StrategyManager):
                 expected_value = self.calculate_expected_value(rewards, next_states, dones)
                 advantage = self.calculate_advantage(estimated_value, expected_value)
         return expected_value, advantage
-            
-    def calculate_expected_value(self, rewards, next_states, dones):
-        """
-        Computes the expected return for transitions.
-        Considers immediate rewards and potential future rewards 
-        based on the described mechanism.
-        """
-        future_values = self.trainer_calculate_future_value(next_states)
-        expected_value = rewards + (1 - dones)*self.discount_factor*future_values
-        return expected_value
 
+    def calculate_expected_value(self, rewards, next_states, dones):
+        # Future values calculated from the trainer's future value function
+        future_values = self.trainer_calculate_future_value(next_states) # This function needs to be defined elsewhere
+        
+        if self.use_single_step_value:
+            expected_values = rewards + (1 - dones)*self.discount_factor*future_values
+        else:
+            # Compute the sequence length from rewards
+            seq_len = rewards.size(1)
+            # Calculate the discount factors for each transition
+            accumulative_rewards = calculate_accumulative_rewards(rewards, self.discount_factor)
+            
+            # Compute the end step from the dones tensor
+            end_step = compute_end_step(dones)
+
+            # Get the future value at the end step
+            future_value_at_end_step = get_end_future_value(future_values, end_step)
+
+            discount_factors = compute_discounted_future_value(end_step, self.discount_factor, seq_len)
+            # Calculate the expected values
+            expected_values = accumulative_rewards + (1 - dones) * discount_factors * future_value_at_end_step
+            
+        return expected_values
+    
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
             if isinstance(actor, _BaseActor):
