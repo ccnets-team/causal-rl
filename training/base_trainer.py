@@ -77,7 +77,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
         discount_factors = compute_discounted_future_value(end_step, self.discount_factor, seq_len)
         
         # Calculate the discount factors for each transition
-        accumulative_rewards = calculate_accumulative_rewards(rewards, self.discount_factor)
+        accumulative_rewards = calculate_accumulative_rewards(rewards, end_step, self.discount_factor)
         
         # Calculate the expected values
         expected_values = accumulative_rewards + (1 - dones) * discount_factors * future_value_at_end_step

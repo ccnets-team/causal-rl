@@ -29,7 +29,7 @@ class CausalRL(BaseTrainer):
         
         self.critic = SingleInputCritic(neural_network, env_config, network_params).to(device)
         self.actor = DualInputActor(neural_network, env_config, network_params, exploration_params).to(device)
-        self.revEnv = RevEnv(SuperNet, env_config, network_params).to(device)
+        self.revEnv = RevEnv(neural_network, env_config, network_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 

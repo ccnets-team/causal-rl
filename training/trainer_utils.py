@@ -55,15 +55,23 @@ def masked_mean(tensor, mask):
 
     return mean_per_sequence
 
-def calculate_accumulative_rewards(rewards, discount_factor):
+def calculate_accumulative_rewards(rewards, end_step, discount_factor):
     batch_size, seq_len, _ = rewards.shape
-    accumulative_rewards = torch.zeros_like(rewards)
-    # Initialize the last step with the immediate reward
-    accumulative_rewards[:, -1, :] = rewards[:, -1, :]
+    # Create the mask based on end_idx to identify valid reward positions
+    mask = torch.arange(seq_len).to(end_step.device).unsqueeze(0).expand(batch_size, -1) < end_step.unsqueeze(-1)
+    mask = mask.unsqueeze(-1) # Expand to match rewards shape 
 
-    # Accumulate rewards backward, taking into account the discount factor
-    for t in range(seq_len - 2, -1, -1):  # start from second to last and move backwards
-        accumulative_rewards[:, t, :] = rewards[:, t, :] + discount_factor * accumulative_rewards[:, t + 1, :]
+    # Initialize a tensor for accumulative rewards with zeros
+    accumulative_rewards = torch.zeros_like(rewards)
+
+    # Loop backwards through the sequence
+    for t in reversed(range(seq_len)):
+        if t == seq_len - 1:
+            # If it's the last step, the accumulative reward is just the immediate reward
+            accumulative_rewards[:, t, :] = rewards[:, t, :] * mask[:, t, :]
+        else:
+            # Accumulate reward at step t with the discounted reward at t+1, but only where the mask is true
+            accumulative_rewards[:, t, :] = (rewards[:, t, :] + discount_factor * accumulative_rewards[:, t+1, :]) * mask[:, t, :]
 
     return accumulative_rewards
 
