@@ -76,7 +76,7 @@ def compute_discounted_future_value(end_step, discount_factor, max_seq_len):
     # Calculate the difference between end step and each step in the range
     # This will give us the exponent to raise the discount factor to.
     # end_step is broadcasted along the second dimension to match the shape of step_range
-    discount_exponents = end_step.unsqueeze(-1) - step_range - 1
+    discount_exponents = end_step.unsqueeze(-1) - step_range
 
     # Ensure that the exponent is not negative
     # Since a negative exponent would increase the value instead of discounting it,

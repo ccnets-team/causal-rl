@@ -28,14 +28,9 @@ class BaseTrainer(TrainingManager, StrategyManager):
 
     def calculate_value_loss(self, estimated_value, expected_value, mask=None):
         loss = (estimated_value - expected_value).square()
-        
         if mask is not None:
             loss = loss[mask > 0].flatten()
-            
         return loss.mean()
-        
-    def get_discount_factor(self):
-        return self.discount_factor 
 
     def compute_gae_advantage(self, states, rewards, next_states, dones):
         critic = self.get_networks()[0]
@@ -63,6 +58,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
             else:
                 expected_value = self.calculate_expected_value(rewards, next_states, dones)
                 advantage = self.calculate_advantage(estimated_value, expected_value)
+                
         return expected_value, advantage
 
     def calculate_expected_value(self, rewards, next_states, dones):
@@ -72,18 +68,19 @@ class BaseTrainer(TrainingManager, StrategyManager):
         if self.use_single_step_value:
             expected_values = rewards + (1 - dones)*self.discount_factor*future_values
         else:
-            # Compute the sequence length from rewards
-            seq_len = rewards.size(1)
-            # Calculate the discount factors for each transition
-            accumulative_rewards = calculate_accumulative_rewards(rewards, self.discount_factor)
-            
             # Compute the end step from the dones tensor
             end_step = compute_end_step(dones)
 
             # Get the future value at the end step
             future_value_at_end_step = get_end_future_value(future_values, end_step)
 
+            # Compute the sequence length from rewards
+            seq_len = rewards.size(1)
             discount_factors = compute_discounted_future_value(end_step, self.discount_factor, seq_len)
+            
+            # Calculate the discount factors for each transition
+            accumulative_rewards = calculate_accumulative_rewards(rewards, self.discount_factor)
+            
             # Calculate the expected values
             expected_values = accumulative_rewards + (1 - dones) * discount_factors * future_value_at_end_step
             
