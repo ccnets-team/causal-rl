@@ -60,7 +60,7 @@ class TransformerDecoder(nn.Module):
         self.num_layer = num_layer
         self.num_heads = num_heads
         self.reverse = reverse
-        self.decoder_layer = nn.TransformerDecoderLayer(d_model=hidden_size, nhead=num_heads, dim_feedforward=hidden_size * 4, batch_first=True, dropout=0.0)
+        self.decoder_layer = nn.TransformerDecoderLayer(d_model=hidden_size, nhead=num_heads, dim_feedforward=hidden_size * 4, batch_first=True)
         self.decoder = nn.TransformerDecoder(self.decoder_layer, num_layers=self.num_layer)
     def forward(self, x, memory, mask=None):
         seq_len = x.size(1)

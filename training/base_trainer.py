@@ -17,6 +17,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
         StrategyManager.__init__(self, env_config, exploration_params, normalization_params, device)
         
         self.device = device
+        self.curiosity_factor = algorithm_params.curiosity_factor
         self.discount_factor = algorithm_params.discount_factor
         self.use_gae_advantage = algorithm_params.use_gae_advantage
         
@@ -48,10 +49,16 @@ class BaseTrainer(TrainingManager, StrategyManager):
             return results[0]
         return results
 
-    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor) -> (torch.Tensor, torch.Tensor):
+    def calculate_curiosity_rewards(self, intrinsic_value, *args):
+        with torch.no_grad():
+            curiosity_reward = self.curiosity_factor * intrinsic_value
+        return curiosity_reward
+    
+    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, intrinsic_value: None) -> (torch.Tensor, torch.Tensor, torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory
-        
+        rewards += 0 if intrinsic_value is None else self.calculate_curiosity_rewards(intrinsic_value)
+
         with torch.no_grad():
             if self.use_gae_advantage:
                 advantage = self.compute_gae_advantage(states, rewards, next_states, dones)
@@ -83,7 +90,9 @@ class BaseTrainer(TrainingManager, StrategyManager):
         expected_values = accumulative_rewards + (1 - dones) * discount_factors * future_value_at_end_step
         
         return expected_values
-    
+
+
+        
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
             if isinstance(actor, _BaseActor):

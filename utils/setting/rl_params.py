@@ -15,10 +15,11 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, discount_factor=0.99, num_td_steps=5, use_gae_advantage = False):
+    def __init__(self, discount_factor=0.99, num_td_steps=5, curiosity_factor = 0.1, use_gae_advantage = False):
         self.discount_factor = discount_factor
         self.num_td_steps = num_td_steps
         self.use_gae_advantage = use_gae_advantage
+        self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
     def __init__(self,  num_layer=4, hidden_size=128, neural_network = GPT):

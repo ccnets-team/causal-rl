@@ -92,10 +92,10 @@ class CausalRL(BaseTrainer):
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, estimated_value)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value, intrinsic_value=coop_actor_error)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)
+        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
 
         # Derive the critic loss from the cooperative critic error.
         critic_loss = masked_mean(coop_critic_error, mask)
@@ -105,7 +105,6 @@ class CausalRL(BaseTrainer):
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
         revEnv_loss = masked_mean(coop_revEnv_error, mask)
-
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
@@ -142,6 +141,7 @@ class CausalRL(BaseTrainer):
             future_value = target_network(next_state, mask=mask)
         return future_value
 
+    
     def cost_fn(self, predict, target):
         cost = (predict - target.detach()).abs()
         cost = cost.mean(dim=-1, keepdim=True)  # Compute the mean across the state_size dimension
