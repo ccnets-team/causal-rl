@@ -17,6 +17,7 @@ from utils.structure.trajectory_handler  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from training.trainer_utils import create_mask_from_dones, masked_mean
 from nn.super_net import SuperNet
+from nn.transformer import TransformerDecoder
 
 class CausalRL(BaseTrainer):
 
@@ -29,7 +30,7 @@ class CausalRL(BaseTrainer):
         
         self.critic = SingleInputCritic(neural_network, env_config, network_params).to(device)
         self.actor = DualInputActor(neural_network, env_config, network_params, exploration_params).to(device)
-        self.revEnv = RevEnv(neural_network, env_config, network_params).to(device)
+        self.revEnv = RevEnv(TransformerDecoder, env_config, network_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 

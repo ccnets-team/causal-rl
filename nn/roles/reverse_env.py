@@ -18,19 +18,17 @@ class RevEnv(nn.Module):
         self.use_discrete = use_discrete 
         self.hidden_size = network_params.hidden_size
         num_layer = network_params.num_layer
-
-        use_gpt_model = False
-        if net is GPT:
-            use_gpt_model = True
             
         # Comment about joint representation for the actor and reverse-env network:
         # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
         # However, when the reward scale is too high, addition (add) seems more robust.
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
-        self.embedding_layer = JointEmbeddingLayer(env_config.state_size, env_config.action_size, \
+        self.state_embedding_layer = create_layer(env_config.state_size, self.hidden_size, act_fn="tanh")
+
+        self.ctx_embedding_layer = JointEmbeddingLayer(env_config.action_size, \
             self.value_size, output_size = self.hidden_size, joint_type = "cat")
-        
-        self.net = net(num_layer, self.hidden_size) if not use_gpt_model else net(num_layer, self.hidden_size, reverse = True)
+
+        self.net = net(num_layer, self.hidden_size)
         self.final_layer = create_layer(self.hidden_size, env_config.state_size, act_fn = 'none') 
             
         self.apply(init_weights)
@@ -38,7 +36,8 @@ class RevEnv(nn.Module):
     def forward(self, next_state, action, value, mask=None):
         if not self.use_discrete:
             action = torch.tanh(action)
-        z = self.embedding_layer(next_state, action, value)
-        x = self.net(z, mask=mask)
+        z_next_state = self.state_embedding_layer(next_state)
+        ctx = self.ctx_embedding_layer(action, value)
+        x = self.net(z_next_state, ctx, mask=mask)
         state = self.final_layer(x)            
         return state
