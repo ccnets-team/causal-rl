@@ -54,7 +54,7 @@ def expand_attention_mask(mask: torch.Tensor, src_key_padding_mask: torch.Tensor
     return combined_mask.repeat(num_heads, 1, 1)
 
 class TransformerDecoder(nn.Module):
-    def __init__(self, num_layer, hidden_size, reverse = True, num_heads: int = 8):
+    def __init__(self, num_layer, hidden_size, reverse = False, num_heads: int = 8):
         super(TransformerDecoder, self).__init__()   
         self.hidden_size = hidden_size
         self.num_layer = num_layer
@@ -84,3 +84,7 @@ class TransformerDecoder(nn.Module):
 
         y = self.decoder(x, memory, tgt_mask=tgt_mask, memory_mask=memory_mask)
         return y
+    
+class ReverseTransformerDecoder(TransformerDecoder):
+    def __init__(self, num_layer, hidden_size):
+        super(ReverseTransformerDecoder, self).__init__(num_layer, hidden_size, reverse = True)   

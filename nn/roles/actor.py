@@ -201,8 +201,7 @@ class _BaseActor(nn.Module):
 class SingleInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration_params):
         super().__init__(net, env_config, network_params, exploration_params)
-        state_size = env_config.state_size
-        self.embedding_layer = create_layer(state_size, self.hidden_size, act_fn="tanh")
+        self.embedding_layer = create_layer(self.state_size, self.hidden_size, act_fn="tanh")
         self.apply(init_weights)
 
     def forward(self, state, mask = None):
@@ -238,9 +237,7 @@ class SingleInputActor(_BaseActor):
 class DualInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration_params):
         super().__init__(net, env_config, network_params, exploration_params)
-        state_size = env_config.state_size
-        value_size = 1
-        self.embedding_layer = JointEmbeddingLayer(state_size, value_size, \
+        self.embedding_layer = JointEmbeddingLayer(self.state_size, self.value_size, \
             output_size=self.hidden_size, joint_type="cat")
         self.apply(init_weights)
         

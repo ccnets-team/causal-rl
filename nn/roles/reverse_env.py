@@ -8,27 +8,22 @@ import torch
 import torch.nn as nn
 from ..utils.network_init import init_weights, create_layer
 from ..utils.joint_embedding_layer import JointEmbeddingLayer
-from nn.gpt import GPT
 
 class RevEnv(nn.Module):
     def __init__(self, net, env_config, network_params):
         super(RevEnv, self).__init__()
         self.value_size = 1
-        use_discrete = env_config.use_discrete
-        self.use_discrete = use_discrete 
+        self.use_discrete = env_config.use_discrete
+        self.state_size = env_config.state_size
+        self.action_size = env_config.action_size
         self.hidden_size = network_params.hidden_size
-        num_layer = network_params.num_layer
+        self.num_layer = network_params.num_layer
             
-        # Comment about joint representation for the actor and reverse-env network:
-        # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
-        # However, when the reward scale is too high, addition (add) seems more robust.
-        # The decision of which method to use should be based on the specifics of the task and the nature of the data.
-        self.state_embedding_layer = create_layer(env_config.state_size, self.hidden_size, act_fn="tanh")
-
-        self.ctx_embedding_layer = JointEmbeddingLayer(env_config.action_size, \
+        self.state_embedding_layer = create_layer(self.state_size, self.hidden_size, act_fn="tanh")
+        self.ctx_embedding_layer = JointEmbeddingLayer(self.action_size, \
             self.value_size, output_size = self.hidden_size, joint_type = "cat")
 
-        self.net = net(num_layer, self.hidden_size)
+        self.net = net(self.num_layer, self.hidden_size)
         self.final_layer = create_layer(self.hidden_size, env_config.state_size, act_fn = 'none') 
             
         self.apply(init_weights)
@@ -36,8 +31,7 @@ class RevEnv(nn.Module):
     def forward(self, next_state, action, value, mask=None):
         if not self.use_discrete:
             action = torch.tanh(action)
-        z_next_state = self.state_embedding_layer(next_state)
-        ctx = self.ctx_embedding_layer(action, value)
-        x = self.net(z_next_state, ctx, mask=mask)
-        state = self.final_layer(x)            
-        return state
+        _next_state = self.state_embedding_layer(next_state)
+        _ctx = self.ctx_embedding_layer(action, value)
+        x = self.net(_next_state, _ctx, mask=mask)
+        return self.final_layer(x)   
