@@ -192,7 +192,9 @@ class CausalRL(BaseTrainer):
             for err_idx, error in enumerate(errors):
                 # Decide whether to retain the computation graph based on the network and error index
                 retain_graph = (net_idx < num_network - 1) or (err_idx < num_error - 1) 
-                error.backward(retain_graph=retain_graph)
+
+                # Apply the discounted gradients in the backward pass
+                error.backward(torch.ones_like(error), retain_graph=retain_graph)
             # Prevent gradient updates for the current network after its errors have been processed
             network.requires_grad_(False)
         # Restore gradient computation capability for all networks for potential future forward passes

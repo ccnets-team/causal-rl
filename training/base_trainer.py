@@ -7,8 +7,8 @@ from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectory_handler  import BatchTrajectory
-from .trainer_utils import compute_gae, compute_end_step, calculate_accumulative_rewards, get_end_future_value, compute_discounted_future_value
-from nn.gpt import GPT
+from .trainer_utils import compute_gae, compute_end_step, calculate_accumulative_rewards, get_end_future_value, compute_discounted_future_value, masked_mean
+
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
         training_params, algorithm_params, network_params, \
@@ -19,7 +19,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
         self.device = device
         self.discount_factor = algorithm_params.discount_factor
         self.use_gae_advantage = algorithm_params.use_gae_advantage
-        self.use_single_step_value = all(isinstance(network, GPT) for network in networks)
         
     def calculate_advantage(self, estimated_value, expected_value):
         with torch.no_grad():
@@ -29,8 +28,10 @@ class BaseTrainer(TrainingManager, StrategyManager):
     def calculate_value_loss(self, estimated_value, expected_value, mask=None):
         loss = (estimated_value - expected_value).square()
         if mask is not None:
-            loss = loss[mask > 0].flatten()
-        return loss.mean()
+            loss = masked_mean(loss, mask)
+        else:
+            loss = loss.mean(dim = 0)
+        return loss
 
     def compute_gae_advantage(self, states, rewards, next_states, dones):
         critic = self.get_networks()[0]
@@ -65,25 +66,22 @@ class BaseTrainer(TrainingManager, StrategyManager):
         # Future values calculated from the trainer's future value function
         future_values = self.trainer_calculate_future_value(next_states) # This function needs to be defined elsewhere
         
-        if self.use_single_step_value:
-            expected_values = rewards + (1 - dones)*self.discount_factor*future_values
-        else:
-            # Compute the end step from the dones tensor
-            end_step = compute_end_step(dones)
+        # Compute the end step from the dones tensor
+        end_step = compute_end_step(dones)
 
-            # Get the future value at the end step
-            future_value_at_end_step = get_end_future_value(future_values, end_step)
+        # Get the future value at the end step
+        future_value_at_end_step = get_end_future_value(future_values, end_step)
 
-            # Compute the sequence length from rewards
-            seq_len = rewards.size(1)
-            discount_factors = compute_discounted_future_value(end_step, self.discount_factor, seq_len)
-            
-            # Calculate the discount factors for each transition
-            accumulative_rewards = calculate_accumulative_rewards(rewards, self.discount_factor)
-            
-            # Calculate the expected values
-            expected_values = accumulative_rewards + (1 - dones) * discount_factors * future_value_at_end_step
-            
+        # Compute the sequence length from rewards
+        seq_len = rewards.size(1)
+        discount_factors = compute_discounted_future_value(end_step, self.discount_factor, seq_len)
+        
+        # Calculate the discount factors for each transition
+        accumulative_rewards = calculate_accumulative_rewards(rewards, self.discount_factor)
+        
+        # Calculate the expected values
+        expected_values = accumulative_rewards + (1 - dones) * discount_factors * future_value_at_end_step
+        
         return expected_values
     
     def reset_actor_noise(self, reset_noise):

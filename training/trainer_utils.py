@@ -17,9 +17,6 @@ def compute_gae(values, rewards, dones, gamma=0.99, tau=0.95):
 
     return advantages
 
-def masked_mean(tensor, mask):
-    return tensor[mask > 0].flatten().mean()
-
 def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a mask where the initial columns are ones and subsequent columns are 
@@ -35,6 +32,28 @@ def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
     mask[:, 1:, :] = 1 - dones[:, :-1, :]
     
     return mask
+
+def masked_mean(tensor, mask):
+    # Ensure mask is a boolean tensor
+    mask = mask.bool()
+
+    # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
+    masked_tensor = tensor * mask
+
+    # Sum the masked tensor across the batch dimension (dim=0)
+    sum_per_sequence = torch.sum(masked_tensor, dim=0)
+
+    # Count the number of True entries in the mask per sequence for normalization
+    count_per_sequence = torch.sum(mask, dim=0)
+
+    # Handle potential division by zero in case some sequences are fully masked
+    # If count_per_sequence is 0, replace it with 1 to prevent division by zero
+    count_per_sequence = torch.clamp(count_per_sequence, min=1)
+
+    # Calculate the mean by dividing the sum by the number of unmasked entries
+    mean_per_sequence = sum_per_sequence / count_per_sequence
+
+    return mean_per_sequence
 
 def calculate_accumulative_rewards(rewards, discount_factor):
     batch_size, seq_len, _ = rewards.shape
