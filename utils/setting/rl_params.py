@@ -23,7 +23,7 @@ class AlgorithmParameters:
         self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
-    def __init__(self,  num_layer=3, hidden_size=128, forward_neural_network = GPT, reverse_neural_network = ReverseTransformerDecoder):
+    def __init__(self,  num_layer=4, hidden_size=128, forward_neural_network = GPT, reverse_neural_network = ReverseTransformerDecoder):
         self.num_layer = num_layer
         self.hidden_size = hidden_size
         self.forward_neural_network = forward_neural_network
