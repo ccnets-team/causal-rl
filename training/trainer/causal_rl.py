@@ -16,8 +16,6 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectory_handler  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from training.trainer_utils import create_mask_from_dones, masked_mean
-from nn.super_net import SuperNet
-from nn.transformer import ReverseTransformerDecoder
 
 class CausalRL(BaseTrainer):
 
@@ -26,11 +24,12 @@ class CausalRL(BaseTrainer):
         trainer_name = "causal_rl"
         self.network_names = ["critic", "actor", "rev_env"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        neural_network = network_params.neural_network
+        forward_neural_network = network_params.forward_neural_network
+        reverse_neural_network = network_params.reverse_neural_network
         
-        self.critic = SingleInputCritic(neural_network, env_config, network_params).to(device)
-        self.actor = DualInputActor(neural_network, env_config, network_params, exploration_params).to(device)
-        self.revEnv = RevEnv(ReverseTransformerDecoder, env_config, network_params).to(device)
+        self.critic = SingleInputCritic(forward_neural_network, env_config, network_params).to(device)
+        self.actor = DualInputActor(forward_neural_network, env_config, network_params, exploration_params).to(device)
+        self.revEnv = RevEnv(reverse_neural_network, env_config, network_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 
@@ -92,7 +91,7 @@ class CausalRL(BaseTrainer):
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, estimated_value, intrinsic_value=coop_actor_error)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value, intrinsic_value=coop_revEnv_error)
             
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
