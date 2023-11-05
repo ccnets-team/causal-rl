@@ -11,12 +11,12 @@ GYM_NUM_ENVIRONMENTS = 1
 MLAGENTS_ENV_SPECIFIC_ARGS = {
     "3DBall": {'max_steps': 50000},
     "3DBallHard": {'max_steps': 50000},
-    "Worm": {'discount_factor': 0.995, 'max_steps': 500000},
-    "Crawler": {'discount_factor': 0.995, 'hidden_size': 192, 'max_steps': 500000},
-    "Walker": {'discount_factor': 0.995, 'hidden_size': 256, 'max_steps': 500000},
-    "Hallway": {'state_normalizer': 'none', 'max_steps': 500000},
-    "PushBlock": {'hidden_size': 128, 'state_normalizer': 'none', 'max_steps': 200000},
-    "Pyramids": {'discount_factor': 0.995,  'num_td_steps': 10, 'hidden_size': 256, 'state_normalizer': 'none'}
+    "Worm": {'max_steps': 500000},
+    "Crawler": {'hidden_size': 192, 'max_steps': 500000},
+    "Walker": {'hidden_size': 256, 'max_steps': 500000},
+    "Hallway": {'state_normalizer': 'none', 'hidden_size': 96, 'max_steps': 500000},
+    "PushBlock": {'state_normalizer': 'none', 'hidden_size': 96, 'max_steps': 200000},
+    "Pyramids": {'state_normalizer': 'none', 'num_td_steps': 20, 'hidden_size': 192, 'curiosity_factor': 0.01}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {

@@ -1,22 +1,6 @@
 
 import torch
 
-def compute_gae(values, rewards, dones, gamma=0.99, tau=0.95):
-    # Assuming rewards and dones tensors have shape [batch_size, num_td_steps, 1] 
-    # and values has shape [batch_size, num_td_steps+1, 1]
-    # IMPORTANT: This function assumes the value of terminal states in `values` tensor is already 0.
-    
-    gae = 0
-    advantages = torch.zeros_like(rewards)
-
-    # Iterate through timesteps in reverse to calculate GAE
-    for t in reversed(range(rewards.size(1))):
-        delta = rewards[:, t] + gamma * values[:, t+1] * (1 - dones[:, t]) - values[:, t]
-        gae = delta + gamma * tau * gae * (1 - dones[:, t])
-        advantages[:, t] = gae
-
-    return advantages
-
 def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a mask where the initial columns are ones and subsequent columns are 
@@ -116,3 +100,28 @@ def compute_discounted_future_value(end_step, discount_factor, max_seq_len):
 
     # Return the discount factors with an additional dimension to match the expected shape
     return discount_factors.unsqueeze(-1)
+
+def compute_gae(values, rewards, dones, gamma=0.99, tau=0.95):
+    # Assuming rewards and dones tensors have shape [batch_size, num_td_steps, 1] 
+    # and values has shape [batch_size, num_td_steps+1, 1]
+    # IMPORTANT: This function assumes the value of terminal states in `values` tensor is already 0.
+    
+    gae = 0
+    mask = torch.zeros_like(dones).bool()
+    cumulative_dones = torch.cumsum(dones, axis=1)
+    
+    mask[:, 1:, :] = cumulative_dones[:, :-1, :]
+    rewards[mask > 0] = 0
+    
+    extended_mask = torch.cat((torch.zeros_like(dones[:, :1]), cumulative_dones), dim=1)
+    values[extended_mask > 0] = 0 # Set the value of terminal states to 0
+    
+    advantages = torch.zeros_like(rewards)
+
+    # Iterate through timesteps in reverse to calculate GAE
+    for t in reversed(range(rewards.size(1))):
+        delta = rewards[:, t] + gamma * values[:, t+1] * (1 - cumulative_dones[:, t]) - values[:, t]
+        gae = delta + gamma * tau * gae * (1 - cumulative_dones[:, t])
+        advantages[:, t] = gae
+
+    return advantages

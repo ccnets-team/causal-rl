@@ -16,7 +16,7 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, discount_factor=0.99, num_td_steps=5, curiosity_factor = 0.0, use_gae_advantage = False):
+    def __init__(self, discount_factor=0.99, num_td_steps=10, curiosity_factor = 0.0, use_gae_advantage = True):
         self.discount_factor = discount_factor
         self.num_td_steps = num_td_steps
         self.use_gae_advantage = use_gae_advantage
@@ -29,7 +29,7 @@ class NetworkParameters:
         self.neural_network = neural_network
 
 class OptimizationParameters:
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=32, lr=3e-4, tau=5e-3):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=16, lr=3e-4, tau=5e-3):
         self.beta1 = beta1
         self.lr_gamma = lr_gamma
         self.step_size = step_size
