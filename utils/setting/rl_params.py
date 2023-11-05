@@ -1,6 +1,7 @@
 import numpy as np
 from nn.gpt import GPT
 from nn.bart import Bart
+from nn.super_net import SuperNet
 
 DEFAULT_TRAINING_START_STEP = 1000
 
@@ -23,11 +24,10 @@ class AlgorithmParameters:
         self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
-    def __init__(self,  num_layer=4, hidden_size=128, forward_neural_network = GPT, reverse_neural_network = Bart):
+    def __init__(self,  num_layer=4, hidden_size=128, neural_network = GPT):
         self.num_layer = num_layer
         self.hidden_size = hidden_size
-        self.forward_neural_network = forward_neural_network
-        self.reverse_neural_network = reverse_neural_network
+        self.neural_network = neural_network
 
 class OptimizationParameters:
     def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=32, lr=3e-4, tau=5e-3):

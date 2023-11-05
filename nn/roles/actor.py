@@ -10,13 +10,13 @@ from torch.distributions import Normal
 from ..utils.network_init import init_weights, create_layer
 from nn.utils.noise_adder import EpsilonGreedy, OrnsteinUhlenbeck, BoltzmannExploration
 
-from ..utils.joint_embedding_layer import JointEmbeddingLayer
+from ..utils.embedding_layer import JointEmbeddingLayer, ContinuousFeatureEmbeddingLayer
 
 log_std_min = -20
 log_std_max = 2
 
 class _BaseActor(nn.Module):
-    def __init__(self, net, env_config, network_params, exploration_params):
+    def __init__(self, net, env_config, network_params, exploration_params, input_size):
         super(_BaseActor, self).__init__()
         
         # Environment and network configuration
@@ -25,6 +25,7 @@ class _BaseActor(nn.Module):
         self.num_layer, self.hidden_size = network_params.num_layer, network_params.hidden_size
 
         # Actor network layers
+        self.embedding_layer = ContinuousFeatureEmbeddingLayer(input_size, self.hidden_size)
         self.net = net(self.num_layer, self.hidden_size) 
         self.mean_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
         self.log_std_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
@@ -200,8 +201,8 @@ class _BaseActor(nn.Module):
 
 class SingleInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration_params):
-        super().__init__(net, env_config, network_params, exploration_params)
-        self.embedding_layer = create_layer(self.state_size, self.hidden_size, act_fn="tanh")
+        super().__init__(net, env_config, network_params, exploration_params, env_config.state_size)
+        # self.embedding_layer = create_layer(self.state_size, self.hidden_size, act_fn="tanh")
         self.apply(init_weights)
 
     def forward(self, state, mask = None):
@@ -236,9 +237,9 @@ class SingleInputActor(_BaseActor):
 
 class DualInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration_params):
-        super().__init__(net, env_config, network_params, exploration_params)
-        self.embedding_layer = JointEmbeddingLayer(self.state_size, self.value_size, \
-            output_size=self.hidden_size, joint_type="cat")
+        super().__init__(net, env_config, network_params, exploration_params, env_config.state_size + 1)
+        # self.embedding_layer = JointEmbeddingLayer(self.state_size, self.value_size, \
+        #     output_size=self.hidden_size, joint_type="cat")
         self.apply(init_weights)
         
         # Comment about joint representation for the actor and reverse-env network:
@@ -247,7 +248,7 @@ class DualInputActor(_BaseActor):
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
 
     def forward(self, state, value, mask = None):
-        z = self.embedding_layer(state, value)
+        z = self.embedding_layer(torch.cat([state, value], dim =-1))
         mean, std = self._compute_forward_pass(z, mask)
         return mean, std
 

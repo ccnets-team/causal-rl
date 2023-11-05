@@ -3,7 +3,7 @@ COPYRIGHT (c) 2022. CCNets, Inc. All Rights reserved.
 '''
 import torch
 from torch import nn
-from ..utils.network_init import create_layer
+from .network_init import create_layer
 
 class JointEmbeddingLayer(nn.Module):
     """
@@ -55,3 +55,23 @@ class JointEmbeddingLayer(nn.Module):
             return inputs
         else:
             raise ValueError(f"Unsupported joint type: {self.joint_type}")
+        
+class ContinuousFeatureEmbeddingLayer(nn.Module):
+    def __init__(self, num_features, embedding_dim):
+        super(ContinuousFeatureEmbeddingLayer, self).__init__()
+        # Create an embedding matrix for feature-wise embeddings
+        self.embedding = nn.Parameter(torch.randn(num_features, embedding_dim))
+        # Create a bias term for each feature-wise embedding
+        self.bias = nn.Parameter(torch.zeros(1, embedding_dim))
+
+    def forward(self, x):
+        # x has shape [B, S, F]
+        # We perform batch matrix multiplication with the embedding matrix.
+        # This multiplies each [S, F] matrix in the batch by the [F, E] embedding matrix,
+        # resulting in a [S, E] matrix for each item in the batch.
+        activated_features = torch.matmul(x, self.embedding) + self.bias.unsqueeze(0)
+        
+        # Apply the tanh activation function
+        activated_features = torch.tanh(activated_features)
+        
+        return activated_features

@@ -25,7 +25,7 @@ class SAC(BaseTrainer):
         - device: Device to which model will be allocated.
         """
         network_params, exploration_params, optimization_params = rl_params.network, rl_params.exploration, rl_params.optimization
-        neural_network = network_params.forward_neural_network
+        neural_network = network_params.neural_network
         self.critic1 = Critic(neural_network, env_config, network_params).to(device)
         self.critic2 = Critic(neural_network, env_config, network_params).to(device)
         self.value = ValueNetwork(neural_network, env_config, network_params).to(device)

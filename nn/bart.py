@@ -26,14 +26,8 @@ class Bart(nn.Module):
         self.reverse = reverse
 
     def forward(self, input_tensor, encoder_hidden_states, mask=None):
-        # If reversing the sequence, handle this for input, hidden states, and mask
-        if self.reverse:
-            input_tensor = input_tensor.flip(dims=[1])
-            encoder_hidden_states = encoder_hidden_states.flip(dims=[1])
-
         if mask is not None:
             mask = mask.squeeze(-1)
-            mask = mask.flip(dims=[1]).long() if self.reverse else mask.long()
                 
         outputs = self.decoder(
             inputs_embeds=input_tensor,
@@ -42,9 +36,5 @@ class Bart(nn.Module):
             encoder_hidden_states = encoder_hidden_states,
         )
         output_tensor = outputs.last_hidden_state
-
-        # If the sequence was reversed, flip it back
-        if self.reverse:
-            output_tensor = output_tensor.flip(dims=[1])
 
         return output_tensor

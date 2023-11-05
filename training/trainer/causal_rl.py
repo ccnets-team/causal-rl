@@ -24,12 +24,11 @@ class CausalRL(BaseTrainer):
         trainer_name = "causal_rl"
         self.network_names = ["critic", "actor", "rev_env"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        forward_neural_network = network_params.forward_neural_network
-        reverse_neural_network = network_params.reverse_neural_network
+        neural_network = network_params.neural_network
         
-        self.critic = SingleInputCritic(forward_neural_network, env_config, network_params).to(device)
-        self.actor = DualInputActor(forward_neural_network, env_config, network_params, exploration_params).to(device)
-        self.revEnv = RevEnv(reverse_neural_network, env_config, network_params).to(device)
+        self.critic = SingleInputCritic(neural_network, env_config, network_params).to(device)
+        self.actor = DualInputActor(neural_network, env_config, network_params, exploration_params).to(device)
+        self.revEnv = RevEnv(neural_network, env_config, network_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 

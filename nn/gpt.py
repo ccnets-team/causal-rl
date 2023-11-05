@@ -8,9 +8,10 @@ import torch
 import torch.nn as nn
 from transformers import GPT2Model, GPT2Config 
 
-class GPT(nn.Module):
-    def __init__(self, num_layer, hidden_size, num_heads: int = 8):
-        super(GPT, self).__init__()   
+
+class _GPTBase(nn.Module):
+    def __init__(self, num_layer, hidden_size, num_heads):
+        super(_GPTBase, self).__init__()   
         config = GPT2Config(
             vocab_size=1,
             n_embd=hidden_size,
@@ -28,6 +29,10 @@ class GPT(nn.Module):
         )
         self.net = GPT2Model(config)
 
+class GPT(_GPTBase):
+    def __init__(self, num_layer, hidden_size, num_heads: int = 8):
+        super(GPT, self).__init__(num_layer, hidden_size, num_heads)   
+        
     def forward(self, input_tensor, mask=None):
         attention_mask = None
         if mask is not None:
@@ -38,3 +43,4 @@ class GPT(nn.Module):
         output = self.net(inputs_embeds=input_tensor, attention_mask=attention_mask)
         output_tensor = output.last_hidden_state
         return output_tensor
+    
