@@ -5,7 +5,7 @@ from nn.super_net import SuperNet
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, replay_ratio=1, train_frequency=4, batch_size=512):
+    def __init__(self, replay_ratio=1, train_frequency=3, batch_size=512):
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
         self.batch_size = batch_size
@@ -16,7 +16,7 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, discount_factor=0.99, num_td_steps=10, curiosity_factor = 0.0, use_gae_advantage = True):
+    def __init__(self, discount_factor=0.99, num_td_steps=10, curiosity_factor = 0.0, use_gae_advantage = False):
         self.discount_factor = discount_factor
         self.num_td_steps = num_td_steps
         self.use_gae_advantage = use_gae_advantage
