@@ -9,7 +9,7 @@ import torch.nn as nn
 from transformers import BartConfig, BartModel
 
 class Bart(nn.Module):
-    def __init__(self, num_layer, hidden_size, reverse=True, num_heads: int=8):
+    def __init__(self, num_layer, hidden_size, num_heads: int=8):
         super(Bart, self).__init__()
         config = BartConfig(
             vocab_size=hidden_size,
@@ -23,7 +23,6 @@ class Bart(nn.Module):
             is_encoder_decoder=True,
         )
         self.decoder = BartModel(config).decoder
-        self.reverse = reverse
 
     def forward(self, input_tensor, encoder_hidden_states, mask=None):
         if mask is not None:

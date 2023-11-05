@@ -1,12 +1,11 @@
 import numpy as np
 from nn.gpt import GPT
-from nn.bart import Bart
 from nn.super_net import SuperNet
 
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, replay_ratio=4, train_frequency=1, batch_size=512):
+    def __init__(self, replay_ratio=1, train_frequency=3, batch_size=512):
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
         self.batch_size = batch_size

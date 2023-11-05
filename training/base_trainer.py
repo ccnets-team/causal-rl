@@ -49,7 +49,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
             return results[0]
         return results
 
-    def calculate_curiosity_rewards(self, intrinsic_value, *args):
+    def calculate_curiosity_rewards(self, intrinsic_value):
         with torch.no_grad():
             curiosity_reward = self.curiosity_factor * intrinsic_value
         return curiosity_reward

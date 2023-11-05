@@ -35,31 +35,21 @@ def create_layer(input_size = None, output_size = None, act_fn ="none"):
     add_activation_to_layers(layers, act_fn)
     return nn.Sequential(*layers)
 
-def init_weights(param_object):
-    if isinstance(param_object, Iterable):
-        for layer in param_object:
-            if isinstance(layer, nn.Linear) or isinstance(layer, nn.Conv2d) or isinstance(layer, nn.ConvTranspose2d):
-                nn.init.xavier_uniform_(layer.weight)
-                if layer.bias is not None:
-                    nn.init.zeros_(layer.bias)
-            elif isinstance(layer, nn.MultiheadAttention):
-                nn.init.xavier_uniform_(layer.in_proj_weight)
-                if layer.in_proj_bias is not None:
-                    nn.init.zeros_(layer.in_proj_bias)
-            else:
-                # Handle other layer types if needed
-                pass
-    else:
-        if isinstance(param_object, nn.Linear) or isinstance(param_object, nn.Conv2d) or isinstance(param_object, nn.ConvTranspose2d):
-            nn.init.xavier_uniform_(param_object.weight)
-            if param_object.bias is not None:
-                nn.init.zeros_(param_object.bias)
-        elif isinstance(param_object, nn.MultiheadAttention):
-            nn.init.xavier_uniform_(param_object.in_proj_weight)
-            if param_object.in_proj_bias is not None:
-                nn.init.zeros_(param_object.in_proj_bias)
-        else:
-            # Handle other layer types if needed
-            pass
-
-
+def init_weights(module):
+    """
+    Applies Xavier uniform initialization to certain layers in a module and its submodules.
+    
+    Args:
+        module (nn.Module): The module to initialize.
+    """
+    if isinstance(module, (nn.Linear, nn.Conv2d, nn.ConvTranspose2d)):
+        nn.init.xavier_uniform_(module.weight)
+        if module.bias is not None:
+            nn.init.zeros_(module.bias)
+    elif isinstance(module, nn.MultiheadAttention):
+        nn.init.xavier_uniform_(module.in_proj_weight)
+        if module.in_proj_bias is not None:
+            nn.init.zeros_(module.in_proj_bias)
+            
+    for child in module.children():
+        init_weights(child)  # Apply recursively to child submodules

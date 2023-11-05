@@ -15,16 +15,16 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
     "Crawler": {'discount_factor': 0.995, 'hidden_size': 192, 'max_steps': 500000},
     "Walker": {'discount_factor': 0.995, 'hidden_size': 256, 'max_steps': 500000},
     "Hallway": {'state_normalizer': 'none', 'max_steps': 500000},
-    "PushBlock": {'hidden_size': 192, 'state_normalizer': 'none', 'batch_size': 1024, 'max_steps': 200000},
-    "Pyramids": {'discount_factor': 0.995,  'num_td_steps': 10, 'hidden_size': 256, 'state_normalizer': 'none', 'batch_size': 1024}
+    "PushBlock": {'hidden_size': 128, 'state_normalizer': 'none', 'max_steps': 200000},
+    "Pyramids": {'discount_factor': 0.995,  'num_td_steps': 10, 'hidden_size': 256, 'state_normalizer': 'none'}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
-    "Ant-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'max_steps': 500000},
-    "Reacher-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'max_steps': 500000},
-    "Pusher-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'max_steps': 500000},
-    "Humanoid-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'hidden_size': 256, 'max_steps': 500000},
-    "HumanoidStandup-": {'reward_scale': 0.001, 'replay_ratio': 3, 'train_frequency': 2, 'batch_size': 1024, 'hidden_size': 256, 'max_steps': 500000}
+    "Ant-": {'reward_scale': 0.1, 'max_steps': 500000},
+    "Reacher-": {'reward_scale': 0.1, 'max_steps': 500000},
+    "Pusher-": {'reward_scale': 0.1, 'max_steps': 500000},
+    "Humanoid-": {'reward_scale': 0.1, 'hidden_size': 256, 'max_steps': 500000},
+    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256, 'max_steps': 500000}
 }
 
 def analyze_env(env_name):

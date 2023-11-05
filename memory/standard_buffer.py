@@ -41,20 +41,6 @@ class BaseBuffer:
         rewards_slices = self.rewards[expanded_indices].reshape(batch_size, td_steps, -1)
         next_states_slices = self.next_states[expanded_indices].reshape(batch_size, td_steps, -1)
         dones_slices = self.dones[expanded_indices].reshape(batch_size, td_steps, -1)
-        
-        # Create the done_mask
-        cumulative_dones = np.cumsum(dones_slices, axis=1)
-        shifted_dones = np.roll(cumulative_dones, shift=1, axis=1)
-        shifted_dones[:, 0] = 0  # Set the first column to 0 after the roll
-        done_mask = shifted_dones >= 1
-
-        # Zero out elements after a done signal using done_mask
-        states_slices[done_mask.repeat(self.state_size, axis=-1)] = 0
-        actions_slices[done_mask.repeat(self.action_size, axis=-1)] = 0
-        rewards_slices[done_mask] = 0
-        next_states_slices[done_mask.repeat(self.state_size, axis=-1)] = 0
-        dones_slices[done_mask] = 1
-        # Note: We don't need to modify dones_slices since the mask itself is derived from it
 
         transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions

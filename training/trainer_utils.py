@@ -29,7 +29,8 @@ def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
     - mask (torch.Tensor): The resultant mask tensor.
     """
     mask = torch.ones_like(dones)
-    mask[:, 1:, :] = 1 - dones[:, :-1, :]
+    cumulative_dones = torch.cumsum(dones, axis=1)
+    mask[:, 1:, :] = 1 - cumulative_dones[:, :-1, :]
     
     return mask
 

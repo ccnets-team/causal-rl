@@ -26,9 +26,9 @@ class _BaseActor(nn.Module):
 
         # Actor network layers
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(input_size, self.hidden_size)
-        self.net = net(self.num_layer, self.hidden_size) 
         self.mean_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
         self.log_std_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
+        self.net = net(self.num_layer, self.hidden_size) 
         self.value_size = 1
         
         # Exploration strategy initialization
@@ -202,7 +202,6 @@ class _BaseActor(nn.Module):
 class SingleInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration_params):
         super().__init__(net, env_config, network_params, exploration_params, env_config.state_size)
-        # self.embedding_layer = create_layer(self.state_size, self.hidden_size, act_fn="tanh")
         self.apply(init_weights)
 
     def forward(self, state, mask = None):
@@ -238,8 +237,6 @@ class SingleInputActor(_BaseActor):
 class DualInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration_params):
         super().__init__(net, env_config, network_params, exploration_params, env_config.state_size + 1)
-        # self.embedding_layer = JointEmbeddingLayer(self.state_size, self.value_size, \
-        #     output_size=self.hidden_size, joint_type="cat")
         self.apply(init_weights)
         
         # Comment about joint representation for the actor and reverse-env network:
