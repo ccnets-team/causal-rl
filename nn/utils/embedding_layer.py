@@ -57,28 +57,22 @@ class JointEmbeddingLayer(nn.Module):
             raise ValueError(f"Unsupported joint type: {self.joint_type}")
         
 class ContinuousFeatureEmbeddingLayer(nn.Module):
-    def __init__(self, num_features, embedding_size):
+    def __init__(self, num_features, embedding_size, act_fn='tanh'):
         super(ContinuousFeatureEmbeddingLayer, self).__init__()
-        # Embedding matrix where each feature has an associated embedding vector
         self.feature_embeddings = nn.Parameter(torch.randn(num_features, embedding_size))
-        # Bias term for each embedding vector
-        self.feature_biases = nn.Parameter(torch.zeros(1, num_features, embedding_size))
+        self.bias = nn.Parameter(torch.zeros(1, embedding_size))  # Shared bias across features
+        self.act_fn = act_fn
 
     def forward(self, features):
-        # features has shape [Batch, Sequence, Features]
-        # Add an extra dimension for feature embeddings
         features_expanded = features.unsqueeze(-1)
-
-        # Multiply each feature with its corresponding embedding
         feature_emb_mul = features_expanded * self.feature_embeddings
+        feature_emb_bias = feature_emb_mul.sum(dim=2) + self.bias  # Sum first, then add bias
 
-        # Add bias to each embedded feature
-        feature_emb_bias = feature_emb_mul + self.feature_biases
+        if self.act_fn == "tanh":
+            sequence_embeddings = torch.tanh(feature_emb_bias)
+        elif self.act_fn == "relu":
+            sequence_embeddings = torch.relu(feature_emb_bias)
+        else:
+            sequence_embeddings = feature_emb_bias
 
-        # Aggregate the embeddings for each feature into a single embedding per sequence step
-        sequence_embeddings = feature_emb_bias.sum(dim=2)
-
-        # Apply an activation function (tanh) to each sequence embedding
-        activated_sequence_embeddings = torch.tanh(sequence_embeddings)
-
-        return activated_sequence_embeddings
+        return sequence_embeddings
