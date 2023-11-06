@@ -53,10 +53,10 @@ class EnvironmentPool:
         state_tensor = torch.from_numpy(np_state).to(self.device)
         mask_tensor = torch.from_numpy(np_mask).to(self.device)
         reset_tensor = torch.from_numpy(np_reset).to(self.device)
-        if training:
-            ramdom_td_steps = random.randint(1, self.num_td_steps)
-            state_tensor = state_tensor[:,-ramdom_td_steps:]
-            mask_tensor = mask_tensor[:,-ramdom_td_steps:]
+        # if training:
+        #     ramdom_td_steps = random.randint(1, self.num_td_steps)
+        #     state_tensor = state_tensor[:,-ramdom_td_steps:]
+        #     mask_tensor = mask_tensor[:,-ramdom_td_steps:]
 
         state_tensor = trainer.normalize_state(state_tensor)
         action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
