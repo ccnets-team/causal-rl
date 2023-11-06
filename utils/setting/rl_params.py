@@ -23,7 +23,7 @@ class AlgorithmParameters:
         self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
-    def __init__(self, neural_network = GPT, num_layer=4, hidden_size=128, dropout = 0.05):
+    def __init__(self, neural_network = GPT, num_layer=4, hidden_size=128, dropout = 0.0):
         self.neural_network = neural_network
         self.num_layer = num_layer
         self.hidden_size = hidden_size
