@@ -41,22 +41,22 @@ class BaseBuffer:
         rewards_slices = self.rewards[expanded_indices].reshape(batch_size, td_steps, -1)
         next_states_slices = self.next_states[expanded_indices].reshape(batch_size, td_steps, -1)
         dones_slices = self.dones[expanded_indices].reshape(batch_size, td_steps, -1)
-
+        
         transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions
         
-    def get_trajectory_indicies(self):
+    def get_trajectory_indicies(self, td_steps):
         buffer_len = self.size
         if buffer_len == self.capacity:  # Buffer is full
-            end_valid_idx = self.index - self.num_td_steps
+            end_valid_idx = self.index - td_steps
             if end_valid_idx < 0:  # Check for wrap around
-                possible_indices = np.arange(end_valid_idx + self.num_td_steps, end_valid_idx + buffer_len + 1) % self.capacity
+                possible_indices = np.arange(end_valid_idx + td_steps, end_valid_idx + buffer_len + 1) % self.capacity
             else:
-                first_range = np.arange(end_valid_idx + self.num_td_steps, buffer_len)
+                first_range = np.arange(end_valid_idx + td_steps, buffer_len)
                 second_range = np.arange(0, end_valid_idx + 1)
                 possible_indices = np.concatenate([first_range, second_range]) % self.capacity
         else:
-            possible_indices = np.arange(0, self.index - self.num_td_steps + 1)
+            possible_indices = np.arange(0, self.index - td_steps + 1)
 
         return possible_indices.tolist()
     
@@ -76,7 +76,7 @@ class StandardBuffer(BaseBuffer):
             self.size += 1
             
     def sample(self, sample_size, td_steps):
-        valid_indices = self.get_trajectory_indicies()
+        valid_indices = self.get_trajectory_indicies(td_steps)
         
         indices = random.sample(valid_indices, sample_size)        
         samples = self.get_trajectories(indices, td_steps)
