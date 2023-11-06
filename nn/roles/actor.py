@@ -10,7 +10,7 @@ from torch.distributions import Normal
 from ..utils.network_init import init_weights, create_layer
 from nn.utils.noise_adder import EpsilonGreedy, OrnsteinUhlenbeck, BoltzmannExploration
 
-from ..utils.embedding_layer import JointEmbeddingLayer, ContinuousFeatureEmbeddingLayer
+from ..utils.embedding_layer import ContinuousFeatureEmbeddingLayer
 
 log_std_min = -20
 log_std_max = 2
@@ -28,7 +28,7 @@ class _BaseActor(nn.Module):
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(input_size, self.hidden_size)
         self.mean_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
         self.log_std_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
-        self.net = net(self.num_layer, self.hidden_size) 
+        self.net = net(self.num_layer, self.hidden_size, dropout = network_params.dropout) 
         self.value_size = 1
         
         # Exploration strategy initialization

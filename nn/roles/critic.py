@@ -17,7 +17,7 @@ class BaseCritic(nn.Module):
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(input_size, self.hidden_size)
         self.final_layer = create_layer(self.hidden_size, self.value_size, act_fn = 'none') 
         self.use_discrete = env_config.use_discrete
-        self.net = net(self.num_layer, self.hidden_size)
+        self.net = net(self.num_layer, self.hidden_size, dropout = network_params.dropout)
 
     def _forward(self, _value, mask = None):
         value = self.net(_value, mask = mask) 

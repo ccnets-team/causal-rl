@@ -22,7 +22,7 @@ class RevEnv(nn.Module):
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(self.state_size + self.action_size \
             + self.value_size, self.hidden_size)
         self.final_layer = create_layer(self.hidden_size, self.state_size, act_fn = 'none') 
-        self.net = net(self.num_layer, self.hidden_size)
+        self.net = net(self.num_layer, self.hidden_size, dropout = network_params.dropout)
         self.apply(init_weights)
 
     def forward(self, next_state, action, value, mask=None):

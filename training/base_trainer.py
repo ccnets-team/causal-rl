@@ -37,8 +37,17 @@ class BaseTrainer(TrainingManager, StrategyManager):
     def compute_gae_advantage(self, states, rewards, next_states, dones):
         critic = self.get_networks()[0]
         trajectory_states = torch.cat([states, next_states[:, -1:]], dim=1)
-        trajectory_values = critic(trajectory_states)  # Assuming critic outputs values for each state in the trajectory
-        advantages = compute_gae(trajectory_values, rewards, dones).detach()
+
+        # Calculate cumulative dones to mask out values and rewards after episode ends
+        cumulative_dones = torch.cumsum(dones, dim=1)
+        post_terminal_mask = torch.cat([torch.zeros_like(dones[:, :1]), cumulative_dones], dim=1).bool() 
+        mask = ~post_terminal_mask
+        
+        trajectory_values = critic(trajectory_states, mask)  # Assuming critic outputs values for each state in the trajectory
+        # Zero-out rewards and values after the end of the episode
+        rewards[post_terminal_mask[:, :-1]] = 0
+        trajectory_values[post_terminal_mask] = 0        
+        advantages = compute_gae(trajectory_values, rewards, cumulative_dones, self.discount_factor)
         return advantages
     
     def select_first_transitions(self, *tensor_sequences: torch.Tensor):

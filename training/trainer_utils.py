@@ -101,27 +101,32 @@ def compute_discounted_future_value(end_step, discount_factor, max_seq_len):
     # Return the discount factors with an additional dimension to match the expected shape
     return discount_factors.unsqueeze(-1)
 
-def compute_gae(values, rewards, dones, gamma=0.99, tau=0.95):
-    # Assuming rewards and dones tensors have shape [batch_size, num_td_steps, 1] 
-    # and values has shape [batch_size, num_td_steps+1, 1]
-    # IMPORTANT: This function assumes the value of terminal states in `values` tensor is already 0.
+def compute_gae(values, rewards, dones, gamma, tau=0.95):
+    """
+    Compute Generalized Advantage Estimation (GAE).
     
-    gae = 0
-    mask = torch.zeros_like(dones).bool()
-    cumulative_dones = torch.cumsum(dones, axis=1)
-    
-    mask[:, 1:, :] = cumulative_dones[:, :-1, :]
-    rewards[mask > 0] = 0
-    
-    extended_mask = torch.cat((torch.zeros_like(dones[:, :1]), cumulative_dones), dim=1)
-    values[extended_mask > 0] = 0 # Set the value of terminal states to 0
-    
+    Args:
+    - values (torch.Tensor): Estimated values with shape [batch_size, num_td_steps+1, 1].
+    - rewards (torch.Tensor): Observed rewards with shape [batch_size, num_td_steps, 1].
+    - dones (torch.Tensor): Done flags (1 if terminal state, else 0) with shape [batch_size, num_td_steps, 1].
+    - gamma (float): Discount factor.
+    - tau (float): GAE parameter for bias-variance trade-off.
+
+    Returns:
+    - advantages (torch.Tensor): Computed advantages with shape [batch_size, num_td_steps, 1].
+    """
+    # Copy the inputs to avoid modifying original tensors
+    # Prepare tensor for advantages
     advantages = torch.zeros_like(rewards)
+    gae = 0  # Initialize GAE
 
     # Iterate through timesteps in reverse to calculate GAE
     for t in reversed(range(rewards.size(1))):
-        delta = rewards[:, t] + gamma * values[:, t+1] * (1 - cumulative_dones[:, t]) - values[:, t]
-        gae = delta + gamma * tau * gae * (1 - cumulative_dones[:, t])
+        # Calculate temporal difference error
+        delta = rewards[:, t] + gamma * values[:, t + 1] * (1 - dones[:, t]) - values[:, t]
+        # Update GAE
+        gae = delta + gamma * tau * gae * (1 - dones[:, t])
+        # Store computed advantage
         advantages[:, t] = gae
 
     return advantages

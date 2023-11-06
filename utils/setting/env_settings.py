@@ -15,7 +15,7 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
     "Crawler": {'hidden_size': 192, 'max_steps': 500000},
     "Walker": {'hidden_size': 256, 'max_steps': 500000},
     "Hallway": {'state_normalizer': 'none', 'max_steps': 500000},
-    "PushBlock": {'state_normalizer': 'none', 'max_steps': 200000},
+    "PushBlock": {'state_normalizer': 'none', 'num_td_steps': 10, 'max_steps': 200000},
     "Pyramids": {'state_normalizer': 'none', 'num_td_steps': 20, 'hidden_size': 256, 'curiosity_factor': 0.01}
 }
 

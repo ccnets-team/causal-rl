@@ -20,7 +20,7 @@ class SuperNetBlock(nn.Module):
         return out
 
 class SuperNet(nn.Module):
-    def __init__(self, num_layer, hidden_size):
+    def __init__(self, num_layer, hidden_size, dropout = 0.0):
         super(SuperNet, self).__init__()
         self.num_layer = num_layer
 

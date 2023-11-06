@@ -57,21 +57,28 @@ class JointEmbeddingLayer(nn.Module):
             raise ValueError(f"Unsupported joint type: {self.joint_type}")
         
 class ContinuousFeatureEmbeddingLayer(nn.Module):
-    def __init__(self, num_features, embedding_dim):
+    def __init__(self, num_features, embedding_size):
         super(ContinuousFeatureEmbeddingLayer, self).__init__()
-        # Create an embedding matrix for feature-wise embeddings
-        self.embedding = nn.Parameter(torch.randn(num_features, embedding_dim))
-        # Create a bias term for each feature-wise embedding
-        self.bias = nn.Parameter(torch.zeros(1, embedding_dim))
+        # Embedding matrix where each feature has an associated embedding vector
+        self.feature_embeddings = nn.Parameter(torch.randn(num_features, embedding_size))
+        # Bias term for each embedding vector
+        self.feature_biases = nn.Parameter(torch.zeros(1, num_features, embedding_size))
 
-    def forward(self, x):
-        # x has shape [B, S, F]
-        # We perform batch matrix multiplication with the embedding matrix.
-        # This multiplies each [S, F] matrix in the batch by the [F, E] embedding matrix,
-        # resulting in a [S, E] matrix for each item in the batch.
-        activated_features = torch.matmul(x, self.embedding) + self.bias.unsqueeze(0)
-        
-        # Apply the tanh activation function
-        activated_features = torch.tanh(activated_features)
-        
-        return activated_features
+    def forward(self, features):
+        # features has shape [Batch, Sequence, Features]
+        # Add an extra dimension for feature embeddings
+        features_expanded = features.unsqueeze(-1)
+
+        # Multiply each feature with its corresponding embedding
+        feature_emb_mul = features_expanded * self.feature_embeddings
+
+        # Add bias to each embedded feature
+        feature_emb_bias = feature_emb_mul + self.feature_biases
+
+        # Aggregate the embeddings for each feature into a single embedding per sequence step
+        sequence_embeddings = feature_emb_bias.sum(dim=2)
+
+        # Apply an activation function (tanh) to each sequence embedding
+        activated_sequence_embeddings = torch.tanh(sequence_embeddings)
+
+        return activated_sequence_embeddings
