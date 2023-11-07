@@ -43,7 +43,7 @@ def masked_mean(tensor, mask):
 def calculate_accumulative_rewards(rewards, end_step, discount_factor):
     batch_size, seq_len, _ = rewards.shape
     # Create the mask based on end_idx to identify valid reward positions
-    mask = torch.arange(seq_len).to(end_step.device).unsqueeze(0).expand(batch_size, -1) < end_step.unsqueeze(-1)
+    mask = torch.arange(seq_len).to(end_step.device).unsqueeze(0).expand(batch_size, -1) <= end_step.unsqueeze(-1)
     mask = mask.unsqueeze(-1) # Expand to match rewards shape 
 
     # Initialize a tensor for accumulative rewards with zeros

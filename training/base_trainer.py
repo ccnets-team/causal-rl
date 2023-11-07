@@ -96,7 +96,8 @@ class BaseTrainer(TrainingManager, StrategyManager):
         accumulative_rewards = calculate_accumulative_rewards(rewards, end_step, self.discount_factor)
         
         # Calculate the expected values
-        expected_values = accumulative_rewards + (1 - dones) * discount_factors * future_value_at_end_step
+        sequence_dones = dones.any(dim=1, keepdim=True).expand_as(dones).type(dones.dtype)
+        expected_values = accumulative_rewards + (1 - sequence_dones) * discount_factors * future_value_at_end_step
         
         return expected_values
 
