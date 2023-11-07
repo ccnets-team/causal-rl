@@ -60,7 +60,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
 
     def calculate_curiosity_rewards(self, intrinsic_value):
         with torch.no_grad():
-            curiosity_reward = self.curiosity_factor * intrinsic_value
+            curiosity_reward = self.curiosity_factor * intrinsic_value.square()
         return curiosity_reward
     
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, intrinsic_value: None) -> (torch.Tensor, torch.Tensor, torch.Tensor):
