@@ -5,7 +5,7 @@ from nn.super_net import SuperNet
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, replay_ratio=4, train_frequency=1, batch_size=1024):
+    def __init__(self, replay_ratio=4, train_frequency=1, batch_size=512):
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
         self.batch_size = batch_size
@@ -23,10 +23,13 @@ class AlgorithmParameters:
         self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
-    def __init__(self, neural_network = GPT, num_layer=4, hidden_size=128, dropout = 0.0):
-        self.neural_network = neural_network
+    def __init__(self, num_layer=4, hidden_size=128, value_size=16, dropout = 0.0):
+        self.critic_network = SuperNet
+        self.actor_network = GPT
+        self.reverse_env_network = SuperNet
         self.num_layer = num_layer
         self.hidden_size = hidden_size
+        self.value_size = value_size
         self.dropout = dropout
 
 class OptimizationParameters:

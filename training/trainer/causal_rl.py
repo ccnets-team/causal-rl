@@ -16,7 +16,8 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectory_handler  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from training.trainer_utils import create_mask_from_dones, masked_mean
-
+from nn.gpt import GPT
+from nn.super_net import SuperNet
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -24,11 +25,13 @@ class CausalRL(BaseTrainer):
         trainer_name = "causal_rl"
         self.network_names = ["critic", "actor", "rev_env"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        neural_network = network_params.neural_network
+        critic_network = network_params.critic_network
+        actor_network = network_params.actor_network
+        reverse_env_network = network_params.reverse_env_network
         
-        self.critic = SingleInputCritic(neural_network, env_config, network_params).to(device)
-        self.actor = DualInputActor(neural_network, env_config, network_params, exploration_params).to(device)
-        self.revEnv = RevEnv(neural_network, env_config, network_params).to(device)
+        self.critic = SingleInputCritic(critic_network, env_config, network_params).to(device)
+        self.actor = DualInputActor(actor_network, env_config, network_params, exploration_params).to(device)
+        self.revEnv = RevEnv(reverse_env_network, env_config, network_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 
@@ -89,11 +92,12 @@ class CausalRL(BaseTrainer):
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
+        mean_estimated_value = estimated_value.mean(dim=-1, keepdim=True)
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, estimated_value, intrinsic_value=coop_revEnv_error)
+        expected_value, advantage = self.compute_values(trajectory, mean_estimated_value, intrinsic_value=coop_revEnv_error)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
+        value_loss = self.calculate_value_loss(mean_estimated_value, expected_value, mask)   
 
         # Derive the critic loss from the cooperative critic error.
         critic_loss = masked_mean(coop_critic_error, mask)
@@ -134,9 +138,8 @@ class CausalRL(BaseTrainer):
         self.update_schedulers()
 
     def trainer_calculate_future_value(self, next_state, mask = None):
-        target_network, _, _ = self.get_target_networks()
         with torch.no_grad():
-            future_value = target_network(next_state, mask=mask)
+            future_value = self.target_critic.evaluate(next_state, mask=mask)
         return future_value
 
     

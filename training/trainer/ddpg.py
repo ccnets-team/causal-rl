@@ -28,10 +28,11 @@ class DDPG(BaseTrainer):
         trainer_name = "ddpg"
         self.network_names = ["critic", "actor"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        neural_network = network_params.neural_network
+        critic_network = network_params.critic_network
+        actor_network = network_params.actor_network
 
-        self.critic = DualInputCritic(neural_network, env_config, network_params).to(device)
-        self.actor = SingleInputActor(neural_network, env_config, network_params, exploration_params).to(device)
+        self.critic = DualInputCritic(critic_network, env_config, network_params).to(device)
+        self.actor = SingleInputActor(actor_network, env_config, network_params, exploration_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
         self.target_actor = copy.deepcopy(self.actor)
 

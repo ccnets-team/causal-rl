@@ -12,12 +12,12 @@ from ..utils.embedding_layer import JointEmbeddingLayer, ContinuousFeatureEmbedd
 class RevEnv(nn.Module):
     def __init__(self, net, env_config, network_params):
         super(RevEnv, self).__init__()
-        self.value_size = 1
         self.use_discrete = env_config.use_discrete
         self.state_size = env_config.state_size
         self.action_size = env_config.action_size
         self.hidden_size = network_params.hidden_size
         self.num_layer = network_params.num_layer
+        self.value_size = network_params.value_size
             
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(self.state_size + self.action_size \
             + self.value_size, self.hidden_size)

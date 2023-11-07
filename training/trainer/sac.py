@@ -25,11 +25,12 @@ class SAC(BaseTrainer):
         - device: Device to which model will be allocated.
         """
         network_params, exploration_params, optimization_params = rl_params.network, rl_params.exploration, rl_params.optimization
-        neural_network = network_params.neural_network
-        self.critic1 = Critic(neural_network, env_config, network_params).to(device)
-        self.critic2 = Critic(neural_network, env_config, network_params).to(device)
-        self.value = ValueNetwork(neural_network, env_config, network_params).to(device)
-        self.policy = PolicyNetwork(neural_network, env_config, network_params, exploration_params).to(device)
+        critic_network = network_params.critic_network
+        actor_network = network_params.actor_network
+        self.critic1 = Critic(critic_network, env_config, network_params).to(device)
+        self.critic2 = Critic(critic_network, env_config, network_params).to(device)
+        self.value = ValueNetwork(actor_network, env_config, network_params).to(device)
+        self.policy = PolicyNetwork(critic_network, env_config, network_params, exploration_params).to(device)
         
         self.target_critic1 = copy.deepcopy(self.critic1)
         self.target_critic2 = copy.deepcopy(self.critic2)
