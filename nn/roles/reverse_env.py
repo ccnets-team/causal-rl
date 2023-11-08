@@ -17,11 +17,12 @@ class RevEnv(nn.Module):
         self.action_size = env_config.action_size
         self.hidden_size = network_params.hidden_size
         self.num_layer = network_params.num_layer
-        self.value_size = network_params.value_size
+        self.value_size = 1
             
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(self.state_size + self.action_size \
             + self.value_size, self.hidden_size)
-        self.final_layer = create_layer(self.hidden_size, self.state_size, act_fn = 'none') 
+        self.final_layer = ContinuousFeatureEmbeddingLayer(self.hidden_size, self.state_size, act_fn='none')
+        # self.final_layer = create_layer(self.hidden_size, self.state_size, act_fn = 'none') 
         self.net = net(self.num_layer, self.hidden_size, dropout = network_params.dropout)
         self.apply(init_weights)
 

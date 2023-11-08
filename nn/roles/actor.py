@@ -29,7 +29,7 @@ class _BaseActor(nn.Module):
         self.mean_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
         self.log_std_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
         self.net = net(self.num_layer, self.hidden_size, dropout = network_params.dropout) 
-        self.value_size = network_params.value_size
+        self.value_size = 1
         
         # Exploration strategy initialization
         self.noise_strategy, self.use_noise_before_activation, = self._initialize_noise_strategy(
@@ -236,7 +236,8 @@ class SingleInputActor(_BaseActor):
 
 class DualInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration_params):
-        super().__init__(net, env_config, network_params, exploration_params, env_config.state_size + network_params.value_size)
+        value_size = 1
+        super().__init__(net, env_config, network_params, exploration_params, env_config.state_size + value_size)
         self.apply(init_weights)
         
         # Comment about joint representation for the actor and reverse-env network:

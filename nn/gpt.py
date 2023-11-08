@@ -20,17 +20,12 @@ class _GPTBase(nn.Module):
             resid_pdrop=dropout,
             embd_pdrop=dropout,
             attn_pdrop=dropout,
-            summary_first_dropout=dropout,            
-            summary_use_proj=False,
-            summary_proj_to_labels=False,
             use_cache=False,
-            bos_token_id=0,
-            eos_token_id=0,
         )
         self.net = GPT2Model(config)
 
 class GPT(_GPTBase):
-    def __init__(self, num_layer, hidden_size, num_heads: int = 8, dropout = 0.05):
+    def __init__(self, num_layer, hidden_size, num_heads: int = 8, dropout = 0.0):
         super(GPT, self).__init__(num_layer, hidden_size, num_heads, dropout)   
         
     def forward(self, input_tensor, mask=None):

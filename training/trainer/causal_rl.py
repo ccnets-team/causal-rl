@@ -16,8 +16,6 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectory_handler  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from training.trainer_utils import create_mask_from_dones, masked_mean
-from nn.gpt import GPT
-from nn.super_net import SuperNet
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.

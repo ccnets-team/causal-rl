@@ -16,24 +16,23 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, num_td_steps=5, discount_factor=0.99, curiosity_factor = 0.0, use_gae_advantage = False):
+    def __init__(self, num_td_steps=5, discount_factor=0.99, curiosity_factor = 0.0, use_gae_advantage = True):
         self.num_td_steps = num_td_steps
         self.discount_factor = discount_factor
         self.use_gae_advantage = use_gae_advantage
         self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
-    def __init__(self, num_layer=4, hidden_size=128, value_size=16, dropout = 0.0):
-        self.critic_network = SuperNet
+    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.0):
+        self.critic_network = GPT
         self.actor_network = GPT
         self.reverse_env_network = SuperNet
         self.num_layer = num_layer
         self.hidden_size = hidden_size
-        self.value_size = value_size
         self.dropout = dropout
 
 class OptimizationParameters:
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=16, lr=3e-4, tau=5e-3):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=32, lr=3e-4, tau=5e-3):
         self.beta1 = beta1
         self.lr_gamma = lr_gamma
         self.step_size = step_size

@@ -40,13 +40,8 @@ class BaseTrainer(TrainingManager, StrategyManager):
 
         # Calculate cumulative dones to mask out values and rewards after episode ends
         cumulative_dones = torch.cumsum(dones, dim=1)
-        post_terminal_mask = torch.cat([torch.zeros_like(dones[:, :1]), cumulative_dones], dim=1).bool() 
-        mask = ~post_terminal_mask
-        
-        trajectory_values = critic(trajectory_states, mask)  # Assuming critic outputs values for each state in the trajectory
+        trajectory_values = critic(trajectory_states)  # Assuming critic outputs values for each state in the trajectory
         # Zero-out rewards and values after the end of the episode
-        rewards[post_terminal_mask[:, :-1]] = 0
-        trajectory_values[post_terminal_mask] = 0        
         advantages = compute_gae(trajectory_values, rewards, cumulative_dones, self.discount_factor)
         return advantages
     

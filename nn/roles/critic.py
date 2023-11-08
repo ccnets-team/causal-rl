@@ -13,12 +13,11 @@ class BaseCritic(nn.Module):
     def __init__(self, net, env_config, network_params, input_size):
         super(BaseCritic, self).__init__()  
         self.hidden_size, self.num_layer = network_params.hidden_size, network_params.num_layer
-        self.value_size = network_params.value_size
+        self.value_size = 1
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(input_size, self.hidden_size)
         self.final_layer = create_layer(self.hidden_size, self.value_size, act_fn = 'none') 
         self.use_discrete = env_config.use_discrete
         self.net = net(self.num_layer, self.hidden_size, dropout = network_params.dropout)
-        self.layer_norm = nn.LayerNorm(self.value_size, elementwise_affine = False)
 
     def _forward(self, _value, mask = None):
         value = self.net(_value, mask = mask) 
