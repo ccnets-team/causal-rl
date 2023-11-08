@@ -33,9 +33,6 @@ class SingleInputCritic(BaseCritic):
         _state = self.embedding_layer(state)
         return self._forward(_state, mask)
 
-    def evaluate(self, state, mask = None):
-        value = self.forward(state, mask)
-        return value.mean(dim = -1, keepdim = True)
 
 class DualInputCritic(BaseCritic):
     def __init__(self, net, env_config, network_params):
@@ -48,8 +45,4 @@ class DualInputCritic(BaseCritic):
         _state = self.embedding_layer(torch.cat([state, action], dim = -1))
         value = self._forward(_state, mask)
         return value
-
-    def evaluate(self, state, action, mask = None):
-        value = self.forward(state, action, mask)
-        return value.mean(dim = -1, keepdim = True)
     
