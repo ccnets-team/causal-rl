@@ -16,13 +16,13 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
     "Walker": {'hidden_size': 256, 'max_steps': 500000},
     "Hallway": {'state_normalizer': 'none', 'max_steps': 500000},
     "PushBlock": {'state_normalizer': 'none', 'batch_size': 1024, 'max_steps': 200000},
-    "Pyramids": {'state_normalizer': 'none', 'num_td_steps': 10, 'batch_size': 1024, 'curiosity_factor': 0.1}
+    "Pyramids": {'state_normalizer': 'none', 'batch_size': 1024, 'curiosity_factor': 0.1}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
     "Ant-": {'reward_scale': 0.01, 'max_steps': 500000},
-    "Reacher-": {'reward_scale': 0.1, 'max_steps': 500000},
-    "Pusher-": {'reward_scale': 0.1, 'max_steps': 500000},
+    "Reacher-": {'reward_scale': 0.01, 'max_steps': 500000},
+    "Pusher-": {'reward_scale': 0.01, 'max_steps': 500000},
     "Humanoid-": {'reward_scale': 0.1, 'hidden_size': 256, 'max_steps': 500000},
     "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256, 'max_steps': 500000}
 }
