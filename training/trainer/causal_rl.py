@@ -45,11 +45,11 @@ class CausalRL(BaseTrainer):
     def get_action(self, state, mask = None, training: bool = False):
         exploration_rate = self.get_exploration_rate()
         with torch.no_grad():
-            estimated_value, latent_value = self.critic(state)
+            estimated_value = self.critic(state)
             if training:
-                action = self.actor.sample_action(state, latent_value, mask=mask, exploration_rate=exploration_rate)
+                action = self.actor.sample_action(state, estimated_value, mask=mask, exploration_rate=exploration_rate)
             else:
-                action = self.actor.select_action(state, latent_value, mask)
+                action = self.actor.select_action(state, estimated_value, mask)
         return action
 
     # This is the core training method of our Causal RL approach.
@@ -68,15 +68,15 @@ class CausalRL(BaseTrainer):
         mask = create_mask_from_dones(dones)
 
         # Get the estimated value of the current state from the critic network.
-        estimated_value, latent_value = self.critic(states, mask)
+        estimated_value = self.critic(states, mask)
             
         # Predict the action that the actor would take for the current state and its estimated value.
-        inferred_action = self.actor.predict_action(states, latent_value, mask)
+        inferred_action = self.actor.predict_action(states, estimated_value, mask)
         
         # Calculate the reversed state using the original action.
-        reversed_state = self.revEnv(next_states, actions, latent_value, mask)
+        reversed_state = self.revEnv(next_states, actions, estimated_value, mask)
         # Calculate the recurred state using the inferred action.
-        recurred_state = self.revEnv(next_states, inferred_action, latent_value.detach(), mask)
+        recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach(), mask)
         
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state)
@@ -92,11 +92,12 @@ class CausalRL(BaseTrainer):
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
+        mean_estimated_value = estimated_value.mean(dim=-1, keepdim=True)
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, estimated_value, intrinsic_value=coop_revEnv_error)
+        expected_value, advantage = self.compute_values(trajectory, mean_estimated_value, intrinsic_value=coop_revEnv_error)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
+        value_loss = self.calculate_value_loss(mean_estimated_value, expected_value, mask)   
 
         # Derive the critic loss from the cooperative critic error.
         critic_loss = masked_mean(coop_critic_error, mask)

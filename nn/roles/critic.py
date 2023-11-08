@@ -22,14 +22,8 @@ class BaseCritic(nn.Module):
 
     def _forward(self, _value, mask = None):
         value = self.net(_value, mask = mask) 
-        _value = self.final_layer(value)
-
-        mean = _value.mean(dim = -1, keepdim = True)
-        original_shape = _value.shape
-        _value = _value.view(-1, self.value_size)  # Flatten the tensor to 2D if not already
-        dist = self.layer_norm(_value)  # Apply layer normalization
-        dist = dist.view(original_shape)  # Restore the original shape
-        return mean, dist
+        value = self.final_layer(value)
+        return value
 
 class SingleInputCritic(BaseCritic):
     def __init__(self, net, env_config, network_params):
@@ -38,12 +32,11 @@ class SingleInputCritic(BaseCritic):
 
     def forward(self, state, mask = None):
         _state = self.embedding_layer(state)
-        mean, dist = self._forward(_state, mask)
-        return mean, dist
+        return self._forward(_state, mask)
 
     def evaluate(self, state, mask = None):
-        mean, _ = self.forward(state, mask)
-        return mean
+        value = self.forward(state, mask)
+        return value.mean(dim = -1, keepdim = True)
 
 class DualInputCritic(BaseCritic):
     def __init__(self, net, env_config, network_params):
@@ -54,15 +47,10 @@ class DualInputCritic(BaseCritic):
         if not self.use_discrete:
             action = torch.tanh(action)
         _state = self.embedding_layer(torch.cat([state, action], dim = -1))
-        mean, dist = self._forward(_state, mask)
-        return mean, dist
+        value = self._forward(_state, mask)
+        return value
 
-    def evaluate(self, state, mask = None):
-        mean, _ = self.forward(state, mask)
-        return mean
+    def evaluate(self, state, action, mask = None):
+        value = self.forward(state, action, mask)
+        return value.mean(dim = -1, keepdim = True)
     
-    # def forward(self, state, action, mask = None):
-    #     if not self.use_discrete:
-    #         action = torch.tanh(action)
-    #     _state = self.embedding_layer(torch.cat([state, action], dim = -1))
-    #     return self._forward(_state, mask)
