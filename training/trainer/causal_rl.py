@@ -90,12 +90,11 @@ class CausalRL(BaseTrainer):
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
-        mean_estimated_value = estimated_value.mean(dim=-1, keepdim=True)
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, mean_estimated_value, intrinsic_value=coop_revEnv_error)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value, intrinsic_value=coop_revEnv_error)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(mean_estimated_value, expected_value, mask)   
+        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
 
         # Derive the critic loss from the cooperative critic error.
         critic_loss = masked_mean(coop_critic_error, mask)

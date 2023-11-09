@@ -5,14 +5,14 @@ from nn.super_net import SuperNet
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, replay_ratio=4, train_frequency=1, batch_size=512):
+    def __init__(self, replay_ratio=3, train_frequency=5, batch_size=512):
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
         self.batch_size = batch_size
         self.training_start_step = DEFAULT_TRAINING_START_STEP
         
     def minimum_samples_per_step(self):
-        samples_per_step = int(max(1, np.ceil(self.batch_size/(self.train_frequency*self.replay_ratio))))
+        samples_per_step = int(max(1, np.ceil(self.batch_size/(self.replay_ratio))))
         return samples_per_step        
     
 class AlgorithmParameters:
@@ -23,10 +23,10 @@ class AlgorithmParameters:
         self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
-    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.1):
+    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.0):
         self.critic_network = GPT
         self.actor_network = GPT
-        self.reverse_env_network = SuperNet
+        self.reverse_env_network = GPT
         self.num_layer = num_layer
         self.hidden_size = hidden_size
         self.dropout = dropout
