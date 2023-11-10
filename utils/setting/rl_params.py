@@ -4,7 +4,7 @@ from nn.gpt import GPT
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, replay_ratio=2, train_frequency=5, batch_size=256):
+    def __init__(self, replay_ratio=2, train_frequency=10, batch_size=256):
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
         self.batch_size = batch_size
