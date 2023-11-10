@@ -1,11 +1,10 @@
 import numpy as np
 from nn.gpt import GPT
-from nn.super_net import SuperNet
 
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, replay_ratio=3, train_frequency=5, batch_size=512):
+    def __init__(self, replay_ratio=2, train_frequency=5, batch_size=256):
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
         self.batch_size = batch_size
@@ -16,14 +15,14 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, num_td_steps=10, discount_factor=0.99, curiosity_factor = 0.0, use_gae_advantage = True):
+    def __init__(self, num_td_steps=10, discount_factor=0.99, curiosity_factor = 0.0, use_gae_advantage = False):
         self.num_td_steps = num_td_steps
         self.discount_factor = discount_factor
         self.use_gae_advantage = use_gae_advantage
         self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
-    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.0):
+    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.1):
         self.critic_network = GPT
         self.actor_network = GPT
         self.reverse_env_network = GPT
@@ -41,7 +40,7 @@ class OptimizationParameters:
 
 class ExplorationParameters:
     def __init__(self, noise_type = None, initial_exploration = 1.0, min_exploration = 0.01, decay_percentage = 0.8, decay_mode = 'linear', \
-        max_steps=1000000):
+        max_steps=500000):
         self.noise_type = noise_type
         self.initial_exploration = initial_exploration
         self.min_exploration = min_exploration

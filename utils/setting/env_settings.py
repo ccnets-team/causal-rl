@@ -11,20 +11,20 @@ GYM_NUM_ENVIRONMENTS = 1
 MLAGENTS_ENV_SPECIFIC_ARGS = {
     "3DBall": {'max_steps': 50000},
     "3DBallHard": {'max_steps': 50000},
-    "Worm": {'max_steps': 500000},
-    "Crawler": {'hidden_size': 192, 'max_steps': 500000},
-    "Walker": {'hidden_size': 256, 'max_steps': 500000},
-    "Hallway": {'state_normalizer': 'none', 'max_steps': 500000},
-    "PushBlock": {'state_normalizer': 'none', 'replay_ratio': 2, 'max_steps': 200000},
-    "Pyramids": {'state_normalizer': 'none', 'replay_ratio': 2, 'curiosity_factor': 0.01}
+    "Worm": {},
+    "Crawler": {'hidden_size': 192},
+    "Walker": {'hidden_size': 192},
+    "Hallway": {'state_normalizer': 'none'},
+    "PushBlock": {'state_normalizer': 'none', 'replay_ratio': 1},
+    "Pyramids": {'state_normalizer': 'none', 'replay_ratio': 1, 'curiosity_factor': 0.01, 'max_steps': 1000000}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
-    "Ant-": {'reward_scale': 0.01, 'max_steps': 500000},
-    "Reacher-": {'reward_scale': 0.01, 'max_steps': 500000},
-    "Pusher-": {'reward_scale': 0.01, 'max_steps': 500000},
-    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256, 'max_steps': 500000},
-    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256, 'max_steps': 500000}
+    "Ant-": {'reward_scale': 0.01},
+    "Reacher-": {'reward_scale': 0.01},
+    "Pusher-": {'reward_scale': 0.01},
+    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 192},
+    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 192}
 }
 
 def analyze_env(env_name):
