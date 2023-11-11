@@ -22,7 +22,7 @@ class AlgorithmParameters:
         self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
-    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.1):
+    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.0):
         self.critic_network = GPT
         self.actor_network = GPT
         self.reverse_env_network = GPT

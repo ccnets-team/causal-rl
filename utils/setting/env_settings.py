@@ -9,22 +9,22 @@ from environments.settings.mlagents_config import setup_mlagents_environment
 
 GYM_NUM_ENVIRONMENTS = 1
 MLAGENTS_ENV_SPECIFIC_ARGS = {
-    "3DBall": {'max_steps': 50000},
-    "3DBallHard": {'max_steps': 50000},
+    "3DBall": {'max_steps': 50000, 'hidden_size': 64},
+    "3DBallHard": {'max_steps': 50000, 'hidden_size': 64},
     "Worm": {},
-    "Crawler": {'hidden_size': 192},
-    "Walker": {'hidden_size': 192},
+    "Crawler": {'hidden_size': 128},
+    "Walker": {'hidden_size': 128},
     "Hallway": {'state_normalizer': 'none'},
-    "PushBlock": {'state_normalizer': 'none', 'replay_ratio': 1},
-    "Pyramids": {'state_normalizer': 'none', 'replay_ratio': 1, 'curiosity_factor': 0.01, 'max_steps': 1000000}
+    "PushBlock": {'state_normalizer': 'none', 'hidden_size': 64, 'replay_ratio': 1},
+    "Pyramids": {'state_normalizer': 'none', 'hidden_size': 96, 'replay_ratio': 1, 'max_steps': 1000000}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
     "Ant-": {'reward_scale': 0.01},
-    "Reacher-": {'reward_scale': 0.01},
-    "Pusher-": {'reward_scale': 0.01},
-    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 192},
-    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 192}
+    "Reacher-": {'reward_scale': 0.01, 'hidden_size': 48},
+    "Pusher-": {'reward_scale': 0.01, 'hidden_size': 64},
+    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 128},
+    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 128}
 }
 
 def analyze_env(env_name):

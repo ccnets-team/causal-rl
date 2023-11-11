@@ -18,27 +18,8 @@ def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-def masked_mean(tensor, mask, dim=0, keepdim=False):
-    # Ensure mask is a boolean tensor
-    mask_bool = mask.bool()
-
-    # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
-    masked_tensor = tensor * mask_bool
-
-    # Sum the masked tensor across the batch dimension (dim=0)
-    sum_per_sequence = torch.sum(masked_tensor, dim=dim, keepdim=keepdim)
-
-    # Count the number of True entries in the mask per sequence for normalization
-    count_per_sequence = torch.sum(mask_bool, dim=dim, keepdim=keepdim)
-
-    # Handle potential division by zero in case some sequences are fully masked
-    # If count_per_sequence is 0, replace it with 1 to prevent division by zero
-    count_per_sequence = torch.clamp(count_per_sequence, min=1)
-
-    # Calculate the mean by dividing the sum by the number of unmasked entries
-    mean_per_sequence = sum_per_sequence / count_per_sequence
-
-    return mean_per_sequence
+def masked_mean(tensor, mask):
+    return tensor[mask>0].mean()
 
 def calculate_accumulative_rewards(rewards, end_step, discount_factor):
     batch_size, seq_len, _ = rewards.shape
