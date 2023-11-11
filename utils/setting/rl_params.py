@@ -4,7 +4,7 @@ from nn.gpt import GPT
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, replay_ratio=2, train_frequency=10, batch_size=256):
+    def __init__(self, replay_ratio=2, train_frequency=5, batch_size=256):
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
         self.batch_size = batch_size
@@ -22,7 +22,7 @@ class AlgorithmParameters:
         self.curiosity_factor = curiosity_factor
             
 class NetworkParameters:
-    def __init__(self, num_layer=3, hidden_size=128, dropout = 0.1):
+    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.1):
         self.critic_network = GPT
         self.actor_network = GPT
         self.reverse_env_network = GPT

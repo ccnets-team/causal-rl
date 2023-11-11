@@ -15,8 +15,8 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
     "Crawler": {'hidden_size': 192},
     "Walker": {'hidden_size': 192},
     "Hallway": {'state_normalizer': 'none'},
-    "PushBlock": {'state_normalizer': 'none', 'replay_ratio': 1, 'num_layer': 4,'hidden_size': 96},
-    "Pyramids": {'state_normalizer': 'none', 'replay_ratio': 1, 'num_layer': 4, 'batch_size': 128, 'curiosity_factor': 0.01, 'max_steps': 1000000}
+    "PushBlock": {'state_normalizer': 'none', 'replay_ratio': 1},
+    "Pyramids": {'state_normalizer': 'none', 'replay_ratio': 1, 'curiosity_factor': 0.01, 'max_steps': 1000000}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
