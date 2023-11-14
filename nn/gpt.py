@@ -7,7 +7,7 @@ class _GPTBase(nn.Module):
     def __init__(self, num_layer, hidden_size, num_heads, dropout):
         super(_GPTBase, self).__init__()   
         config = GPT2Config(
-            vocab_size=1,  # This should be set to your actual vocab size
+            vocab_size=hidden_size,  # This should be set to your actual vocab size
             n_embd=hidden_size,
             n_layer=num_layer,
             n_head=num_heads,
