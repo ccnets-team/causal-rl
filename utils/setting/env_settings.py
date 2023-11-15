@@ -8,30 +8,31 @@ from environments.settings.gym_config import setup_gym_environment
 from environments.settings.mlagents_config import setup_mlagents_environment
 
 # Default Settings:
-# - Train Frequency: 3
-# - Number of TD Steps: 6
+# - Train Frequency: 2
+# - Number of TD Steps: 4
 # - Dropout: 0.0
 # - Batch Size: 512
-# - Replay Ratio: 2.5
+# - Replay Ratio: 3.0
+# - discount factor: 0.99
 
 GYM_NUM_ENVIRONMENTS = 1
 MLAGENTS_ENV_SPECIFIC_ARGS = {
     "3DBall": {'max_steps': 20000},
     "3DBallHard": {'max_steps': 20000},
-    "Worm": {'max_steps': 200000},
-    "Crawler": {'batch_size': 1024, 'replay_ratio': 4.0},
-    "Walker": {'batch_size': 1024, 'replay_ratio': 4.0, 'hidden_size': 160},
-    "Hallway": {'batch_size': 1024, 'replay_ratio': 4.0, 'state_normalizer': 'none'},
-    "PushBlock": {'batch_size': 1024, 'replay_ratio': 4.0, 'state_normalizer': 'none', 'train_frequency': 6, 'num_td_steps': 12},
-    "Pyramids": {'batch_size': 256, 'replay_ratio': 1.5, 'state_normalizer': 'none', 'train_frequency': 10, 'num_td_steps': 40, 'max_steps': 1000000}
+    "Worm": {'train_frequency': 3, 'num_td_steps': 9},
+    "Crawler": {'train_frequency': 3, 'num_td_steps': 9},
+    "Walker": {'train_frequency': 3, 'num_td_steps': 9, 'hidden_size': 160}, 
+    "Hallway": {'state_normalizer': 'none', 'train_frequency': 3, 'num_td_steps': 9, 'max_steps': 200000},
+    "PushBlock": {'state_normalizer': 'none', 'train_frequency': 4, 'num_td_steps': 16, 'max_steps': 200000},
+    "Pyramids": {'state_normalizer': 'none', 'train_frequency': 5, 'num_td_steps': 25, 'max_steps': 1000000}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
-    "Ant-": {'reward_scale': 0.1, 'batch_size': 1024, 'replay_ratio': 4.0},
-    "Reacher-": {'reward_scale': 0.1, 'train_frequency': 5, 'num_td_steps': 10},
-    "Pusher-": {'reward_scale': 0.1},
+    "Ant-": {'reward_scale': 0.1},
+    "Reacher-": {'reward_scale': 0.1},
+    "Pusher-": {'reward_scale': 0.1},   
     "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 192},
-    "HumanoidStandup-": {'reward_scale': 0.001, 'batch_size': 1024, 'replay_ratio': 4.0, 'train_frequency': 5, 'num_td_steps': 10, 'hidden_size': 192}
+    "HumanoidStandup-": {'reward_scale': 0.001, 'train_frequency': 3, 'num_td_steps': 9, 'hidden_size': 192}
 }
 
 def analyze_env(env_name):
