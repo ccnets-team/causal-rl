@@ -12,7 +12,7 @@ from environments.settings.mlagents_config import setup_mlagents_environment
 # - Number of TD Steps: 9
 # - Dropout: 0.0
 # - Batch Size: 512
-# - Replay Ratio: 3.0
+# - Replay Ratio: 1.5
 # - discount factor: 0.99
 
 GYM_NUM_ENVIRONMENTS = 1
@@ -22,8 +22,8 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
     "Worm": {},
     "Crawler": {},
     "Walker": {'hidden_size': 160}, 
-    "Hallway": {'state_normalizer': 'none', 'max_steps': 200000},
-    "PushBlock": {'state_normalizer': 'none', 'train_frequency': 5, 'num_td_steps': 20, 'max_steps': 200000},
+    "Hallway": {'state_normalizer': 'none'},
+    "PushBlock": {'state_normalizer': 'none', 'train_frequency': 5, 'num_td_steps': 20},
     "Pyramids": {'state_normalizer': 'none', 'train_frequency': 10, 'num_td_steps': 40, 'max_steps': 1000000}
 }
 
@@ -67,7 +67,7 @@ def initialize_and_configure_parameters(env_name: str, is_unity: bool = False) -
         env_name, 'mlagents' if is_unity else 'gym', num_environments, num_agents,
         obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high)
 
-    noise_type = "boltzmann" if env_config.use_discrete else "ou"
+    noise_type = "boltzmann" if env_config.use_discrete else "none"
     state_normalizer = determine_state_normalizer(env_config=env_config)
 
     rl_params.exploration.noise_type = noise_type

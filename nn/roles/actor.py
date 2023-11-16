@@ -50,8 +50,6 @@ class _BaseActor(nn.Module):
         elif exploration_params.noise_type == "boltzmann" and self.use_discrete:
             noise_strategy = BoltzmannExploration(self.use_discrete)
             use_noise_before_activation = True
-        else:
-            raise ValueError(f"Unsupported noise type: {exploration_params.noise_type}")
 
         return noise_strategy, use_noise_before_activation
         
