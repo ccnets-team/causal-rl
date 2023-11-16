@@ -5,7 +5,7 @@ from .settings.agent_experience_collector import AgentExperienceCollector
 from utils.structure.env_observation import EnvObservation
 
 class MLAgentsEnvWrapper(AgentExperienceCollector):
-    def __init__(self, env_config, test_env, use_graphics: bool, worker_id, seed = 0, time_scale = 256):
+    def __init__(self, env_config, num_td_steps, test_env, use_graphics: bool, worker_id, seed = 0, time_scale = 256):
         num_agents = env_config.num_agents
         super(MLAgentsEnvWrapper, self).__init__(num_agents, env_config)
         if use_graphics:
@@ -23,7 +23,6 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
                                     no_graphics= not use_graphics, seed = seed, worker_id = self.worker_id, side_channels=[self.channel])
 
         self.use_discrete = env_config.use_discrete
-        num_td_steps = env_config.num_td_steps
 
         self.actions = np.zeros((env_config.num_agents, env_config.action_size), dtype = np.float32)
         self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, num_td_steps)

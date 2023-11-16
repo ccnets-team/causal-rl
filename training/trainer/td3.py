@@ -12,6 +12,7 @@ from training.base_trainer import BaseTrainer
 from nn.roles.actor import SingleInputActor
 from nn.roles.critic import DualInputCritic
 from utils.structure.metrics_recorder import create_training_metrics
+from training.trainer_utils import create_mask_from_dones, masked_mean
 
 class TD3(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -79,18 +80,18 @@ class TD3(BaseTrainer):
         self.set_train(training=True)
         critic1_optimizer, critic2_optimizer, actor_optimizer = self.get_optimizers()
 
-        states, actions, rewards, next_states, dones = trajectory
+        state, action, rewards, next_state, done = trajectory
+        mask = create_mask_from_dones(done)
 
-        state, action = self.select_first_transitions(states, actions)
 
         # Critic Training
         with torch.no_grad():            
-            target_value = self.calculate_expected_value(rewards, next_states, dones)
+            target_value = self.calculate_expected_value(rewards, next_state, done)
 
-        current_Q1 = self.critic1(state, action)
-        current_Q2 = self.critic2(state, action)
-        critic1_loss = self.calculate_value_loss(current_Q1, target_value)
-        critic2_loss = self.calculate_value_loss(current_Q2, target_value)
+        current_Q1 = self.critic1(state, action, mask)
+        current_Q2 = self.critic2(state, action, mask)
+        critic1_loss = self.calculate_value_loss(current_Q1, target_value, mask)
+        critic2_loss = self.calculate_value_loss(current_Q2, target_value, mask)
 
         critic1_optimizer.zero_grad()
         critic1_loss.backward()
@@ -102,7 +103,7 @@ class TD3(BaseTrainer):
 
         # Actor Training
         if self.total_steps % self.policy_update == 0:
-            self.actor_loss = -self.critic1(state, self.actor.predict_action(state)).mean()
+            self.actor_loss = -masked_mean(self.critic1(state, self.actor.predict_action(state)), mask)
             actor_optimizer.zero_grad()
             self.actor_loss.backward()
             actor_optimizer.step()
@@ -127,7 +128,7 @@ class TD3(BaseTrainer):
         self.total_steps += 1
         self.policy_noise = self.get_exploration_rate()
 
-    def trainer_calculate_future_value(self, next_state, mask = None):
+    def trainer_calculate_future_value(self, next_state):
         """
         Calculates the future value of the next state using target actor and critics.
         
@@ -140,11 +141,11 @@ class TD3(BaseTrainer):
         torch.Tensor: The calculated future value tensor.
         """
         with torch.no_grad():
-            next_action = self.target_actor.predict_action(next_state, mask=mask)
+            next_action = self.target_actor.predict_action(next_state)
             noise = torch.normal(torch.zeros_like(next_action), self.policy_noise)
             new_next_action = noise + noise
-            target_Q1 = self.target_critic1(next_state, new_next_action, mask=mask)
-            target_Q2 = self.target_critic2(next_state, new_next_action, mask=mask)
+            target_Q1 = self.target_critic1(next_state, new_next_action)
+            target_Q2 = self.target_critic2(next_state, new_next_action)
             target_Q = torch.min(target_Q1, target_Q2)
             future_value = target_Q
         return future_value

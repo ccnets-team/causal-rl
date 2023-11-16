@@ -15,7 +15,6 @@ class RLTune:
             use_graphics (bool, optional): Whether to use graphics during training/testing. Default is False.
             use_print (bool, optional): Whether to print training/testing logs. Default is False.
         """
-        env_config.num_td_steps = trainer.rl_params.algorithm.num_td_steps
         
         self.trainer = trainer.initialize(env_config, device)
         self.device = device

@@ -58,7 +58,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
             curiosity_reward = self.curiosity_factor * intrinsic_value.square()
         return curiosity_reward
     
-    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, intrinsic_value: None) -> (torch.Tensor, torch.Tensor, torch.Tensor):
+    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, intrinsic_value: torch.Tensor = None):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory
         rewards += 0 if intrinsic_value is None else self.calculate_curiosity_rewards(intrinsic_value)

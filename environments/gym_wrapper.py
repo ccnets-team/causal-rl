@@ -14,7 +14,7 @@ class GymEnvWrapper(AgentExperienceCollector):
     """
     MAX_RANDOM_SEED = 1000  # Maximum value for environment random seed
 
-    def __init__(self, env_config, test_env: bool, use_graphics: bool = False, seed: int = 0):
+    def __init__(self, env_config, num_td_steps, test_env: bool, use_graphics: bool = False, seed: int = 0):
         """
         Initializes the gym environment with the given configuration.
         
@@ -45,7 +45,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.obs_shapes = env_config.obs_shapes
         self.obs_types = env_config.obs_types
         self.agents = np.arange(self.num_agents)
-        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, env_config.num_td_steps)
+        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, num_td_steps)
 
         self.agent_dec = np.ones(self.num_agents, dtype=bool)
         self.agent_life = np.zeros(self.num_agents, dtype=bool)

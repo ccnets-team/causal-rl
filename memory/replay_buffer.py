@@ -52,7 +52,8 @@ class ExperienceMemory:
         for env_id, agent_id, state, action, reward, next_state, done, td_error in attributes:
             self.multi_buffers[env_id][agent_id].add(state, action, reward, next_state, done, td_error)
 
-    def get_agent_samples(self, sample_size = None, td_steps = 1):
+    def get_agent_samples(self, sample_size = None):
+        td_steps = self.num_td_steps
         if sample_size is None:
             sample_size = self.batch_size
         # Step 1: Compute cumulative sizes
@@ -92,8 +93,7 @@ class ExperienceMemory:
     
     def sample_agent_transition(self):
         batch_size = self.batch_size
-        td_steps = self.num_td_steps
-        samples = self.get_agent_samples(batch_size, td_steps) 
+        samples = self.get_agent_samples(batch_size) 
         states      = np.stack([b[0] for b in samples], axis=0)
         actions     = np.stack([b[1] for b in samples], axis=0)
         rewards     = np.stack([b[2] for b in samples], axis=0)

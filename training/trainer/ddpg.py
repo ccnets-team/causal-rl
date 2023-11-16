@@ -14,6 +14,7 @@ from nn.roles.critic import DualInputCritic
 from nn.roles.actor import SingleInputActor
 import copy
 from utils.structure.metrics_recorder import create_training_metrics
+from training.trainer_utils import create_mask_from_dones, masked_mean
 
 class DDPG(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -81,20 +82,18 @@ class DDPG(BaseTrainer):
         critic_optimizer, actor_optimizer = self.get_optimizers()
 
         states, actions, rewards, next_states, dones = trajectory
-
-        state, action = self.select_first_transitions(states, actions)
+        mask = create_mask_from_dones(dones)
 
         # Critic Update
-        target_Qs = self.calculate_expected_value(rewards, next_states, dones).detach()
-        target_Q = self.select_first_transitions(target_Qs)
+        target_Q = self.calculate_expected_value(rewards, next_states, dones).detach()
 
        # Compute the target Q value
 
         # Get current Q estimate
-        current_Q = self.critic(state, action)
+        current_Q = self.critic(states, actions, mask = mask)
 
         # Compute critic loss
-        critic_loss = self.calculate_value_loss(current_Q, target_Q)
+        critic_loss = self.calculate_value_loss(current_Q, target_Q, mask = mask)
 
         # Optimize the critic
         critic_optimizer.zero_grad()
@@ -102,7 +101,7 @@ class DDPG(BaseTrainer):
         critic_optimizer.step()
 
         # Compute actor loss
-        actor_loss = -self.critic(state, self.actor.predict_action(state)).mean()
+        actor_loss = -masked_mean(self.critic(states, self.actor.predict_action(states), mask = mask), mask)
 
         # Optimize the actor
         actor_optimizer.zero_grad()
@@ -119,7 +118,7 @@ class DDPG(BaseTrainer):
         )        
         return metrics
 
-    def trainer_calculate_future_value(self, next_state, mask = None):
+    def trainer_calculate_future_value(self, next_state):
         """
         Calculate the future value of the next state using the target networks.
         
@@ -133,8 +132,8 @@ class DDPG(BaseTrainer):
         This method calculates the future value by using the target actor to predict the next action and the target critic to estimate the Q-value of the next state-action pair.
         """
         with torch.no_grad():
-            next_action = self.target_actor.predict_action(next_state, mask=mask)
-            future_value = self.target_critic(next_state, next_action, mask=mask)
+            next_action = self.target_actor.predict_action(next_state)
+            future_value = self.target_critic(next_state, next_action)
             # Add discounted future value element-wise for each item in the batch
         return future_value
     
