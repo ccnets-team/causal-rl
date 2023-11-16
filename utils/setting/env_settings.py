@@ -17,8 +17,7 @@ from environments.settings.mlagents_config import setup_mlagents_environment
 
 GYM_NUM_ENVIRONMENTS = 1
 MLAGENTS_ENV_SPECIFIC_ARGS = {
-    "3DBall": {'max_steps': 20000},
-    "3DBallHard": {'max_steps': 20000},
+    "3DBallHard": {'hidden_size': 64, 'max_steps': 20000},
     "Worm": {},
     "Crawler": {},
     "Walker": {'hidden_size': 160}, 
