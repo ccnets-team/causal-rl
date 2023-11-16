@@ -1,3 +1,5 @@
+
+
 # Table of Contents
 
 - [Overview](#overview)
@@ -158,8 +160,10 @@ Incorporates curiosity-driven RL components for enhanced exploration and learnin
 - We're currently in the process of building our official documentation webpage to better assist you. In the meantime, if you have any specific questions or need clarifications, feel free to reach out through our other support channels. We appreciate your patience and understanding!
 
 # **Contribution Guidelines 🌟**
+<details>
+  <summary><strong> Click to see more </strong></summary>
 
-- We warmly welcome contributions from everyone! Here's how you can contribute:
+  - We warmly welcome contributions from everyone! Here's how you can contribute:
 
 ![contribution process](https://github.com/ccnets-team/rl-tune/assets/66022264/34d55b31-5825-4e31-8407-690d00a4e502)
 
@@ -210,6 +214,9 @@ If possible, categorize your issue using the appropriate GitHub labels. This hel
 After submitting an issue, please check back periodically. Maintainers or other contributors may ask for further information or provide updates.
 
 Thank you for helping improve our project! Your feedback and contributions are invaluable.
+
+
+</details>
 
 
 # **Support & Contact**
