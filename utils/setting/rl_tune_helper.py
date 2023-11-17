@@ -78,7 +78,7 @@ class RLTuneHelper:
 
     def should_train_step(self, step: int) -> bool:
         """Checks if the model should be trained on the current step."""
-        return step >= self.training_start_step
+        return (step % self.train_frequency == 0) and (step >= self.training_start_step)
 
     # Private Helpers
     def _initialize_training_parameters(self):

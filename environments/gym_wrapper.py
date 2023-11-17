@@ -125,14 +125,15 @@ class GymEnvWrapper(AgentExperienceCollector):
         ongoing_reward = np.array(reward, np.float32)
 
         done = np.logical_or(ongoing_terminated, ongoing_truncated)
-        self.agent_life[~done] = True 
-        self.agent_life[done] = False
-        self.agent_reset[done] = True 
 
         if not self.test_env:
             self.update_for_training(done, ongoing_terminated, info, action, ongoing_next_obs, ongoing_reward)
         else:
             self.update_for_test(done, action, ongoing_next_obs, ongoing_reward)
+
+        self.agent_life[~done] = True 
+        self.agent_life[done] = False
+        self.agent_reset[done] = True 
         
         return False
 
@@ -148,7 +149,6 @@ class GymEnvWrapper(AgentExperienceCollector):
             ongoing_next_obs (np.ndarray): The next observations for the agents.
         """
         ongoing_immediate_reward, ongoing_future_reward = get_ongoing_rewards_from_info(info, self.num_agents)
-        ongoing_immediate_reward = ongoing_reward - ongoing_future_reward
         
         final_immediate_reward, final_future_reward = get_final_rewards_from_info(ongoing_terminated, info, self.num_agents)
 
@@ -160,6 +160,9 @@ class GymEnvWrapper(AgentExperienceCollector):
         next_obs = np.where(done[:, np.newaxis], final_next_observation, ongoing_next_obs)
 
         value_diff = future_reward - self.prev_value
+        
+        value_diff = np.where(self.agent_life, value_diff, 0.0)
+        
         reward = immediate_reward + value_diff
 
         self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, done)

@@ -20,18 +20,18 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
     "3DBallHard": {'hidden_size': 64, 'max_steps': 20000},
     "Worm": {},
     "Crawler": {},
-    "Walker": {'hidden_size': 160}, 
-    "Hallway": {'state_normalizer': 'none'},
-    "PushBlock": {'state_normalizer': 'none'},
+    "Walker": {'hidden_size': 192}, 
+    "Hallway": {'hidden_size': 160, 'state_normalizer': 'none'},
+    "PushBlock": {'hidden_size': 160, 'state_normalizer': 'none'},
     "Pyramids": {'state_normalizer': 'none', 'train_frequency': 10, 'num_td_steps': 40, 'max_steps': 1000000}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
-    "Ant-": {'reward_scale': 0.1},
-    "Reacher-": {'reward_scale': 0.1},
-    "Pusher-": {'reward_scale': 0.1},   
-    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 192},
-    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 192}
+    "Ant-": {'reward_scale': 0.1, 'hidden_size': 160},
+    "Reacher-": {'reward_scale': 0.1, 'hidden_size': 160},
+    "Pusher-": {'reward_scale': 0.1, 'hidden_size': 160},   
+    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256},
+    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256}
 }
 
 def analyze_env(env_name):

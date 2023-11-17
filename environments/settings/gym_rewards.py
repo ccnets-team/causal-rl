@@ -15,14 +15,14 @@ def get_final_rewards_from_info(ongoing_terminated, info, num_agentss):
             if agent_final_info is None:
                 continue
             for key in agent_final_info.keys():
-                if is_key_valid(key, ['linup', 'impact', 'ctrl', 'forward']):
+                if is_key_valid(key, ['linvel', 'linup', 'impact', 'ctrl', 'forward']):
                     done_sum_immediate_rewards[idx] += agent_final_info[key]
 
-                if ongoing_terminated[idx]:
-                    if is_key_valid(key, ['dist', 'near']):
-                        done_sum_values[idx] += agent_final_info[key]
-                else:
-                    if is_key_valid(key, ['survive', 'healthy', 'alive', 'dist', 'near']):
+                if is_key_valid(key, ['dist', 'near']):
+                    done_sum_values[idx] += agent_final_info[key]
+
+                if not ongoing_terminated[idx]:
+                    if is_key_valid(key, ['survive', 'healthy', 'alive']):
                         done_sum_values[idx] += agent_final_info[key]
 
     return done_sum_immediate_rewards, done_sum_values
@@ -33,7 +33,7 @@ def get_ongoing_rewards_from_info(info, num_agentss):
 
     # Get the keys for immediate rewards
     immediate_reward_keys = [key for key in info.keys() 
-                            if is_key_valid(key, ['linup', 'impact', 'ctrl', 'forward'])]
+                            if is_key_valid(key, ['linvel', 'linup', 'impact', 'ctrl', 'forward'])]
 
     for key in immediate_reward_keys:
         agent_rewards = np.array(info[key])
