@@ -1,5 +1,8 @@
 # import gym
 import numpy as np
+def is_key_valid(key, substrings):
+    key_lower = key.lower()
+    return key_lower.startswith('reward') and any(sub in key_lower for sub in substrings)
 
 def get_final_rewards_from_info(ongoing_terminated, info, num_agentss):
     done_sum_immediate_rewards = np.zeros(num_agentss, dtype=np.float32)
@@ -11,14 +14,15 @@ def get_final_rewards_from_info(ongoing_terminated, info, num_agentss):
         for idx, agent_final_info in enumerate(final_infos):
             if agent_final_info is None:
                 continue
-            for key in agent_final_info:
-                if ('linup' in key.lower() or 'impact' in key.lower() or 'ctrl' in key.lower() or 'forward' in key.lower()) and 'reward' in key.lower() and not key.startswith('_'):
+            for key in agent_final_info.keys():
+                if is_key_valid(key, ['linup', 'impact', 'ctrl', 'forward']):
                     done_sum_immediate_rewards[idx] += agent_final_info[key]
+
                 if ongoing_terminated[idx]:
-                    if ('dist' in key.lower() or 'near' in key.lower()) and 'reward' in key.lower() and not key.startswith('_'):
+                    if is_key_valid(key, ['dist', 'near']):
                         done_sum_values[idx] += agent_final_info[key]
                 else:
-                    if ('survive' in key.lower() or 'healthy' in key.lower() or 'alive' in key.lower() or 'dist' in key.lower() or 'near' in key.lower()) and 'reward' in key.lower() and not key.startswith('_'):
+                    if is_key_valid(key, ['survive', 'healthy', 'alive', 'dist', 'near']):
                         done_sum_values[idx] += agent_final_info[key]
 
     return done_sum_immediate_rewards, done_sum_values
@@ -26,22 +30,19 @@ def get_final_rewards_from_info(ongoing_terminated, info, num_agentss):
 def get_ongoing_rewards_from_info(info, num_agentss):
     ongoing_sum_immediate_rewards = np.zeros(num_agentss, dtype=np.float32)
     ongoing_sum_values = np.zeros(num_agentss, dtype=np.float32)
-    
-    # Get the keys for rewards
+
+    # Get the keys for immediate rewards
     immediate_reward_keys = [key for key in info.keys() 
-                            if ('linup' in key.lower() or 'impact' in key.lower() or 'ctrl' in key.lower() or 'forward' in key.lower()) 
-                            and 'reward' in key.lower() 
-                            and not key.startswith('_')]
+                            if is_key_valid(key, ['linup', 'impact', 'ctrl', 'forward'])]
 
     for key in immediate_reward_keys:
         agent_rewards = np.array(info[key])
         for idx, reward in enumerate(agent_rewards):
             ongoing_sum_immediate_rewards[idx] += reward
 
+    # Get the keys for value rewards
     value_keys = [key for key in info.keys() 
-                if ('survive' in key.lower() or 'healthy' in key.lower() or 'alive' in key.lower() or 'dist' in key.lower() or 'near' in key.lower()) 
-                and 'reward' in key.lower() 
-                and not key.startswith('_')]
+                if is_key_valid(key, ['survive', 'healthy', 'alive', 'dist', 'near'])]
 
     for key in value_keys:
         agent_values = np.array(info[key])
