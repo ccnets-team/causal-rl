@@ -43,25 +43,6 @@ class EnvironmentPool:
     def step_env(self):
         for env in self.env_list:
             env.step_environment()
-
-    def sample_td_steps(self, exploration_rate):
-        """
-        Samples the number of TD steps using a Gaussian distribution, with standard deviation adjusted based on exploration rate.
-        The mean is set to self.num_td_steps to ensure that the maximum number of TD steps is the most commonly sampled value.
-        
-        Args:
-            exploration_rate (float): The current exploration rate, ranging from 1 (high exploration) to 0 (low exploration).
-        """
-        mean = self.num_td_steps  # Set mean to the maximum length
-
-        # Adjust standard deviation directly based on exploration rate
-        # For a standard deviation (std) of 0.5, the probability increases to about 95.45%.
-        std_dev = 0.5*exploration_rate
-
-        # Sample and ensure it falls within the valid range
-        random_td_steps = int(round(max(1, min(np.random.normal(mean, std_dev), self.num_td_steps))))
-        return random_td_steps
-
     
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
@@ -72,15 +53,6 @@ class EnvironmentPool:
         reset_tensor = torch.from_numpy(np_reset).to(self.device)
         state_tensor = torch.from_numpy(np_state).to(self.device)
         mask_tensor = torch.from_numpy(np_mask).to(self.device)
-
-        if training:
-            # Use the new method to sample the TD steps
-            exploration_rate = trainer.get_exploration_rate()
-            sampled_td_steps = self.sample_td_steps(exploration_rate)
-
-            # Select the sequence accordingly
-            state_tensor = state_tensor[:, -sampled_td_steps:]
-            mask_tensor = mask_tensor[:, -sampled_td_steps:]
                             
         state_tensor = trainer.normalize_state(state_tensor)
         action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
