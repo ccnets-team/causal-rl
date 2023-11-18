@@ -19,7 +19,10 @@ def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
     return mask
 
 def masked_mean(tensor, mask):
-    return tensor[mask>0].mean()
+    return tensor[mask>0].flatten().mean()
+
+def masked_sum(tensor, mask):
+    return tensor[mask>0].flatten().sum()
 
 def calculate_accumulative_rewards(rewards, end_step, discount_factor):
     batch_size, seq_len, _ = rewards.shape
