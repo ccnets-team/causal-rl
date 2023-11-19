@@ -4,7 +4,7 @@ from nn.gpt import GPT
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, batch_size=512, replay_ratio=1.5, train_frequency=3):
+    def __init__(self, batch_size=512, replay_ratio=1.5, train_frequency=20):
         self.batch_size = batch_size
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
@@ -15,7 +15,7 @@ class TrainingParameters:
         return samples_per_step        
     
 class AlgorithmParameters:
-    def __init__(self, num_td_steps=9, discount_factor=0.99, curiosity_factor = 0.0, use_gae_advantage = False):
+    def __init__(self, num_td_steps=10, discount_factor=0.995, curiosity_factor = 0.0, use_gae_advantage = False):
         self.num_td_steps = num_td_steps
         self.discount_factor = discount_factor
         self.curiosity_factor = curiosity_factor
@@ -40,7 +40,7 @@ class OptimizationParameters:
 
 class ExplorationParameters:
     def __init__(self, noise_type = 'none', initial_exploration = 1.0, min_exploration = 0.01, decay_percentage = 0.8, decay_mode = 'linear', \
-        max_steps=500000):
+        max_steps=1000000):
         self.noise_type = noise_type
         self.initial_exploration = initial_exploration
         self.min_exploration = min_exploration

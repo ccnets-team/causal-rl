@@ -1,7 +1,7 @@
 import gymnasium as gym
 import numpy as np
 from .settings.agent_experience_collector import AgentExperienceCollector
-from environments.settings.gym_rewards import get_ongoing_rewards_from_info, get_final_rewards_from_info, get_final_observations_from_info
+from environments.settings.gym_rewards import get_final_rewards_from_info, get_final_observations_from_info
 from utils.structure.env_observation import EnvObservation
 
 class GymEnvWrapper(AgentExperienceCollector):
@@ -127,7 +127,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         done = np.logical_or(ongoing_terminated, ongoing_truncated)
 
         if not self.test_env:
-            self.update_for_training(done, ongoing_terminated, info, action, ongoing_next_obs, ongoing_reward)
+            self.update_for_training(done, info, action, ongoing_next_obs, ongoing_reward)
         else:
             self.update_for_test(done, action, ongoing_next_obs, ongoing_reward)
 
@@ -137,36 +137,26 @@ class GymEnvWrapper(AgentExperienceCollector):
         
         return False
 
-    def update_for_training(self, done: np.ndarray, ongoing_terminated: np.ndarray, info, action, ongoing_next_obs: np.ndarray, ongoing_reward: np.ndarray):
+    def update_for_training(self, done: np.ndarray, info, action, ongoing_next_obs: np.ndarray, ongoing_reward: np.ndarray):
         """
         Processes the information for training update.
         
         Parameters:
             done (np.ndarray): An array indicating which agents are done.
-            ongoing_terminated (np.ndarray): An array indicating which agents are terminated.
             info: The info provided by the environment after stepping through it.
             action: The action taken by the agents.
             ongoing_next_obs (np.ndarray): The next observations for the agents.
         """
-        ongoing_immediate_reward, ongoing_future_reward = get_ongoing_rewards_from_info(info, self.num_agents)
-        
-        final_immediate_reward, final_future_reward = get_final_rewards_from_info(ongoing_terminated, info, self.num_agents)
+        final_reward = get_final_rewards_from_info(info, self.num_agents)
 
         final_next_observation = np.zeros_like(ongoing_next_obs)
         final_next_observation = get_final_observations_from_info(info, final_next_observation)
         
-        immediate_reward = np.where(done, final_immediate_reward, ongoing_immediate_reward)
-        future_reward = np.where(done, final_future_reward, ongoing_future_reward)
         next_obs = np.where(done[:, np.newaxis], final_next_observation, ongoing_next_obs)
 
-        value_diff = future_reward - self.prev_value
-        
-        value_diff = np.where(self.agent_life, value_diff, 0.0)
-        
-        reward = immediate_reward + value_diff
+        reward = np.where(done, final_reward, ongoing_reward)
 
         self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, done)
-        self.prev_value = ongoing_future_reward.copy()
         
         self.process_terminated_and_decision_agents(done, ongoing_next_obs)
 

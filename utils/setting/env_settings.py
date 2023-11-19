@@ -20,17 +20,18 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
     "3DBallHard": {'hidden_size': 64, 'max_steps': 20000},
     "Worm": {},
     "Crawler": {},
-    "Walker": {'hidden_size': 192}, 
-    "Hallway": {'hidden_size': 160, 'state_normalizer': 'none'},
-    "PushBlock": {'hidden_size': 160, 'state_normalizer': 'none'},
-    "Pyramids": {'state_normalizer': 'none', 'train_frequency': 10, 'num_td_steps': 40, 'max_steps': 1000000}
+    "Walker": {'hidden_size': 160}, 
+    "Hallway": {'hidden_size': 128, 'state_normalizer': 'none'},
+    "PushBlock": {'hidden_size': 128, 'state_normalizer': 'none'},
+    "Pyramids": {'state_normalizer': 'none', 'train_frequency': 40, 'num_td_steps': 20, 'max_steps': 2000000}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
-    "Ant-": {'reward_scale': 0.1, 'hidden_size': 160},
-    "Reacher-": {'reward_scale': 0.1, 'hidden_size': 160},
-    "Pusher-": {'reward_scale': 0.1, 'hidden_size': 160},   
-    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256},
+    "Ant-": {'reward_scale': 0.1, 'hidden_size': 128},
+    "Reacher-": {'reward_scale': 0.1, 'hidden_size': 128},
+    "Pusher-": {'reward_scale': 0.1, 'hidden_size': 128},   
+    "HalfCheetah-": {},   
+    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 192},
     "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256}
 }
 
@@ -66,7 +67,7 @@ def initialize_and_configure_parameters(env_name: str, is_unity: bool = False) -
         env_name, 'mlagents' if is_unity else 'gym', num_environments, num_agents,
         obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high)
 
-    noise_type = "boltzmann" if env_config.use_discrete else "none"
+    noise_type = "boltzmann" if env_config.use_discrete else "ou"
     state_normalizer = determine_state_normalizer(env_config=env_config)
 
     rl_params.exploration.noise_type = noise_type
