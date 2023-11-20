@@ -8,11 +8,11 @@ from environments.settings.gym_config import setup_gym_environment
 from environments.settings.mlagents_config import setup_mlagents_environment
 
 # Default Settings:
-# - Train Frequency: 3
-# - Number of TD Steps: 9
+# - Train Frequency: 10
+# - Number of TD Steps: 10
 # - Dropout: 0.0
-# - Batch Size: 512
-# - Replay Ratio: 1.5
+# - Batch Size: 256
+# - Replay Ratio: 1
 # - discount factor: 0.99
 
 GYM_NUM_ENVIRONMENTS = 1
@@ -30,8 +30,8 @@ GYM_ENV_SPECIFIC_ARGS = {
     "Ant-": {'reward_scale': 0.1, 'hidden_size': 128},
     "Reacher-": {'reward_scale': 0.1, 'hidden_size': 128},
     "Pusher-": {'reward_scale': 0.1, 'hidden_size': 128},   
-    "HalfCheetah-": {},   
-    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 192},
+    "HalfCheetah-": {'reward_scale': 0.1, 'hidden_size': 128},   
+    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256},
     "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256}
 }
 
@@ -67,7 +67,7 @@ def initialize_and_configure_parameters(env_name: str, is_unity: bool = False) -
         env_name, 'mlagents' if is_unity else 'gym', num_environments, num_agents,
         obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high)
 
-    noise_type = "boltzmann" if env_config.use_discrete else "ou"
+    noise_type = "boltzmann" if env_config.use_discrete else "none"
     state_normalizer = determine_state_normalizer(env_config=env_config)
 
     rl_params.exploration.noise_type = noise_type

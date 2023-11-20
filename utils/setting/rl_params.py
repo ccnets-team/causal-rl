@@ -4,7 +4,7 @@ from nn.gpt import GPT
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, batch_size=512, replay_ratio=1.5, train_frequency=20):
+    def __init__(self, batch_size=256, replay_ratio=1, train_frequency=10):
         self.batch_size = batch_size
         self.replay_ratio = replay_ratio
         self.train_frequency = train_frequency
@@ -22,16 +22,17 @@ class AlgorithmParameters:
         self.use_gae_advantage = use_gae_advantage
             
 class NetworkParameters:
-    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.0):
+    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.0, dropout_rev_env=0.01):
         self.critic_network = GPT
         self.actor_network = GPT
         self.reverse_env_network = GPT
         self.num_layer = num_layer
         self.hidden_size = hidden_size
         self.dropout = dropout
+        self.dropout_rev_env = dropout_rev_env
 
 class OptimizationParameters:
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=32, lr=3e-4, tau=5e-3):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=16, lr=3e-4, tau=1e-2):
         self.beta1 = beta1
         self.lr_gamma = lr_gamma
         self.step_size = step_size
