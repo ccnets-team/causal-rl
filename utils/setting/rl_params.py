@@ -40,7 +40,7 @@ class NetworkParameters:
         
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=16, lr=3e-4, tau=1e-2)
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=16, lr=3e-4, tau=1e-2):
         self.beta1 = beta1  # Beta1 parameter for Adam optimizer
         self.lr_gamma = lr_gamma  # Learning rate decay factor
         self.step_size = step_size  # Step size for learning rate scheduling
