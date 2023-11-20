@@ -4,10 +4,10 @@ from nn.gpt import GPT
 DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
-    def __init__(self, batch_size=256, replay_ratio=1, train_frequency=10):
+    def __init__(self, batch_size=256, replay_ratio=1, train_intervel=10):
         self.batch_size = batch_size
         self.replay_ratio = replay_ratio
-        self.train_frequency = train_frequency
+        self.train_intervel = train_intervel
         self.training_start_step = DEFAULT_TRAINING_START_STEP
         
     def minimum_samples_per_step(self):
@@ -32,7 +32,7 @@ class NetworkParameters:
         self.dropout_rev_env = dropout_rev_env
 
 class OptimizationParameters:
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=8, lr=3e-4, tau=1e-2):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=16, lr=3e-4, tau=1e-2):
         self.beta1 = beta1
         self.lr_gamma = lr_gamma
         self.step_size = step_size

@@ -23,7 +23,7 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
     "Walker": {'hidden_size': 160}, 
     "Hallway": {'hidden_size': 128, 'state_normalizer': 'none'},
     "PushBlock": {'hidden_size': 128, 'state_normalizer': 'none'},
-    "Pyramids": {'state_normalizer': 'none', 'train_frequency': 40, 'num_td_steps': 20, 'max_steps': 2000000}
+    "Pyramids": {'state_normalizer': 'none', 'train_intervel': 40, 'num_td_steps': 20, 'max_steps': 2000000}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {

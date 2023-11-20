@@ -78,7 +78,7 @@ class RLTuneHelper:
 
     def should_train_step(self, step: int) -> bool:
         """Checks if the model should be trained on the current step."""
-        return (step % self.train_frequency == 0) and (step >= self.training_start_step)
+        return (step % self.train_intervel == 0) and (step >= self.training_start_step)
 
     # Private Helpers
     def _initialize_training_parameters(self):
@@ -90,7 +90,7 @@ class RLTuneHelper:
         self.training_start_step = training_params.training_start_step
         self.batch_size = training_params.batch_size
         self.replay_ratio = training_params.replay_ratio
-        self.train_frequency = training_params.train_frequency
+        self.train_intervel = training_params.train_intervel
         self.buffer_size = memory_params.buffer_size
         self.total_on_policy_iterations = (self.buffer_size * self.replay_ratio) // self.batch_size
 
