@@ -27,6 +27,7 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
+    "InvertedDoublePendulum-": {'reward_scale': 0.01, 'hidden_size': 96},   
     "Ant-": {'reward_scale': 0.1, 'hidden_size': 128},
     "Reacher-": {'reward_scale': 0.1, 'hidden_size': 128},
     "Pusher-": {'reward_scale': 0.1, 'hidden_size': 128},   
