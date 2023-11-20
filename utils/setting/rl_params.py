@@ -32,7 +32,7 @@ class NetworkParameters:
         self.dropout_rev_env = dropout_rev_env
 
 class OptimizationParameters:
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=16, lr=3e-4, tau=1e-2):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=8, lr=3e-4, tau=1e-2):
         self.beta1 = beta1
         self.lr_gamma = lr_gamma
         self.step_size = step_size
