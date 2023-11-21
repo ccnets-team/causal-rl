@@ -100,7 +100,7 @@ class CausalRL(BaseTrainer):
         critic_loss = masked_mean(coop_critic_error, mask)
 
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss =  masked_sum(advantage * coop_actor_error, mask)       
+        actor_loss =  masked_mean(advantage * coop_actor_error, mask)       
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
         revEnv_loss = masked_mean(coop_revEnv_error, mask)

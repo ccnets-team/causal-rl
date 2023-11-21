@@ -8,9 +8,10 @@ from environments.settings.gym_config import setup_gym_environment
 from environments.settings.mlagents_config import setup_mlagents_environment
 
 # Default Settings:
-# - Train Frequency: 10
-# - Number of TD Steps: 10
+# - Train Frequency: 16
+# - Number of TD Steps: 16
 # - Dropout: 0.0
+# - Dropout reverse-environment: 0.01
 # - Batch Size: 256
 # - Replay Ratio: 1
 # - discount factor: 0.99
@@ -32,7 +33,8 @@ GYM_ENV_SPECIFIC_ARGS = {
     "Reacher-": {'reward_scale': 0.1, 'hidden_size': 128},
     "Pusher-": {'reward_scale': 0.1, 'hidden_size': 128},   
     "HalfCheetah-": {'reward_scale': 0.1, 'hidden_size': 128},   
-    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256},
+    "Walker2d-": {'reward_scale': 0.01, 'hidden_size': 128},   
+    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256},    
     "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256}
 }
 
