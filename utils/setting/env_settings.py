@@ -18,24 +18,25 @@ from environments.settings.mlagents_config import setup_mlagents_environment
 
 GYM_NUM_ENVIRONMENTS = 1
 MLAGENTS_ENV_SPECIFIC_ARGS = {
-    "3DBallHard": {'hidden_size': 64, 'max_steps': 20000},
+    "3DBallHard": {'hidden_size': 128, 'max_steps': 20000},
     "Worm": {},
     "Crawler": {},
-    "Walker": {'hidden_size': 160}, 
-    "Hallway": {'hidden_size': 128, 'state_normalizer': 'none'},
-    "PushBlock": {'hidden_size': 128, 'state_normalizer': 'none'},
-    "Pyramids": {'state_normalizer': 'none', 'train_intervel': 40, 'num_td_steps': 20, 'max_steps': 2000000}
+    "Walker": {'hidden_size': 256}, 
+    "Hallway": {'hidden_size': 192, 'state_normalizer': 'none'},
+    "PushBlock": {'hidden_size': 192, 'state_normalizer': 'none'},
+    "Pyramids": {'state_normalizer': 'none', 'max_steps': 2000000}
 }
 
 GYM_ENV_SPECIFIC_ARGS = {
-    "InvertedDoublePendulum-": {'reward_scale': 0.01, 'hidden_size': 96},   
-    "Ant-": {'reward_scale': 0.1, 'hidden_size': 128},
-    "Reacher-": {'reward_scale': 0.1, 'hidden_size': 128},
-    "Pusher-": {'reward_scale': 0.1, 'hidden_size': 128},   
-    "HalfCheetah-": {'reward_scale': 0.1, 'hidden_size': 128},   
-    "Walker2d-": {'reward_scale': 0.01, 'hidden_size': 128},   
-    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256},    
-    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256}
+    "InvertedDoublePendulum-": {'reward_scale': 0.01, 'hidden_size': 128},   
+    "Pusher-": {'reward_scale': 0.1, 'hidden_size': 192},   
+    "Reacher-": {'reward_scale': 0.01, 'hidden_size': 192},
+    "Hopper-": {'reward_scale': 0.1, 'hidden_size': 192},   
+    "Walker2d-": {'reward_scale': 0.01, 'hidden_size': 192},   
+    "HalfCheetah-": {'reward_scale': 0.1, 'hidden_size': 256},   
+    "Ant-": {'reward_scale': 0.1, 'hidden_size': 256},
+    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 320},    
+    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 320}
 }
 
 def analyze_env(env_name):
