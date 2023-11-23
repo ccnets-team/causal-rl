@@ -8,7 +8,7 @@ DEFAULT_TRAINING_START_STEP = 1000
 
 class TrainingParameters:
     # Initialize training parameters
-    def __init__(self, batch_size=512, replay_ratio=2.0, train_intervel = 8):
+    def __init__(self, batch_size=512, replay_ratio=1.5, train_intervel = 16):
         self.batch_size = batch_size  # Batch size for training
         self.replay_ratio = replay_ratio  # How often past experiences are reused in training (batch size / samples per step)
         self.train_intervel  = train_intervel  # Determines how frequently training updates occur based on the number of explorations before each update
@@ -29,7 +29,7 @@ class AlgorithmParameters:
             
 class NetworkParameters:
     # Initialize network parameters
-    def __init__(self, num_layer=4, hidden_size=128, dropout = 0.1):
+    def __init__(self, num_layer=5, hidden_size=128, dropout = 0.1):
         self.critic_network = GPT  # Critic network architecture (GPT in this case)
         self.actor_network = GPT  # Actor network architecture (GPT in this case)
         self.reverse_env_network = GPT  # Reverse environment network architecture (GPT in this case)
@@ -39,7 +39,7 @@ class NetworkParameters:
         
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=4, lr=3e-4, tau=5e-3):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=1, lr=3e-4, tau=1e-2):
         self.beta1 = beta1  # Beta1 parameter for Adam optimizer
         self.lr_gamma = lr_gamma  # Learning rate decay factor
         self.step_size = step_size  # Step size for learning rate scheduling

@@ -29,14 +29,14 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
 
 GYM_ENV_SPECIFIC_ARGS = {
     "InvertedDoublePendulum-": {'reward_scale': 0.01, 'hidden_size': 128},   
-    "Pusher-": {'reward_scale': 0.1, 'hidden_size': 192},   
-    "Reacher-": {'reward_scale': 0.01, 'hidden_size': 192},
-    "Hopper-": {'reward_scale': 0.1, 'hidden_size': 192},   
-    "Walker2d-": {'reward_scale': 0.01, 'hidden_size': 192},   
-    "HalfCheetah-": {'reward_scale': 0.1, 'hidden_size': 256},   
-    "Ant-": {'reward_scale': 0.1, 'hidden_size': 256},
-    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 320},    
-    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 320}
+    "Pusher-": {'reward_scale': 0.1, 'hidden_size': 160},   
+    "Reacher-": {'reward_scale': 0.01, 'hidden_size': 160},
+    "Hopper-": {'reward_scale': 0.1, 'hidden_size': 160},   
+    "Walker2d-": {'reward_scale': 0.1, 'hidden_size': 192},   
+    "HalfCheetah-": {'reward_scale': 0.1, 'hidden_size': 192, 'dropout': 0.02},   
+    "Ant-": {'reward_scale': 0.1, 'hidden_size': 192},
+    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256},    
+    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256}
 }
 
 def analyze_env(env_name):
