@@ -30,8 +30,8 @@ RL-Tune is a customizable Reinforcement Learning framework designed to offer fle
 # ****Dependencies****
 
 ```python
-conda create -name causal_rl python=3.9
-conda activate causal_rl
+conda create -name rl_tune python=3.9
+conda activate rl_tune
 conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
 pip install mlagents==0.30
 pip install protobuf==3.20
