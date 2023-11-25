@@ -127,9 +127,9 @@ class GymEnvWrapper(AgentExperienceCollector):
         done = np.logical_or(ongoing_terminated, ongoing_truncated)
 
         if not self.test_env:
-            self.update_for_training(done, info, action, ongoing_next_obs, ongoing_reward)
+            self.update_for_training(ongoing_terminated, ongoing_truncated, info, action, ongoing_next_obs, ongoing_reward)
         else:
-            self.update_for_test(done, action, ongoing_next_obs, ongoing_reward)
+            self.update_for_test(ongoing_terminated, ongoing_truncated, action, ongoing_next_obs, ongoing_reward)
 
         self.agent_life[~done] = True 
         self.agent_life[done] = False
@@ -137,7 +137,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         
         return False
 
-    def update_for_training(self, done: np.ndarray, info, action, ongoing_next_obs: np.ndarray, ongoing_reward: np.ndarray):
+    def update_for_training(self, ongoing_terminated, ongoing_truncated, info, action, ongoing_next_obs: np.ndarray, ongoing_reward: np.ndarray):
         """
         Processes the information for training update.
         
@@ -152,16 +152,18 @@ class GymEnvWrapper(AgentExperienceCollector):
         final_next_observation = np.zeros_like(ongoing_next_obs)
         final_next_observation = get_final_observations_from_info(info, final_next_observation)
         
+        done = np.logical_or(ongoing_terminated, ongoing_truncated)
+        
         next_obs = np.where(done[:, np.newaxis], final_next_observation, ongoing_next_obs)
 
         reward = np.where(done, final_reward, ongoing_reward)
 
-        self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, done)
+        self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, ongoing_terminated)
         
         self.process_terminated_and_decision_agents(done, ongoing_next_obs)
 
 
-    def update_for_test(self, done: np.ndarray, action, ongoing_next_obs: np.ndarray, ongoing_reward: np.ndarray):
+    def update_for_test(self, ongoing_terminated, ongoing_truncated, action, ongoing_next_obs: np.ndarray, ongoing_reward: np.ndarray):
         """
         Processes the information for test update.
         
@@ -173,6 +175,9 @@ class GymEnvWrapper(AgentExperienceCollector):
         """
         next_obs = ongoing_next_obs
         reward = ongoing_reward
+        
+        done = np.logical_or(ongoing_terminated, ongoing_truncated)
+        
         if self.use_graphics:
             self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, reward, next_obs, done)
         else:

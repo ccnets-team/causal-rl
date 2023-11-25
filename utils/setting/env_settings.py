@@ -8,10 +8,9 @@ from environments.settings.gym_config import setup_gym_environment
 from environments.settings.mlagents_config import setup_mlagents_environment
 
 # Default Settings:
-# - Train Frequency: 16
+# - Train Frequency: 12
 # - Number of TD Steps: 16
-# - Dropout: 0.0
-# - Dropout reverse-environment: 0.01
+# - Dropout: 0.1
 # - Batch Size: 256
 # - Replay Ratio: 1
 # - discount factor: 0.99
@@ -30,11 +29,11 @@ MLAGENTS_ENV_SPECIFIC_ARGS = {
 GYM_ENV_SPECIFIC_ARGS = {
     "InvertedDoublePendulum-": {'reward_scale': 0.01, 'hidden_size': 128},   
     "Pusher-": {'reward_scale': 0.1, 'hidden_size': 160},   
-    "Reacher-": {'reward_scale': 0.01, 'hidden_size': 160},
-    "Hopper-": {'reward_scale': 0.1, 'hidden_size': 160},   
-    "Walker2d-": {'reward_scale': 0.1, 'hidden_size': 192},   
-    "HalfCheetah-": {'reward_scale': 0.1, 'hidden_size': 192, 'dropout': 0.02},   
-    "Ant-": {'reward_scale': 0.1, 'hidden_size': 192},
+    "Reacher-": {'reward_scale': 0.1, 'hidden_size': 160},
+    "Hopper-": {'reward_scale': 0.1, 'hidden_size': 176},   
+    "Walker2d-": {'reward_scale': 0.1, 'hidden_size': 176},   
+    "Ant-": {'reward_scale': 0.1, 'hidden_size': 176},
+    "HalfCheetah-": {'reward_scale': 0.1, 'hidden_size': 192},   
     "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256},    
     "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256}
 }
