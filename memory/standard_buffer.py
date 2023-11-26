@@ -45,6 +45,9 @@ class BaseBuffer:
                 if not self.dones[current_idx]:
                     find_index = current_idx
                     break
+            if find_index < 0:
+                find_index = index                
+                
         elif not truncated:
             if buffer_len == self.capacity:
                 if start_idx < index:
