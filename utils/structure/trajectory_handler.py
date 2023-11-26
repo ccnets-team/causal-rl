@@ -16,14 +16,15 @@ class BatchTrajectory:
         yield self.done
         
 class MultiEnvTrajectories:
-    def __init__(self, env_ids=None, agent_ids=None, states=None, actions=None, rewards=None, next_states=None, dones=None, td_errors=None):
+    def __init__(self, env_ids=None, agent_ids=None, states=None, actions=None, rewards=None, next_states=None, dones_terminated=None, dones_truncated=None, td_errors=None):
         self.env_ids = env_ids 
         self.agent_ids = agent_ids 
         self.states = states 
         self.actions = actions 
         self.rewards = rewards 
         self.next_states = next_states 
-        self.dones = dones 
+        self.dones_terminated = dones_terminated 
+        self.dones_truncated = dones_truncated 
         self.td_errors = td_errors 
 
     def _add_attribute(self, attr_name, values):
@@ -43,14 +44,15 @@ class MultiEnvTrajectories:
                 # concatenate existing attribute and new values
                 setattr(self, attr_name, np.concatenate((attr, values), axis=0))
 
-    def add(self, env_ids, agent_ids, states, actions, rewards, next_states, dones, td_errors=None):
+    def add(self, env_ids, agent_ids, states, actions, rewards, next_states, dones_terminated, dones_truncated, td_errors=None):
         self._add_attribute('env_ids', env_ids)
         self._add_attribute('agent_ids', agent_ids)
         self._add_attribute('states', states)
         self._add_attribute('actions', actions)
         self._add_attribute('rewards', rewards)
         self._add_attribute('next_states', next_states)
-        self._add_attribute('dones', dones)
+        self._add_attribute('dones_terminated', dones_terminated)
+        self._add_attribute('dones_truncated', dones_truncated)
         self._add_attribute('td_errors', td_errors)
 
     

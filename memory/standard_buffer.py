@@ -32,22 +32,20 @@ class BaseBuffer:
     def __len__(self):
         return len(self.valid_set)
     
-    def add_valid_index(self, index):
+    def add_valid_index(self, index, terminated, truncated):
         buffer_len = self.size
         start_idx = (index - self.num_td_steps + 1) % self.capacity
 
         # Invalidate the trajectory if the current index is marked as done
         find_index: int = -1
-        if self.dones[index]:
+        if terminated:
             # Iterate over the range to find the first index which is not done
             for idx in range(start_idx, start_idx + self.num_td_steps - 1):
                 current_idx = idx % self.capacity
                 if not self.dones[current_idx]:
                     find_index = current_idx
                     break
-            if find_index < 0:
-                find_index = index
-        else:
+        elif not truncated:
             if buffer_len == self.capacity:
                 if start_idx < index:
                     if not np.any(self.dones[start_idx:index]):
@@ -90,7 +88,7 @@ class StandardBuffer(BaseBuffer):
     def __init__(self, capacity, state_size, action_size, num_td_steps):
         super().__init__("standard", capacity, state_size, action_size, num_td_steps)
 
-    def add(self, state, action, reward, next_state, done, td_error=None):
+    def add(self, state, action, reward, next_state, terminated, truncated, td_error=None):
         # Remove the current index from valid_indices if it's present
         self.remove_invalid_indices(self.index)
 
@@ -99,10 +97,10 @@ class StandardBuffer(BaseBuffer):
         self.actions[self.index] = action
         self.rewards[self.index] = reward
         self.next_states[self.index] = next_state
-        self.dones[self.index] = done
+        self.dones[self.index] = terminated
 
         # Check if adding this data creates a valid trajectory
-        self.add_valid_index(self.index)
+        self.add_valid_index(self.index, terminated, truncated)
 
         # Increment the buffer index and wrap around if necessary
         self.index = (self.index + 1) % self.capacity

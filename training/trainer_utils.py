@@ -18,6 +18,10 @@ def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
+def shift_left_mask(mask: torch.Tensor) -> torch.Tensor:
+    shifted_mask = torch.cat([torch.ones_like(mask[:, 1:, :]), mask[:, -1:, :]], dim=1)
+    return shifted_mask
+
 def masked_mean(tensor, mask):
     return tensor[mask>0].flatten().mean()
 

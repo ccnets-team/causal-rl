@@ -47,10 +47,10 @@ class ExperienceMemory:
         td_errors = tr.td_errors if tr.td_errors is not None else [None] * len(tr.env_ids)
         
         # zip all the common attributes along with td_errors
-        attributes = zip(tr.env_ids, tr.agent_ids, tr.states, tr.actions, tr.rewards, tr.next_states, tr.dones, td_errors)
+        attributes = zip(tr.env_ids, tr.agent_ids, tr.states, tr.actions, tr.rewards, tr.next_states, tr.dones_terminated, tr.dones_truncated, td_errors)
         
-        for env_id, agent_id, state, action, reward, next_state, done, td_error in attributes:
-            self.multi_buffers[env_id][agent_id].add(state, action, reward, next_state, done, td_error)
+        for env_id, agent_id, state, action, reward, next_state, done_terminated, done_truncated, td_error in attributes:
+            self.multi_buffers[env_id][agent_id].add(state, action, reward, next_state, done_terminated, done_truncated, td_error)
 
     def get_agent_samples(self, sample_size = None):
         td_steps = self.num_td_steps

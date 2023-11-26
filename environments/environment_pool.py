@@ -36,8 +36,8 @@ class EnvironmentPool:
         combined_transition = MultiEnvTrajectories()
 
         for env_idx, env in enumerate(self.env_list):
-            agent_ids, obs, action, reward, next_obs, done = env.output_transitions()
-            combined_transition.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done)
+            agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated = env.output_transitions()
+            combined_transition.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated)
         return combined_transition
 
     def step_env(self):

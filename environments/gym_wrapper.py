@@ -158,7 +158,7 @@ class GymEnvWrapper(AgentExperienceCollector):
 
         reward = np.where(done, final_reward, ongoing_reward)
 
-        self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, ongoing_terminated)
+        self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, ongoing_terminated, ongoing_truncated)
         
         self.process_terminated_and_decision_agents(done, ongoing_next_obs)
 
@@ -179,9 +179,9 @@ class GymEnvWrapper(AgentExperienceCollector):
         done = np.logical_or(ongoing_terminated, ongoing_truncated)
         
         if self.use_graphics:
-            self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, reward, next_obs, done)
+            self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, reward, next_obs, ongoing_terminated, ongoing_truncated)
         else:
-            self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], reward[0], next_obs[0], done[0])
+            self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], reward[0], next_obs[0], ongoing_terminated[0], ongoing_truncated[0])
 
         self.process_terminated_and_decision_agents(done, next_obs)
 
