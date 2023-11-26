@@ -71,11 +71,10 @@ class CausalRL(BaseTrainer):
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor.predict_action(states, estimated_value, mask)
         
-        mask2 = shift_left_mask(mask)
         # Calculate the reversed state using the original action.
-        reversed_state = self.revEnv(next_states, actions, estimated_value, mask2)
+        reversed_state = self.revEnv(next_states, actions, estimated_value, mask)
         # Calculate the recurred state using the inferred action.
-        recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach(), mask2)
+        recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach(), mask)
         
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state)
@@ -98,13 +97,13 @@ class CausalRL(BaseTrainer):
         value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss = masked_mean(coop_critic_error, mask2)
+        critic_loss = masked_mean(coop_critic_error, mask)
 
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss =  masked_mean(advantage * coop_actor_error, mask2)       
+        actor_loss =  masked_mean(advantage * coop_actor_error, mask)       
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss = masked_mean(coop_revEnv_error, mask2)
+        revEnv_loss = masked_mean(coop_revEnv_error, mask)
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],

@@ -76,9 +76,10 @@ class AgentExperienceCollector:
         self.agent_done_truncated[agent_id].append(done_truncated)
         self.agent_num[agent_id] += 1
 
-    def update_agent_data(self, agent_ids, obs, action, reward, next_obs, done):
+    def update_agent_data(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated = None):
         for agent_idx, agent_id in enumerate(agent_ids):
-            self.append_agent_transition(agent_id, obs[agent_idx], action[agent_idx], reward[agent_idx], next_obs[agent_idx], done[agent_idx], done_truncated = False)
+            truncated = False  if done_truncated is None else done_truncated[agent_idx]
+            self.append_agent_transition(agent_id, obs[agent_idx], action[agent_idx], reward[agent_idx], next_obs[agent_idx], done_terminated[agent_idx], truncated)
 
     def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, term=False):
         if len(next_agent_ids) == 0: return

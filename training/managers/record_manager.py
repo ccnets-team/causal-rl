@@ -62,11 +62,12 @@ class RecordManager:
         env_ids = transitions.env_ids
         agent_ids = transitions.agent_ids
         rewards = transitions.rewards
-        dones = transitions.dones
+        dones_terminated = transitions.dones_terminated
+        dones_truncated = transitions.dones_truncated
         if training:
-            self.train_tracker._add_rewards(env_ids, agent_ids, rewards, dones)
+            self.train_tracker._add_rewards(env_ids, agent_ids, rewards, dones_terminated, dones_truncated)
         else:
-            self.test_tracker._add_rewards(env_ids, agent_ids, rewards, dones)
+            self.test_tracker._add_rewards(env_ids, agent_ids, rewards, dones_terminated, dones_truncated)
 
     def is_best_period(self):
         return self.test_tracker.is_best_record_period()
