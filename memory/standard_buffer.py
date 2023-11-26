@@ -97,7 +97,7 @@ class StandardBuffer(BaseBuffer):
         self.actions[self.index] = action
         self.rewards[self.index] = reward
         self.next_states[self.index] = next_state
-        self.dones[self.index] = terminated
+        self.dones[self.index] = terminated or truncated
 
         # Check if adding this data creates a valid trajectory
         self.add_valid_index(self.index, terminated, truncated)
