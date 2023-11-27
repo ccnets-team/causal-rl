@@ -38,7 +38,7 @@ class BaseBuffer:
 
         # Invalidate the trajectory if the current index is marked as done
         find_index: int = -1
-        if terminated:
+        if truncated:
             # Iterate over the range to find the first index which is not done
             for idx in range(start_idx, start_idx + self.num_td_steps - 1):
                 current_idx = idx % self.capacity
@@ -48,7 +48,7 @@ class BaseBuffer:
             if find_index < 0:
                 find_index = index                
                 
-        elif not truncated:
+        elif not terminated:
             if buffer_len == self.capacity:
                 if start_idx < index:
                     if not np.any(self.dones[start_idx:index]):
