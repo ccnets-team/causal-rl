@@ -92,7 +92,7 @@ class RLTuneHelper:
         self.replay_ratio = training_params.replay_ratio
         self.train_intervel = training_params.train_intervel
         self.buffer_size = memory_params.buffer_size
-        self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // self.batch_size)
+        self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_intervel*self.batch_size))
 
     def _setup_training(self):
         """Configures the environment and other parameters for training."""
