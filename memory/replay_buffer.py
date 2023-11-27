@@ -32,6 +32,9 @@ class ExperienceMemory:
     def __len__(self):
         return sum(len(buf) for env in self.multi_buffers for buf in env)
 
+    def get_buffer_size(self):
+        return sum(buf.size for env in self.multi_buffers for buf in env)
+
     def reset_buffers(self):
         return [buf._reset() for env in self.multi_buffers for buf in env]
 

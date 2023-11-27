@@ -3,7 +3,7 @@ from nn.gpt import GPT
 import os
 
 # Start training after this number of steps
-DEFAULT_TRAINING_START_STEP = 1000
+DEFAULT_TRAINING_START_STEP = 2000
 
 
 class TrainingParameters:
