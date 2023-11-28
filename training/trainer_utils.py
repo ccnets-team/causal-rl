@@ -13,8 +13,18 @@ def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
     - mask (torch.Tensor): The resultant mask tensor.
     """
     mask = torch.ones_like(dones)
-    cumulative_dones = torch.cumsum(dones, axis=1)
-    mask[:, 1:, :] = 1 - cumulative_dones[:, :-1, :]
+
+    if mask.size(1) > 1:
+        # Reverse 'dones' along the specified axis (axis=1)
+        reversed_dones = torch.flip(dones, dims=[1])
+
+        # Perform cumulative sum on the reversed tensor
+        cumulative_dones_reversed = torch.cumsum(reversed_dones[:,1:], dim=1)
+
+        # Reverse the result back to get the cumulative sum in the original order
+        cumulative_dones = torch.flip(cumulative_dones_reversed, dims=[1])
+        
+        mask[:, :-1, :] = 1 - cumulative_dones
     
     return mask
 
@@ -28,12 +38,8 @@ def masked_mean(tensor, mask):
 def masked_sum(tensor, mask):
     return tensor[mask>0].flatten().sum()
 
-def calculate_accumulative_rewards(rewards, end_step, discount_factor):
+def calculate_accumulative_rewards(rewards, discount_factor, mask):
     batch_size, seq_len, _ = rewards.shape
-    # Create the mask based on end_idx to identify valid reward positions
-    mask = torch.arange(seq_len).to(end_step.device).unsqueeze(0).expand(batch_size, -1) <= end_step.unsqueeze(-1)
-    mask = mask.unsqueeze(-1) # Expand to match rewards shape 
-
     # Initialize a tensor for accumulative rewards with zeros
     accumulative_rewards = torch.zeros_like(rewards)
 
@@ -41,10 +47,10 @@ def calculate_accumulative_rewards(rewards, end_step, discount_factor):
     for t in reversed(range(seq_len)):
         if t == seq_len - 1:
             # If it's the last step, the accumulative reward is just the immediate reward
-            accumulative_rewards[:, t, :] = rewards[:, t, :] * mask[:, t, :]
+            accumulative_rewards[:, t, :] = rewards[:, t, :]* mask[:, t, :]
         else:
             # Accumulate reward at step t with the discounted reward at t+1, but only where the mask is true
-            accumulative_rewards[:, t, :] = (rewards[:, t, :] + discount_factor * accumulative_rewards[:, t+1, :]) * mask[:, t, :]
+            accumulative_rewards[:, t, :] = (rewards[:, t, :] + discount_factor * accumulative_rewards[:, t+1, :])* mask[:, t, :]
 
     return accumulative_rewards
 
@@ -69,19 +75,9 @@ def get_end_future_value(future_values, end_step):
 
     return future_value_at_end_step.unsqueeze(-1)
 
-def compute_discounted_future_value(end_step, discount_factor, max_seq_len):
+def compute_discounted_future_value(discount_factor, max_seq_len):
     # Create a range tensor [0, 1, 2, ..., max_seq_len-1]
-    step_range = torch.arange(max_seq_len, device=end_step.device).unsqueeze(0)
-    
-    # Calculate the difference between end step and each step in the range
-    # This will give us the exponent to raise the discount factor to.
-    # end_step is broadcasted along the second dimension to match the shape of step_range
-    discount_exponents = end_step.unsqueeze(-1) - step_range
-
-    # Ensure that the exponent is not negative
-    # Since a negative exponent would increase the value instead of discounting it,
-    # we set it to zero where the step range is greater than or equal to end_step
-    discount_exponents.clamp_(min=0)
+    discount_exponents = max_seq_len - torch.arange(max_seq_len).unsqueeze(0)
 
     # Compute the discount factors by raising to the power of the exponents
     discount_factors = discount_factor ** discount_exponents

@@ -134,29 +134,7 @@ class _BaseActor(nn.Module):
             log_prob = unsquashed_log_prob - squash_correction
         return log_prob
 
-    def _sample_action(self, mean, std, exploration_rate=None):
-        if exploration_rate is None or exploration_rate == 0:
-            return self._select_action(mean)
-
-        if self.use_discrete:
-            y = mean
-            # Get the softmax probabilities from the mean (logits)network_params
-            if self.use_noise_before_activation:
-                y = self.apply_noise(y, exploration_rate)
-            y = torch.softmax(y, dim=-1)
-            if not self.use_noise_before_activation:
-                y = self.apply_noise(y, exploration_rate)
-
-            # # Sample an action from the softmax probabilities
-            action_indices = torch.distributions.Categorical(probs=y).sample()
-            action = torch.zeros_like(y).scatter_(-1, action_indices.unsqueeze(-1), 1.0)
-        else:
-            action = torch.normal(mean, std).to(mean.device)
-            if self.use_noise_before_activation:
-                action = self.apply_noise(action, exploration_rate)
-        return action
-
-    def _sample_action(self, mean, std, exploration_rate=None):
+    def _sample_action(self, mean, std, mask = None, exploration_rate=None):
         if exploration_rate is None or exploration_rate == 0:
             return self._select_action(mean)
 
@@ -214,7 +192,7 @@ class SingleInputActor(_BaseActor):
 
     def sample_action(self, state, mask = None, exploration_rate = None):
         mean, std = self.forward(state, mask)
-        action = self._sample_action(mean, std, exploration_rate)
+        action = self._sample_action(mean, std, mask, exploration_rate)
         return action
 
     def select_action(self, state, mask = None):
@@ -255,7 +233,7 @@ class DualInputActor(_BaseActor):
 
     def sample_action(self, state, value, mask = None, exploration_rate = None):
         mean, std = self.forward(state, value, mask)
-        action = self._sample_action(mean, std, exploration_rate)
+        action = self._sample_action(mean, std, mask, exploration_rate)
         return action
     
     def select_action(self, state, value, mask = None):

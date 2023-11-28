@@ -7,7 +7,7 @@ from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectory_handler  import BatchTrajectory
-from .trainer_utils import compute_gae, compute_end_step, calculate_accumulative_rewards, get_end_future_value, compute_discounted_future_value, masked_mean
+from .trainer_utils import compute_gae, compute_end_step, calculate_accumulative_rewards, get_end_future_value, compute_discounted_future_value, masked_mean, create_mask_from_dones
 
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
@@ -74,26 +74,26 @@ class BaseTrainer(TrainingManager, StrategyManager):
         return expected_value, advantage
 
     def calculate_expected_value(self, rewards, next_states, dones):
-        # Future values calculated from the trainer's future value function
-        future_values = self.trainer_calculate_future_value(next_states) # This function needs to be defined elsewhere
-        
         # Compute the end step from the dones tensor
-        end_step = compute_end_step(dones)
+        mask = create_mask_from_dones(dones)
+        
+        # Future values calculated from the trainer's future value function
+        future_values = self.trainer_calculate_future_value(next_states, mask) # This function needs to be defined elsewhere
 
-        # Get the future value at the end step
-        future_value_at_end_step = get_end_future_value(future_values, end_step)
+        # # Get the future value at the end step
+        # future_value_at_end_step = get_end_future_value(future_values, end_step)
+        future_value_at_end_step = future_values[:,-1:] 
 
-        # Compute the sequence length from rewards
+        # Compute the sequence length from rewardsa
         seq_len = rewards.size(1)
-        discount_factors = compute_discounted_future_value(end_step, self.discount_factor, seq_len)
+        discount_factors = compute_discounted_future_value(self.discount_factor, seq_len).to(self.device)
         
         # Calculate the discount factors for each transition
-        accumulative_rewards = calculate_accumulative_rewards(rewards, end_step, self.discount_factor)
+        accumulative_rewards = calculate_accumulative_rewards(rewards, self.discount_factor, mask)
         
         # Calculate the expected values
         sequence_dones = dones.any(dim=1, keepdim=True).expand_as(dones).type(dones.dtype)
         expected_values = accumulative_rewards + (1 - sequence_dones) * discount_factors * future_value_at_end_step
-        
         return expected_values
 
 

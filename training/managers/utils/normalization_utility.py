@@ -26,7 +26,8 @@ class NormalizerBase:
     def _update_normalizer(self, data):
         if self.normalizer is not None:
             data = torch.FloatTensor(data).to(self.device)
-            first_seq_data = data[:, 0, ...]
+            first_seq_data = data.view(-1, *data.shape[2:])
+            # first_seq_data = data[:, 0, ...]
             # Update the normalizer
             self.normalizer.update(first_seq_data)
 

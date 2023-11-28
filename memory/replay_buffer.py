@@ -33,7 +33,7 @@ class ExperienceMemory:
         return sum(len(buf) for env in self.multi_buffers for buf in env)
 
     def get_buffer_size(self):
-        return sum(buf.size for env in self.multi_buffers for buf in env)
+        return sum(buf.get_buffer_len() for env in self.multi_buffers for buf in env)
 
     def reset_buffers(self):
         return [buf._reset() for env in self.multi_buffers for buf in env]
@@ -105,7 +105,7 @@ class ExperienceMemory:
         total_size = 0
         for env_id in range(self.num_environments):
             for agent_id in range(self.num_agents):
-                total_size += self.multi_buffers[env_id][agent_id].size
+                total_size += self.multi_buffers[env_id][agent_id].get_buffer_len()
                 cumulative_sizes.append(total_size)
 
         if sample_size > total_size:
@@ -134,6 +134,7 @@ class ExperienceMemory:
             samples.extend(batch)
 
         return samples    
+
         
     def sample_trajectory_data(self):
         batch_size = self.batch_size

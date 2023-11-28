@@ -8,7 +8,7 @@ DEFAULT_TRAINING_START_STEP = 2000
 
 class TrainingParameters:
     # Initialize training parameters
-    def __init__(self, batch_size=1024, replay_ratio=4, train_intervel = 16):
+    def __init__(self, batch_size=1024, replay_ratio=4, train_intervel = 20):
         self.batch_size = batch_size  # Batch size for training
         self.replay_ratio = replay_ratio  # How often past experiences are reused in training (batch size / samples per step)
         self.train_intervel  = train_intervel  # Determines how frequently training updates occur based on the number of explorations before each update
