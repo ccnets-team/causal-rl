@@ -33,30 +33,9 @@ class BaseBuffer:
 
     def add_valid_index(self, index, terminated, truncated):
         if not truncated and self.size >= self.num_td_steps:
-            start_idx = (self.capacity + index - self.num_td_steps + 1)
-            end_idx = self.capacity + index
-            if terminated:
-                first_idx: int = index
-                for idx in reversed(range(start_idx, end_idx)):
-                    current_idx = idx % self.capacity
-                    if self.dones[current_idx]:
-                        break
-                    first_idx = current_idx
-                if first_idx >= 0:
-                    if not self.valid_indices[first_idx]:
-                        self.valid_indices[first_idx] = True
-                        self.valid_set.add(first_idx)                
-            else:
-                is_fail: bool = False
-                for idx in reversed(range(start_idx, end_idx)):
-                    current_idx = idx % self.capacity
-                    if self.dones[current_idx]:
-                        is_fail = True
-                        break
-                if not is_fail:
-                    if not self.valid_indices[index]:
-                        self.valid_indices[index] = True
-                        self.valid_set.add(index)                
+            if not self.valid_indices[index]:
+                self.valid_indices[index] = True
+                self.valid_set.add(index)                
 
     def remove_invalid_indices(self, index):
         end_idx = index + self.num_td_steps
@@ -136,7 +115,10 @@ class StandardBuffer(BaseBuffer):
             len_sample = size
         else:
             len_sample = size - td_steps
-            
+
+        if len_sample < sample_size:
+            raise ValueError("Not enough len_sample in the buffer to draw the requested sample size.")
+
         selected_indices = random.sample(range(len_sample), sample_size)
         # Retrieve trajectories for the selected indices
         samples = self.get_trajectories(selected_indices, td_steps)
