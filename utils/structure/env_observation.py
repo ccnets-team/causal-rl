@@ -62,6 +62,7 @@ class EnvObservation:
             self.data[obs_type][agent_indices] = values[obs_type]
     
     def reset(self):
+        self.mask.fill(0.0)
         self.data = self._create_empty_data()
                             
     def shift(self, term_agents, dec_agents):
