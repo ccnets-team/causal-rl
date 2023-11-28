@@ -74,7 +74,7 @@ class RLTuneHelper:
     
     def should_reset_memory(self) -> bool:
         """Checks if the memory should be reset."""
-        return len(self.parent.memory)  >= self.buffer_size
+        return self.parent.memory.get_buffer_size() >= self.buffer_size
 
     def should_train_step(self, step: int) -> bool:
         """Checks if the model should be trained on the current step."""
