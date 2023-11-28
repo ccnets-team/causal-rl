@@ -28,7 +28,6 @@ class BaseBuffer:
         self.valid_indices.fill(False)  # Reset all indices to invalid
         self.valid_set.clear() 
 
-        
     def __len__(self):
         return len(self.valid_set)
     
@@ -86,7 +85,6 @@ class BaseBuffer:
         transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions
                     
-
 class StandardBuffer(BaseBuffer):
     def __init__(self, capacity, state_size, action_size, num_td_steps):
         super().__init__("standard", capacity, state_size, action_size, num_td_steps)
@@ -124,5 +122,16 @@ class StandardBuffer(BaseBuffer):
         # Retrieve trajectories for the selected indices
         samples = self.get_trajectories(selected_indices, td_steps)
         
+        assert(len(samples) == sample_size)
+        return samples
+    
+    def sample_transition(self, sample_size):
+        # Randomly select 'sample_size' indices from the set of valid indices
+        size = self.size
+        
+        selected_indices = random.sample(range(size), sample_size)
+        # Retrieve trajectories for the selected indices
+        td_steps = 1
+        samples = self.get_trajectories(selected_indices, td_steps)
         assert(len(samples) == sample_size)
         return samples

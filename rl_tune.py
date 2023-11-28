@@ -83,13 +83,13 @@ class RLTune:
 
     def train_on_policy(self, step: int) -> None:
         """Train the model with on-policy algorithms."""
+        self.process_train_environment(self.train_env)
+
         if self.helper.should_update_strategy(step):
             self._update_strategy_from_samples()
 
         if self.helper.should_reset_memory():
             self.reset_memory_and_train()
-        else:
-            self.process_train_environment(self.train_env)
 
     def train_off_policy(self, step: int) -> None:
         """Train the model with off-policy algorithms."""
@@ -104,7 +104,7 @@ class RLTune:
     # Helpers for Training
     def _update_strategy_from_samples(self) -> None:
         """Fetch samples and update strategy."""
-        samples = self.memory.get_agent_samples()
+        samples = self.memory.sample_transition_data()
         self.trainer.update_strategy(samples)
 
     def reset_memory_and_train(self) -> None:
@@ -115,7 +115,7 @@ class RLTune:
         
     def train_step(self) -> None:
         """Single step of training."""
-        transition = self.memory.sample_agent_transition()
+        transition = self.memory.sample_trajectory_data()
         if transition:
             self.trainer.transform_transition(transition)
             train_data = self.trainer.train_model(transition)

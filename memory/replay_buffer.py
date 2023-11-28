@@ -38,7 +38,10 @@ class ExperienceMemory:
     def reset_buffers(self):
         return [buf._reset() for env in self.multi_buffers for buf in env]
 
-    def sample_from_buffer(self, env_id, agent_id, sample_size, td_steps):
+    def sample_transition_from_buffer(self, env_id, agent_id, sample_size):
+        return self.multi_buffers[env_id][agent_id].sample_transition(sample_size)
+
+    def sample_trajectory_from_buffer(self, env_id, agent_id, sample_size, td_steps):
         return self.multi_buffers[env_id][agent_id].sample(sample_size, td_steps)
 
     def push_env_trajectories(self, multi_env_trajectories: MultiEnvTrajectories):
@@ -55,7 +58,7 @@ class ExperienceMemory:
         for env_id, agent_id, state, action, reward, next_state, done_terminated, done_truncated, td_error in attributes:
             self.multi_buffers[env_id][agent_id].add(state, action, reward, next_state, done_terminated, done_truncated, td_error)
 
-    def get_agent_samples(self, sample_size = None):
+    def get_trajectory_data(self, sample_size = None):
         td_steps = self.num_td_steps
         if sample_size is None:
             sample_size = self.batch_size
@@ -89,14 +92,54 @@ class ExperienceMemory:
             agent_id = buffer_id % self.num_agents
 
             # Fetch the experience
-            batch = self.sample_from_buffer(env_id, agent_id, sample_size, td_steps)
+            batch = self.sample_trajectory_from_buffer(env_id, agent_id, sample_size, td_steps)
             samples.extend(batch)
 
         return samples
-    
-    def sample_agent_transition(self):
+
+    def sample_transition_data(self, sample_size = None):
+        if sample_size is None:
+            sample_size = self.batch_size
+        # Step 1: Compute cumulative sizes
+        cumulative_sizes = []
+        total_size = 0
+        for env_id in range(self.num_environments):
+            for agent_id in range(self.num_agents):
+                total_size += self.multi_buffers[env_id][agent_id].size
+                cumulative_sizes.append(total_size)
+
+        if sample_size > total_size:
+            return None
+            # raise ValueError("Sample size exceeds the total number of experiences available")
+
+        # Step 2: Randomly sample indices
+        sampled_indices = random.sample(range(total_size), sample_size)
+
+        # Step 3: Count the number of samples needed from each buffer
+        buffer_sample_counts = defaultdict(int)
+        for idx in sampled_indices:
+            # Find the buffer this index belongs to
+            buffer_id = next(i for i, cum_size in enumerate(cumulative_sizes) if idx < cum_size)
+            buffer_sample_counts[buffer_id] += 1
+
+        # Step 4: Fetch the experiences using sample_from_buffer
+        samples = []
+        for buffer_id, sample_size in buffer_sample_counts.items():
+            # Map buffer_id back to env_id and agent_id
+            env_id = buffer_id // self.num_agents
+            agent_id = buffer_id % self.num_agents
+
+            # Fetch the experience
+            batch = self.sample_transition_from_buffer(env_id, agent_id, sample_size)
+            samples.extend(batch)
+
+        return samples    
+        
+    def sample_trajectory_data(self):
         batch_size = self.batch_size
-        samples = self.get_agent_samples(batch_size) 
+        samples = self.get_trajectory_data(batch_size) 
+        if samples is None:
+            return None
         states      = np.stack([b[0] for b in samples], axis=0)
         actions     = np.stack([b[1] for b in samples], axis=0)
         rewards     = np.stack([b[2] for b in samples], axis=0)
