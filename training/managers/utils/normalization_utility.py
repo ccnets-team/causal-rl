@@ -1,7 +1,5 @@
 import torch
 from preprocessing.normalizer.running_z_standardizer import RunningZStandardizer
-from preprocessing.scaler.running_min_max_scaler import RunningMinMaxScaler
-from preprocessing.scaler.running_mean_abs_scaler import RunningAbsMeanScaler
 import numpy as np
 from utils.structure.trajectory_handler  import BatchTrajectory
 
@@ -15,12 +13,8 @@ class NormalizerBase:
         self.vector_size = vector_size
 
         norm_type = getattr(normalization_params, norm_type_key)
-        if norm_type == "running_minmax":
-            self.normalizer = RunningMinMaxScaler(vector_size, device)
-        elif norm_type == "running_z_standardizer":
+        if norm_type == "running_z_standardizer":
             self.normalizer = RunningZStandardizer(vector_size, device)
-        elif norm_type == "running_abs_mean_scaler":
-            self.normalizer = RunningAbsMeanScaler(vector_size, device)
         self.device = device
             
     def _update_normalizer(self, data):
