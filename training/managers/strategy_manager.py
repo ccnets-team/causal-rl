@@ -10,5 +10,4 @@ class StrategyManager(NormalizationUtils, ExplorationUtils):
     def update_strategy(self, samples):
         
         self.update_normalizer(samples)
-        self.update_exploration_rate()
         

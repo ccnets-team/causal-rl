@@ -12,7 +12,7 @@ class RunningZStandardizer:
 
     def update(self, x):
         batch_size = x.size(0)
-        if batch_size == 0:
+        if batch_size == 0 or self.count >= self.max_count:
             return self  # Do not update if the batch size is zero
 
         delta = x.mean(dim=0) - self.mean
@@ -24,10 +24,6 @@ class RunningZStandardizer:
         delta2 = x.mean(dim=0) - self.mean
         self.M2 += delta * delta2 * batch_size + ((x - self.mean) ** 2).sum(dim=0)
 
-        # If count exceeds max_count, apply decay
-        if self.count > self.max_count:
-            self.M2 *= self.max_count/self.count
-            self.count = self.max_count
         return self
 
     def get_mean(self):

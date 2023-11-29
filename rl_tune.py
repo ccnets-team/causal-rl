@@ -84,6 +84,7 @@ class RLTune:
     def train_on_policy(self, step: int) -> None:
         """Train the model with on-policy algorithms."""
         self.process_train_environment(self.train_env)
+        self.trainer.update_exploration_rate()
 
         if self.helper.should_update_strategy(step):
             self._update_strategy_from_samples()
@@ -94,6 +95,7 @@ class RLTune:
     def train_off_policy(self, step: int) -> None:
         """Train the model with off-policy algorithms."""
         self.process_train_environment(self.train_env)
+        self.trainer.update_exploration_rate()
         
         if self.helper.should_update_strategy(step):
             self._update_strategy_from_samples()
