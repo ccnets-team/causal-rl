@@ -7,7 +7,7 @@ from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectory_handler  import BatchTrajectory
-from .trainer_utils import compute_gae, compute_end_step, calculate_accumulative_rewards, get_end_future_value, compute_discounted_future_value, masked_mean, create_mask_from_dones
+from .trainer_utils import compute_gae, calculate_accumulative_rewards, compute_discounted_future_value, masked_mean, create_mask_from_dones
 
 class BaseTrainer(TrainingManager, StrategyManager):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
@@ -44,14 +44,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
         # Zero-out rewards and values after the end of the episode
         advantages = compute_gae(trajectory_values, rewards, cumulative_dones, self.discount_factor)
         return advantages
-    
-    def select_first_transitions(self, *tensor_sequences: torch.Tensor):
-        results = tuple(tensor[:, 0, :].unsqueeze(1) for tensor in tensor_sequences)
-    
-        # If only one tensor is passed, return the tensor directly instead of a tuple    
-        if len(results) == 1:
-            return results[0]
-        return results
 
     def calculate_curiosity_rewards(self, intrinsic_value):
         with torch.no_grad():
@@ -81,7 +73,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
         future_values = self.trainer_calculate_future_value(next_states, mask) # This function needs to be defined elsewhere
 
         # # Get the future value at the end step
-        # future_value_at_end_step = get_end_future_value(future_values, end_step)
         future_value_at_end_step = future_values[:,-1:] 
 
         # Compute the sequence length from rewardsa
@@ -96,8 +87,6 @@ class BaseTrainer(TrainingManager, StrategyManager):
         expected_values = accumulative_rewards + (1 - sequence_dones) * discount_factors * future_value_at_end_step
         return expected_values
 
-
-        
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
             if isinstance(actor, _BaseActor):

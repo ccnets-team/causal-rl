@@ -28,15 +28,8 @@ def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-def shift_left_mask(mask: torch.Tensor) -> torch.Tensor:
-    shifted_mask = torch.cat([torch.ones_like(mask[:, 1:, :]), mask[:, -1:, :]], dim=1)
-    return shifted_mask
-
 def masked_mean(tensor, mask):
     return tensor[mask>0].flatten().mean()
-
-def masked_sum(tensor, mask):
-    return tensor[mask>0].flatten().sum()
 
 def calculate_accumulative_rewards(rewards, discount_factor, mask):
     batch_size, seq_len, _ = rewards.shape
@@ -53,27 +46,6 @@ def calculate_accumulative_rewards(rewards, discount_factor, mask):
             accumulative_rewards[:, t, :] = (rewards[:, t, :] + discount_factor * accumulative_rewards[:, t+1, :])* mask[:, t, :]
 
     return accumulative_rewards
-
-def compute_end_step(dones):
-    # Add an extra column of ones to handle cases where an episode doesn't terminate
-    padded_dones = torch.cat([dones, torch.ones_like(dones[:, :1])], dim=1)
-    
-    # Compute the first occurrence of `done` (1) or the padding (if no `done` occurred)
-    end_step = (padded_dones.cumsum(dim=1) == 1).float().argmax(dim=1).squeeze(-1)
-    
-    return end_step
-
-def get_end_future_value(future_values, end_step):
-    # Create a tensor for batch indices [0, 1, 2, ..., batch_size-1]
-    batch_indices = torch.arange(end_step.size(0), device=future_values.device)
-
-    # Subtract 1 from end_step to convert to 0-based index, ensure it's a long tensor for indexing
-    seq_indices = end_step.long() - 1
-
-    # Use advanced indexing to select the corresponding future value for each sequence in the batch
-    future_value_at_end_step = future_values[batch_indices, seq_indices]
-
-    return future_value_at_end_step.unsqueeze(-1)
 
 def compute_discounted_future_value(discount_factor, max_seq_len):
     # Create a range tensor [0, 1, 2, ..., max_seq_len-1]

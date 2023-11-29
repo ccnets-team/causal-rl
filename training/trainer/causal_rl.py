@@ -15,7 +15,7 @@ from nn.roles.actor import DualInputActor
 from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectory_handler  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_mask_from_dones, masked_mean, shift_left_mask
+from training.trainer_utils import create_mask_from_dones, masked_mean
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -138,7 +138,6 @@ class CausalRL(BaseTrainer):
         with torch.no_grad():
             future_value = self.target_critic(next_state, mask)
         return future_value
-
     
     def cost_fn(self, predict, target):
         cost = (predict - target.detach()).abs()

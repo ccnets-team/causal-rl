@@ -119,17 +119,17 @@ class GymEnvWrapper(AgentExperienceCollector):
         action_input = self._get_action_input(action)
 
         next_obs, reward, terminated, truncated, info = self.env.step(action_input)
-        ongoing_terminated = np.array(terminated, np.bool8)
-        ongoing_truncated = np.array(truncated, np.bool8)
-        ongoing_next_obs = np.array(next_obs, np.float32)
-        ongoing_reward = np.array(reward, np.float32)
+        np_terminated = np.array(terminated, np.bool8)
+        np_truncated = np.array(truncated, np.bool8)
+        np_next_obs = np.array(next_obs, np.float32)
+        np_reward = np.array(reward, np.float32)
 
-        done = np.logical_or(ongoing_terminated, ongoing_truncated)
+        done = np.logical_or(np_terminated, np_truncated)
 
         if not self.test_env:
-            self.update_for_training(ongoing_terminated, ongoing_truncated, info, action, ongoing_next_obs, ongoing_reward)
+            self.update_for_training(info, action, np_next_obs, np_reward, np_terminated, np_truncated)
         else:
-            self.update_for_test(ongoing_terminated, ongoing_truncated, action, ongoing_next_obs, ongoing_reward)
+            self.update_for_test(action, np_next_obs, np_reward, np_terminated, np_truncated)
 
         self.agent_life[~done] = True 
         self.agent_life[done] = False
@@ -137,51 +137,47 @@ class GymEnvWrapper(AgentExperienceCollector):
         
         return False
 
-    def update_for_training(self, ongoing_terminated, ongoing_truncated, info, action, ongoing_next_obs: np.ndarray, ongoing_reward: np.ndarray):
+    def update_for_training(self, info, action, next_obs: np.ndarray, reward: np.ndarray, terminated: np.ndarray, truncated: np.ndarray):
         """
         Processes the information for training update.
         
         Parameters:
-            done (np.ndarray): An array indicating which agents are done.
             info: The info provided by the environment after stepping through it.
             action: The action taken by the agents.
-            ongoing_next_obs (np.ndarray): The next observations for the agents.
+            next_obs (np.ndarray): The next observations for the agents.
+            terminated (np.ndarray): An array indicating which agents are done.
+            truncated (np.ndarray): An array indicating which agents are done.
         """
-        final_reward = get_final_rewards_from_info(info, self.num_agents)
-
-        final_next_observation = np.zeros_like(ongoing_next_obs)
+        final_next_observation = np.zeros_like(next_obs)
         final_next_observation = get_final_observations_from_info(info, final_next_observation)
         
-        done = np.logical_or(ongoing_terminated, ongoing_truncated)
+        done = np.logical_or(terminated, truncated)
         
-        next_obs = np.where(done[:, np.newaxis], final_next_observation, ongoing_next_obs)
+        next_observation = np.where(done[:, np.newaxis], final_next_observation, next_obs)
 
-        reward = np.where(done, final_reward, ongoing_reward)
-
-        self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_obs, ongoing_terminated, ongoing_truncated)
+        self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_observation, terminated, truncated)
         
-        self.process_terminated_and_decision_agents(done, ongoing_next_obs)
+        self.process_terminated_and_decision_agents(done, next_observation)
 
 
-    def update_for_test(self, ongoing_terminated, ongoing_truncated, action, ongoing_next_obs: np.ndarray, ongoing_reward: np.ndarray):
+    def update_for_test(self, action, next_obs: np.ndarray, reward: np.ndarray, terminated: np.ndarray, truncated: np.ndarray):
         """
         Processes the information for test update.
         
         Parameters:
-            done (np.ndarray): An array indicating which agents are done.
             action: The action taken by the agents.
-            ongoing_next_obs (np.ndarray): The next observations for the agents.
-            ongoing_reward (np.ndarray): The immediate rewards received by the agents.
+            next_obs (np.ndarray): The next observations for the agents.
+            reward (np.ndarray): The rewards received by the agents.
+            terminated (np.ndarray): An array indicating which agents are done.
+            truncated (np.ndarray): An array indicating which agents are done.
         """
-        next_obs = ongoing_next_obs
-        reward = ongoing_reward
         
-        done = np.logical_or(ongoing_terminated, ongoing_truncated)
+        done = np.logical_or(terminated, truncated)
         
         if self.use_graphics:
-            self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, reward, next_obs, ongoing_terminated, ongoing_truncated)
+            self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, reward, next_obs, terminated, truncated)
         else:
-            self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], reward[0], next_obs[0], ongoing_terminated[0], ongoing_truncated[0])
+            self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], reward[0], next_obs[0], terminated[0], truncated[0])
 
         self.process_terminated_and_decision_agents(done, next_obs)
 
