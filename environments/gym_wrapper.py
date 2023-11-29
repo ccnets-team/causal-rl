@@ -1,7 +1,7 @@
 import gymnasium as gym
 import numpy as np
 from .settings.agent_experience_collector import AgentExperienceCollector
-from environments.settings.gym_rewards import get_final_rewards_from_info, get_final_observations_from_info
+from environments.settings.gym_rewards import get_final_observations_from_info
 from utils.structure.env_observation import EnvObservation
 
 class GymEnvWrapper(AgentExperienceCollector):
@@ -118,71 +118,32 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.running_cnt += 1
         action_input = self._get_action_input(action)
 
-        next_obs, reward, terminated, truncated, info = self.env.step(action_input)
-        np_terminated = np.array(terminated, np.bool8)
-        np_truncated = np.array(truncated, np.bool8)
-        np_next_obs = np.array(next_obs, np.float32)
-        np_reward = np.array(reward, np.float32)
+        _next_obs, _reward, _terminated, _truncated, _info = self.env.step(action_input)
+        np_terminated = np.array(_terminated, np.bool8)
+        np_truncated = np.array(_truncated, np.bool8)
+        np_next_obs = np.array(_next_obs, np.float32)
+        np_reward = np.array(_reward, np.float32)
 
-        done = np.logical_or(np_terminated, np_truncated)
-
+        np_done = np.logical_or(np_terminated, np_truncated)
+        
+        next_observation = get_final_observations_from_info(_info, np_next_obs)
         if not self.test_env:
-            self.update_for_training(info, action, np_next_obs, np_reward, np_terminated, np_truncated)
+            self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated)
         else:
-            self.update_for_test(action, np_next_obs, np_reward, np_terminated, np_truncated)
+            if self.use_graphics:
+                self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated)
+            else:
+                self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], np_reward[0], next_observation[0], np_terminated[0], np_truncated[0])
 
-        self.agent_life[~done] = True 
-        self.agent_life[done] = False
-        self.agent_reset[done] = True 
-        
-        return False
+        self.process_terminated_and_decision_agents(np_done, np_next_obs)            
 
-    def update_for_training(self, info, action, next_obs: np.ndarray, reward: np.ndarray, terminated: np.ndarray, truncated: np.ndarray):
-        """
-        Processes the information for training update.
-        
-        Parameters:
-            info: The info provided by the environment after stepping through it.
-            action: The action taken by the agents.
-            next_obs (np.ndarray): The next observations for the agents.
-            terminated (np.ndarray): An array indicating which agents are done.
-            truncated (np.ndarray): An array indicating which agents are done.
-        """
-        final_next_observation = np.zeros_like(next_obs)
-        final_next_observation = get_final_observations_from_info(info, final_next_observation)
-        
-        done = np.logical_or(terminated, truncated)
-        
-        next_observation = np.where(done[:, np.newaxis], final_next_observation, next_obs)
-
-        self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, reward, next_observation, terminated, truncated)
-        
-        self.process_terminated_and_decision_agents(done, next_observation)
-
-
-    def update_for_test(self, action, next_obs: np.ndarray, reward: np.ndarray, terminated: np.ndarray, truncated: np.ndarray):
-        """
-        Processes the information for test update.
-        
-        Parameters:
-            action: The action taken by the agents.
-            next_obs (np.ndarray): The next observations for the agents.
-            reward (np.ndarray): The rewards received by the agents.
-            terminated (np.ndarray): An array indicating which agents are done.
-            truncated (np.ndarray): An array indicating which agents are done.
-        """
-        
-        done = np.logical_or(terminated, truncated)
-        
-        if self.use_graphics:
-            self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, reward, next_obs, terminated, truncated)
-        else:
-            self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], reward[0], next_obs[0], terminated[0], truncated[0])
-
-        self.process_terminated_and_decision_agents(done, next_obs)
-
-        if done.any():
+        if self.use_graphics and np_done.any():
             self.reset_env()
+
+        self.agent_life[~np_done] = True 
+        self.agent_life[np_done] = False
+        self.agent_reset[np_done] = True 
+        return False
 
     def process_terminated_and_decision_agents(self, done: np.ndarray, next_obs: np.ndarray):
         """
