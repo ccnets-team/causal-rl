@@ -36,19 +36,12 @@ class BaseBuffer:
             start_idx = (self.capacity + index - self.num_td_steps + 1)
             end_idx = self.capacity + index
             if terminated:
-                first_idx: int = index
-                for idx in reversed(range(start_idx, end_idx)):
-                    current_idx = idx % self.capacity
-                    if self.dones[current_idx]:
-                        break
-                    first_idx = current_idx
-                if first_idx >= 0:
-                    if not self.valid_indices[first_idx]:
-                        self.valid_indices[first_idx] = True
-                        self.valid_set.add(first_idx)                
+                if not self.valid_indices[index]:
+                    self.valid_indices[index] = True
+                    self.valid_set.add(index)                
             else:
                 is_fail: bool = False
-                for idx in reversed(range(start_idx, end_idx)):
+                for idx in range(start_idx, end_idx):
                     current_idx = idx % self.capacity
                     if self.dones[current_idx]:
                         is_fail = True
@@ -68,9 +61,9 @@ class BaseBuffer:
 
     def get_trajectories(self, indices, td_steps):
         batch_size = len(indices)
-        
+        buffer_size = self.capacity
         # Expand indices for num_td_steps steps and wrap around using modulo operation
-        expanded_indices = np.array([range(self.capacity + i -  td_steps + 1, self.capacity + i + 1) for i in indices]) % self.capacity
+        expanded_indices = np.array([range(buffer_size + i -  td_steps + 1, buffer_size + i + 1) for i in indices]) % buffer_size
         expanded_indices = expanded_indices.reshape(batch_size, td_steps)
         
         # Fetch the slices
@@ -109,11 +102,6 @@ class StandardBuffer(BaseBuffer):
             self.size += 1
         # Remove invalid indices caused by the circular nature of the buffer
         
-    def get_buffer_len(self):
-        if self.size == self.capacity:
-            return self.capacity
-        return max(0, self.size - self.num_td_steps)
-
     def sample(self, sample_size, td_steps):
         # Check if there are enough valid indices to sample from
         if len(self.valid_set) < sample_size:
@@ -125,20 +113,5 @@ class StandardBuffer(BaseBuffer):
         # Retrieve trajectories for the selected indices
         samples = self.get_trajectories(selected_indices, td_steps)
         
-        assert(len(samples) == sample_size)
-        return samples
-    
-    def sample_transition(self, sample_size):
-        # Randomly select 'sample_size' indices from the set of valid indices
-        size = self.size
-        td_steps = self.num_td_steps
-        if size == self.capacity:
-            len_sample = size
-        else:
-            len_sample = size - td_steps
-            
-        selected_indices = random.sample(range(len_sample), sample_size)
-        # Retrieve trajectories for the selected indices
-        samples = self.get_trajectories(selected_indices, td_steps)
         assert(len(samples) == sample_size)
         return samples

@@ -104,8 +104,9 @@ class RLTune:
     # Helpers for Training
     def _update_strategy_from_samples(self) -> None:
         """Fetch samples and update strategy."""
-        samples = self.memory.sample_transition_data()
-        self.trainer.update_strategy(samples)
+        samples = self.memory.get_trajectory_data()
+        if samples is not None:
+            self.trainer.update_strategy(samples)
 
     def reset_memory_and_train(self) -> None:
         """Reset the memory and train the model again."""
@@ -116,7 +117,7 @@ class RLTune:
     def train_step(self) -> None:
         """Single step of training."""
         transition = self.memory.sample_trajectory_data()
-        if transition:
+        if transition is not None:
             self.trainer.transform_transition(transition)
             train_data = self.trainer.train_model(transition)
             self.helper.add_train_metrics(train_data)
