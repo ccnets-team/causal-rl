@@ -55,7 +55,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
         discount_factors = self.discount_factors[:,-seq_len:]
                 
         # Calculate the expected values
-        sequence_dones = 1 - mask.all(dim=1, keepdim=True).expand_as(mask).type(mask.dtype)
+        sequence_dones = dones.any(dim=1, keepdim=True).expand_as(dones).type(dones.dtype)
         expected_values = accumulative_rewards + (1 - sequence_dones) * discount_factors * future_value_at_end_step        
         return expected_values
     
