@@ -183,30 +183,35 @@ class SingleInputActor(_BaseActor):
     def forward(self, state, mask = None):
         z = self.embedding_layer(state)
         mean, std = self._compute_forward_pass(z, mask)
+        return Normal(mean, std).rsample()
+
+    def _forward(self, state, mask = None):
+        z = self.embedding_layer(state)
+        mean, std = self._compute_forward_pass(z, mask)
         return mean, std
 
     def predict_action(self, state, mask = None):
-        mean, _ = self.forward(state, mask)
+        mean, _ = self._forward(state, mask)
         action = self._predict_action(mean)
         return action
 
     def sample_action(self, state, mask = None, exploration_rate = None):
-        mean, std = self.forward(state, mask)
+        mean, std = self._forward(state, mask)
         action = self._sample_action(mean, std, mask, exploration_rate)
         return action
 
     def select_action(self, state, mask = None):
-        mean, _ = self.forward(state, mask)
+        mean, _ = self._forward(state, mask)
         action = self._select_action(mean)
         return action
 
     def evaluate_action(self, state, mask = None):
-        mean, std = self.forward(state, mask)
+        mean, std = self._forward(state, mask)
         action, log_prob = self._evaluate_action(mean, std)
         return action, log_prob
 
     def log_prob(self, state, action, mask = None):
-        mean, std = self.forward(state, mask)
+        mean, std = self._forward(state, mask)
         log_prob = self._log_prob(mean, std, action)
         return log_prob
 
@@ -224,19 +229,24 @@ class DualInputActor(_BaseActor):
     def forward(self, state, value, mask = None):
         z = self.embedding_layer(torch.cat([state, value], dim =-1))
         mean, std = self._compute_forward_pass(z, mask)
+        return Normal(mean, std).rsample()
+
+    def _forward(self, state, value, mask = None):
+        z = self.embedding_layer(torch.cat([state, value], dim =-1))
+        mean, std = self._compute_forward_pass(z, mask)
         return mean, std
 
     def predict_action(self, state, value, mask = None):
-        mean, _ = self.forward(state, value, mask)
+        mean, _ = self._forward(state, value, mask)
         action = self._predict_action(mean)
         return action
 
     def sample_action(self, state, value, mask = None, exploration_rate = None):
-        mean, std = self.forward(state, value, mask)
+        mean, std = self._forward(state, value, mask)
         action = self._sample_action(mean, std, mask, exploration_rate)
         return action
     
     def select_action(self, state, value, mask = None):
-        mean, _ = self.forward(state, value, mask)
+        mean, _ = self._forward(state, value, mask)
         action = self._select_action(mean)
         return action

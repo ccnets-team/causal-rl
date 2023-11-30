@@ -101,7 +101,7 @@ class DDPG(BaseTrainer):
         critic_optimizer.step()
 
         # Compute actor loss
-        actor_loss = -masked_tensor_mean(self.critic(states, self.actor.predict_action(states), mask = mask), mask)
+        actor_loss = -masked_tensor_mean(self.critic(states, self.actor(states), mask = mask), mask)
 
         # Optimize the actor
         actor_optimizer.zero_grad()
@@ -133,11 +133,11 @@ class DDPG(BaseTrainer):
         """
         with torch.no_grad():
             if use_target:
-                next_action = self.target_actor.predict_action(next_state, mask)
+                next_action = self.target_actor(next_state, mask)
                 # Add discounted future value element-wise for each item in the batch
                 future_value = self.target_critic(next_state, next_action, mask)
             else:
-                next_action = self.actor.predict_action(next_state, mask)
+                next_action = self.actor(next_state, mask)
                 # Add discounted future value element-wise for each item in the batch
                 future_value = self.critic(next_state, next_action, mask)
         return future_value    

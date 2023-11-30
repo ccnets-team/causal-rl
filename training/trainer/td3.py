@@ -103,7 +103,7 @@ class TD3(BaseTrainer):
 
         # Actor Training
         if self.total_steps % self.policy_update == 0:
-            self.actor_loss = -masked_tensor_mean(self.critic1(state, self.actor.predict_action(state)), mask)
+            self.actor_loss = -masked_tensor_mean(self.critic1(state, self.actor(state)), mask)
             actor_optimizer.zero_grad()
             self.actor_loss.backward()
             actor_optimizer.step()
@@ -142,13 +142,13 @@ class TD3(BaseTrainer):
         """
         with torch.no_grad():
             if use_target:
-                next_action = self.target_actor.predict_action(next_state, mask)
+                next_action = self.target_actor(next_state, mask)
                 noise = torch.normal(torch.zeros_like(next_action), self.policy_noise)
                 new_next_action = noise + noise
                 target_Q1 = self.target_critic1(next_state, new_next_action, mask)
                 target_Q2 = self.target_critic2(next_state, new_next_action, mask)
             else:
-                next_action = self.actor.predict_action(next_state, mask)
+                next_action = self.actor(next_state, mask)
                 noise = torch.normal(torch.zeros_like(next_action), self.policy_noise)
                 new_next_action = noise + noise
                 target_Q1 = self.critic1(next_state, new_next_action, mask)

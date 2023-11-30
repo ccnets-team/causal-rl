@@ -69,7 +69,7 @@ class CausalRL(BaseTrainer):
         estimated_value = self.critic(states, mask)
             
         # Predict the action that the actor would take for the current state and its estimated value.
-        inferred_action = self.actor.predict_action(states, estimated_value, mask)
+        inferred_action = self.actor(states, estimated_value, mask)
         
         # Calculate the reversed state using the original action.
         reversed_state = self.revEnv(next_states, actions, estimated_value, mask)
