@@ -1,5 +1,3 @@
-# import gym
-import numpy as np
 def is_key_valid(key):
     key_lower = key.lower()
     return key_lower.startswith('reward')

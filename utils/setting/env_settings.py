@@ -2,41 +2,12 @@ from utils.printer import print_env_specs
 import numpy as np
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-
 from typing import Tuple, Optional, Union, Type, Dict, List
 from environments.settings.gym_config import setup_gym_environment
 from environments.settings.mlagents_config import setup_mlagents_environment
-
-# Default Settings:
-# - Train Frequency: 12
-# - Number of TD Steps: 16
-# - Dropout: 0.1
-# - Batch Size: 256
-# - Replay Ratio: 1
-# - discount factor: 0.99
+from setting.custom_env_settings import MLAGENTS_ENV_SPECIFIC_ARGS, GYM_ENV_SPECIFIC_ARGS
 
 GYM_NUM_ENVIRONMENTS = 1
-MLAGENTS_ENV_SPECIFIC_ARGS = {
-    "3DBallHard": {'hidden_size': 128, 'max_steps': 20000},
-    "Worm": {},
-    "Crawler": {},
-    "Walker": {'hidden_size': 256}, 
-    "Hallway": {'hidden_size': 192, 'state_normalizer': 'none'},
-    "PushBlock": {'hidden_size': 192, 'state_normalizer': 'none'},
-    "Pyramids": {'state_normalizer': 'none', 'max_steps': 2000000}
-}
-
-GYM_ENV_SPECIFIC_ARGS = {
-    "InvertedDoublePendulum-": {'reward_scale': 0.01, 'hidden_size': 128},   
-    "Pusher-": {'reward_scale': 0.1, 'hidden_size': 160},   
-    "Reacher-": {'reward_scale': 0.1, 'hidden_size': 160},
-    "Hopper-": {'reward_scale': 0.1, 'hidden_size': 176},   
-    "Walker2d-": {'reward_scale': 0.1, 'hidden_size': 176},   
-    "Ant-": {'reward_scale': 0.1, 'hidden_size': 176},
-    "HalfCheetah-": {'reward_scale': 0.1, 'hidden_size': 192},   
-    "Humanoid-": {'reward_scale': 0.01, 'hidden_size': 256},    
-    "HumanoidStandup-": {'reward_scale': 0.001, 'hidden_size': 256}
-}
 
 def analyze_env(env_name):
     env_config, rl_params = None, None

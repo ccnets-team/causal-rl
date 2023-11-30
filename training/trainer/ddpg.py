@@ -14,7 +14,7 @@ from nn.roles.critic import DualInputCritic
 from nn.roles.actor import SingleInputActor
 import copy
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_mask_from_dones, masked_mean
+from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
 
 class DDPG(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -82,7 +82,7 @@ class DDPG(BaseTrainer):
         critic_optimizer, actor_optimizer = self.get_optimizers()
 
         states, actions, rewards, next_states, dones = trajectory
-        mask = create_mask_from_dones(dones)
+        mask = create_padding_mask_before_dones(dones)
 
         # Critic Update
         target_Q = self.calculate_expected_value(rewards, next_states, dones).detach()
@@ -93,7 +93,7 @@ class DDPG(BaseTrainer):
         current_Q = self.critic(states, actions, mask = mask)
 
         # Compute critic loss
-        critic_loss = self.calculate_value_loss(current_Q, target_Q, mask = mask)
+        critic_loss = calculate_value_loss(current_Q, target_Q, mask = mask)
 
         # Optimize the critic
         critic_optimizer.zero_grad()
@@ -101,7 +101,7 @@ class DDPG(BaseTrainer):
         critic_optimizer.step()
 
         # Compute actor loss
-        actor_loss = -masked_mean(self.critic(states, self.actor.predict_action(states), mask = mask), mask)
+        actor_loss = -masked_tensor_mean(self.critic(states, self.actor.predict_action(states), mask = mask), mask)
 
         # Optimize the actor
         actor_optimizer.zero_grad()

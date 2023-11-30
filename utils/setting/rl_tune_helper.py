@@ -10,7 +10,7 @@ from utils.loader import save_trainer, load_trainer
 from training.managers.record_manager import RecordManager
 import logging
 
-PRINT_INTERVAL = 100
+DEFAULT_PRINT_INTERVAL = 100
 DEFAULT_SAVE_INTERVAL = 1000
 
 class RLTuneHelper:
@@ -21,7 +21,7 @@ class RLTuneHelper:
         self.use_graphics, self.use_print = use_graphics, use_print
         self.env_config, self.rl_params = env_config, rl_params
         
-        self.print_interval = PRINT_INTERVAL
+        self.print_interval = DEFAULT_PRINT_INTERVAL
         self.save_interval = DEFAULT_SAVE_INTERVAL
         self.logger = logging.getLogger(__name__)
 

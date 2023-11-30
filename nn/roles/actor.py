@@ -59,9 +59,9 @@ class _BaseActor(nn.Module):
         return self.noise_strategy.apply(y, exploration_rate)
 
     def reset_noise(self, reset = None):
-        if self.noise_strategy is None:
+        if self.noise_strategy is None or reset is None:
             return
-        if self.noise_type == "ou" and reset is not None:
+        if self.noise_type == "ou":
             return self.noise_strategy.reset(reset)
 
     def _compute_forward_pass(self, z, mask = None):

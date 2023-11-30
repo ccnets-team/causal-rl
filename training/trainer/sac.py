@@ -13,7 +13,7 @@ from nn.roles.critic import DualInputCritic as Critic
 from nn.roles.actor import SingleInputActor as PolicyNetwork
 from nn.roles.critic import SingleInputCritic as ValueNetwork
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_mask_from_dones, masked_mean
+from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
 
 class SAC(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -80,7 +80,7 @@ class SAC(BaseTrainer):
             v_target = min_qf_next - self.alpha * next_log_pi
         
         v_pred = self.value(state, mask = mask)
-        value_loss = self.calculate_value_loss(v_pred, v_target, mask = mask)
+        value_loss = calculate_value_loss(v_pred, v_target, mask = mask)
         return value_loss
 
     
@@ -105,8 +105,8 @@ class SAC(BaseTrainer):
         qf1 = self.critic1(state, action, mask = mask)
         qf2 = self.critic2(state, action, mask = mask)
 
-        qf1_loss = self.calculate_value_loss(qf1, next_q_value, mask = mask)
-        qf2_loss = self.calculate_value_loss(qf2, next_q_value, mask = mask)
+        qf1_loss = calculate_value_loss(qf1, next_q_value, mask = mask)
+        qf2_loss = calculate_value_loss(qf2, next_q_value, mask = mask)
         qf_loss = qf1_loss + qf2_loss
 
         return qf_loss
@@ -133,7 +133,7 @@ class SAC(BaseTrainer):
 
             # Calculate the minimum of the masked tensors
             min_qf_pi  = torch.min(masked_qf1, masked_qf2)            
-        policy_loss = masked_mean(self.alpha * log_pi - min_qf_pi, mask)
+        policy_loss = masked_tensor_mean(self.alpha * log_pi - min_qf_pi, mask)
         
         return policy_loss, log_pi
 
@@ -145,7 +145,7 @@ class SAC(BaseTrainer):
         log_pi (torch.Tensor): The log_pi tensor obtained from the policy network.
         """
 
-        alpha_loss = -masked_mean(self.log_alpha * (log_pi + self.target_entropy).detach(), mask)
+        alpha_loss = -masked_tensor_mean(self.log_alpha * (log_pi + self.target_entropy).detach(), mask)
         
         self.alpha_optimizer.zero_grad()
         alpha_loss.backward()
@@ -166,7 +166,7 @@ class SAC(BaseTrainer):
         value_optimizer, policy_optimizer, critic1_optimizer, critic2_optimizer = self.get_optimizers()
         
         state, action, reward, next_state, done = trajectory
-        mask = create_mask_from_dones(done)
+        mask = create_padding_mask_before_dones(done)
 
         # ------------ Value Network Update ------------
         value_loss = self.update_model_network(state, next_state, mask = mask)

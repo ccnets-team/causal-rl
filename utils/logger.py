@@ -1,5 +1,6 @@
 from datetime import datetime
 import os
+import wandb
 
 METRICS_CATEGORY_MAP = {
     'losses': 'Losses',
@@ -23,6 +24,13 @@ def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train
         "Step/ExplorationRate": epsilon,
     }
 
+    wandb.log({"Episode/TestRewards": test_accumulative_rewards, 'Episode/TrainRewards': train_accumulative_rewards, 
+                'Step/TestReward': test_reward_per_step, 'Step/TrainReward': train_reward_per_step,
+                "Step/Time": time_cost, "Step/LearningRate": learning_rate,
+                "Step/ExplorationRate": epsilon
+               })
+
+
     # Log scalar data
     for name, value in scalar_logs.items():
         if value is not None:
@@ -45,7 +53,6 @@ def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train
                         
                     log_name = f"{mapped_category_name}/{new_metric_name}"
                     logger.add_scalar(log_name, metric_value, episode)
-
 
 def get_log_name(log_path):
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")

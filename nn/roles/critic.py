@@ -3,11 +3,10 @@
     Author:
         PARK, JunHo
 '''
+import torch
 import torch.nn as nn
 from ..utils.network_init import init_weights, create_layer
-import torch
-
-from ..utils.embedding_layer import JointEmbeddingLayer, ContinuousFeatureEmbeddingLayer
+from ..utils.embedding_layer import ContinuousFeatureEmbeddingLayer
 
 class BaseCritic(nn.Module):
     def __init__(self, net, env_config, network_params, input_size):
@@ -32,7 +31,6 @@ class SingleInputCritic(BaseCritic):
     def forward(self, state, mask = None):
         _state = self.embedding_layer(state)
         return self._forward(_state, mask)
-
 
 class DualInputCritic(BaseCritic):
     def __init__(self, net, env_config, network_params):

@@ -3,7 +3,6 @@ from .mlagents_wrapper import MLAgentsEnvWrapper
 from .gym_wrapper import GymEnvWrapper
 from utils.structure.trajectory_handler  import MultiEnvTrajectories
 import torch
-import random
 
 class EnvironmentPool: 
     def __init__(self, env_config, num_td_steps, device, test_env, use_graphics):
@@ -26,7 +25,7 @@ class EnvironmentPool:
             
     def reset(self):
         for it in self.env_list:
-            it.reset_env()  
+            it.reset_environment()  
 
     def end(self):
         for it in self.env_list:

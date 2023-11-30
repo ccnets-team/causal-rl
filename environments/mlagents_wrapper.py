@@ -33,12 +33,12 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         
         self.agent_reset = np.zeros((env_config.num_agents), dtype=bool)
 
-        self.reset_env()
+        self.reset_environment()
         self.reset_agents()
         self.behavior_name = list(self.env.behavior_specs.keys())[0]
 
         return
-    def reset_env(self):
+    def reset_environment(self):
         self.env.reset()
         
         self.actions.fill(0)

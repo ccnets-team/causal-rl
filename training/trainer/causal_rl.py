@@ -15,7 +15,7 @@ from nn.roles.actor import DualInputActor
 from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectory_handler  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_mask_from_dones, masked_mean
+from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -63,7 +63,7 @@ class CausalRL(BaseTrainer):
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
         states, actions, rewards, next_states, dones = trajectory
-        mask = create_mask_from_dones(dones)
+        mask = create_padding_mask_before_dones(dones)
 
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states, mask)
@@ -94,16 +94,16 @@ class CausalRL(BaseTrainer):
         expected_value, advantage = self.compute_values(trajectory, estimated_value, intrinsic_value=coop_revEnv_error)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
+        value_loss = calculate_value_loss(estimated_value, expected_value, mask)   
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss = masked_mean(coop_critic_error, mask)
+        critic_loss = masked_tensor_mean(coop_critic_error, mask)
 
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss =  masked_mean(advantage * coop_actor_error, mask)       
+        actor_loss =  masked_tensor_mean(advantage * coop_actor_error, mask)       
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss = masked_mean(coop_revEnv_error, mask)
+        revEnv_loss = masked_tensor_mean(coop_revEnv_error, mask)
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],

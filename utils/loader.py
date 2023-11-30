@@ -34,7 +34,6 @@ def save_trainer(trainer, save_path):
 
     for idx, it in enumerate(networks):
         torch.save(it.state_dict(), os.path.join(save_path, f"network_{idx}" + '.pth'))
-
     for idx, it in enumerate(opimizers):
         torch.save(it.state_dict(), os.path.join(save_path, f"opt_{idx}" + '.pth'))
     for idx, it in enumerate(schedulers):

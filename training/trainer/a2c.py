@@ -12,7 +12,7 @@ from utils.structure.trajectory_handler  import BatchTrajectory
 from nn.roles.critic import SingleInputCritic
 from nn.roles.actor import SingleInputActor
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_mask_from_dones, masked_mean
+from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
 
 class A2C(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -73,7 +73,7 @@ class A2C(BaseTrainer):
         critic_optimizer, actor_optimizer = self.get_optimizers()
 
         states, actions, rewards, next_states, dones = trajectory
-        mask = create_mask_from_dones(dones)
+        mask = create_padding_mask_before_dones(dones)
 
         estimated_value = self.critic(states, mask)
         
@@ -81,7 +81,7 @@ class A2C(BaseTrainer):
         expected_value, advantage = self.compute_values(trajectory, estimated_value)
 
         # Compute critic loss
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)
+        value_loss = calculate_value_loss(estimated_value, expected_value, mask)
         critic_optimizer.zero_grad()
         value_loss.backward()
         critic_optimizer.step()
@@ -89,7 +89,7 @@ class A2C(BaseTrainer):
         # Compute actor loss
         log_prob = self.actor.log_prob(states, actions)
         
-        actor_loss = -masked_mean(log_prob * advantage.detach(), mask)
+        actor_loss = -masked_tensor_mean(log_prob * advantage.detach(), mask)
         
         actor_optimizer.zero_grad()
         actor_loss.backward()

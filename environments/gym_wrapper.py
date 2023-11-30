@@ -19,7 +19,8 @@ class GymEnvWrapper(AgentExperienceCollector):
         Initializes the gym environment with the given configuration.
         
         Parameters:
-            env_config: An object containing environment configuration such as number of agents.
+            env_config: An object containing environment configuration. The number of agents is 
+                        determined based on the `test_env` and `use_graphics` flags.
             test_env (bool): A flag indicating if this is a test environment.
             use_graphics (bool): A flag indicating if graphics should be used (visual rendering).
             seed (int): A seed for environment randomization.
@@ -56,7 +57,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.use_graphics = use_graphics
         all_dec_agents = list(range(self.num_agents))
         self.all_dec_agents = np.array(all_dec_agents)
-        self.reset_env()
+        self.reset_environment()
 
     def format_and_assign_observations(self, raw_observations: np.ndarray, observations):
         """
@@ -86,7 +87,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         # Assign sliced data to all agents in the observations
         observations[:, -1] = sliced_data
         
-    def reset_env(self):
+    def reset_environment(self):
         """
         Resets the environment and prepares for a new episode.
         """
@@ -113,7 +114,8 @@ class GymEnvWrapper(AgentExperienceCollector):
             action: The action to be taken in the environment.
             
         Returns:
-            A boolean indicating whether the update was successful.
+            Currently always returns False. Intended to return a boolean indicating whether the 
+            update was successful.
         """
         self.running_cnt += 1
         action_input = self._get_action_input(action)
@@ -138,7 +140,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.process_terminated_and_decision_agents(np_done, np_next_obs)            
 
         if self.use_graphics and np_done.any():
-            self.reset_env()
+            self.reset_environment()
 
         self.agent_life[~np_done] = True 
         self.agent_life[np_done] = False
@@ -160,6 +162,7 @@ class GymEnvWrapper(AgentExperienceCollector):
     def _get_action_input(self, action) -> np.ndarray:
         """
         Processes the action input based on the current settings (discrete/continuous).
+        In graphics mode, the action is taken directly from the first element of the action array.
         
         Parameters:
             action: The raw action input from the agent(s).

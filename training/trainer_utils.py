@@ -1,16 +1,40 @@
 
 import torch
 
-def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
+def masked_tensor_mean(tensor, mask):
+    return tensor[mask>0].flatten().mean()
+
+def calculate_advantage(estimated_value, expected_value):
+    with torch.no_grad():
+        advantage = (expected_value - estimated_value)
+    return advantage
+
+def calculate_value_loss(estimated_value, expected_value, mask=None):
+    loss = (estimated_value - expected_value).square()
+    if mask is not None:
+        loss = masked_tensor_mean(loss, mask)
+    else:
+        loss = loss.mean(dim = 0)
+    return loss
+
+def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
-    Creates a mask where the initial columns are ones and subsequent columns are 
-    the inverse of the `dones` tensor shifted by one.
+    Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 
+    (masked) for elements occurring before the 'done' signal when viewed from the end of the trajectory. 
+    This includes padding elements that are positioned on the left side of the first 'done' signal in the 
+    reversed sequence. The elements from the 'done' signal to the end of the trajectory (rightmost end) 
+    are unmasked (set to 1).
+
+    This function is useful for trajectories where sampling starts from the end and padding occurs before 
+    the 'done' signal in the reversed order.
 
     Args:
-    - dones (torch.Tensor): The tensor based on which the mask is created.
+    - dones (torch.Tensor): The tensor representing the 'done' signals in the trajectory.
 
     Returns:
-    - mask (torch.Tensor): The resultant mask tensor.
+    - mask (torch.Tensor): The resultant padding mask tensor. In this mask, elements occurring before the 
+      'done' signal in the reversed sequence are masked (set to 0), while the elements from the 'done' 
+      signal to the end of the trajectory are unmasked (set to 1).
     """
     mask = torch.ones_like(dones)
 
@@ -27,9 +51,6 @@ def create_mask_from_dones(dones: torch.Tensor) -> torch.Tensor:
         mask[:, :-1, :] = 1 - cumulative_dones
     
     return mask
-
-def masked_mean(tensor, mask):
-    return tensor[mask>0].flatten().mean()
 
 def calculate_accumulative_rewards(rewards, discount_factor, mask):
     batch_size, seq_len, _ = rewards.shape
