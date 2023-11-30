@@ -5,7 +5,7 @@ from utils.setting.rl_params import RLParameters
 from typing import Tuple, Optional, Union, Type, Dict, List
 from environments.settings.gym_config import setup_gym_environment
 from environments.settings.mlagents_config import setup_mlagents_environment
-from setting.custom_env_settings import MLAGENTS_ENV_SPECIFIC_ARGS, GYM_ENV_SPECIFIC_ARGS
+from utils.setting.custom_env_settings import MLAGENTS_ENV_SPECIFIC_ARGS, GYM_ENV_SPECIFIC_ARGS
 
 GYM_NUM_ENVIRONMENTS = 1
 
