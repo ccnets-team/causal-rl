@@ -118,7 +118,7 @@ class DDPG(BaseTrainer):
         )        
         return metrics
 
-    def trainer_calculate_future_value(self, next_state, mask = None):
+    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
         """
         Calculate the future value of the next state using the target networks.
         
@@ -132,10 +132,15 @@ class DDPG(BaseTrainer):
         This method calculates the future value by using the target actor to predict the next action and the target critic to estimate the Q-value of the next state-action pair.
         """
         with torch.no_grad():
-            next_action = self.target_actor.predict_action(next_state, mask)
-            future_value = self.target_critic(next_state, next_action, mask)
-            # Add discounted future value element-wise for each item in the batch
-        return future_value
+            if use_target:
+                next_action = self.target_actor.predict_action(next_state, mask)
+                # Add discounted future value element-wise for each item in the batch
+                future_value = self.target_critic(next_state, next_action, mask)
+            else:
+                next_action = self.actor.predict_action(next_state, mask)
+                # Add discounted future value element-wise for each item in the batch
+                future_value = self.critic(next_state, next_action, mask)
+        return future_value    
     
     
     def update_model(self):

@@ -107,7 +107,7 @@ class DQN(BaseTrainer):
         return metrics
 
 
-    def trainer_calculate_future_value(self, next_state: Tensor, mask = None):
+    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
         """
         Calculates the discounted future value of the next state.
         
@@ -121,7 +121,10 @@ class DQN(BaseTrainer):
         This method calculates the future value of the next state by taking the maximum Q-value of the next state, discounted by the discount factor raised to the power of the end step.
         """
         with torch.no_grad():
-            next_q_values, _ = self.target_q_network(next_state, mask)
+            if use_target:
+                next_q_values, _ = self.target_q_network(next_state, mask)
+            else:
+                next_q_values, _ = self.q_network(next_state, mask)
             next_q_value, _ = next_q_values.max(dim=-1, keepdim=True)
             future_value = next_q_value
         return future_value

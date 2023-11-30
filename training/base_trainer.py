@@ -20,42 +20,42 @@ class BaseTrainer(TrainingManager, StrategyManager):
         self.curiosity_factor = algorithm_params.curiosity_factor
         self.discount_factor = algorithm_params.discount_factor
         self.use_gae_advantage = algorithm_params.use_gae_advantage
+        num_td_steps = algorithm_params.num_td_steps
+        self.discount_factors = compute_discounted_future_value(self.discount_factor, num_td_steps).to(self.device)
 
     def calculate_curiosity_rewards(self, intrinsic_value):
         with torch.no_grad():
             curiosity_reward = self.curiosity_factor * intrinsic_value.square()
         return curiosity_reward
 
-    def calculate_gae_advantage(self, states, rewards, next_states, dones):
-        critic = self.get_networks()[0]
-        trajectory_states = torch.cat([states, next_states[:, -1:]], dim=1)
+    def calculate_gae_advantage(self, trajectory_states, rewards, trajectory_mask):
 
         # Calculate cumulative dones to mask out values and rewards after episode ends
-        cumulative_dones = torch.cumsum(dones, dim=1)
-        trajectory_values = critic(trajectory_states)  # Assuming critic outputs values for each state in the trajectory
+        trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask, use_target=False)  # Assuming critic outputs values for each state in the trajectory
         # Zero-out rewards and values after the end of the episode
-        advantages = compute_gae(trajectory_values, rewards, cumulative_dones, self.discount_factor)
+        mask = trajectory_mask[:,:-1]
+        
+        advantages = compute_gae(trajectory_values, rewards, mask, self.discount_factor)
         return advantages
 
-    def calculate_expected_value(self, rewards, next_states, dones):
+    def calculate_expected_value(self, next_states, rewards, mask):
         # Compute the end step from the dones tensor
-        mask = create_padding_mask_before_dones(dones)
         
         # Future values calculated from the trainer's future value function
-        future_values = self.trainer_calculate_future_value(next_states, mask) # This function needs to be defined elsewhere
+        future_values = self.trainer_calculate_future_value(next_states, mask, use_target=True) # This function needs to be defined elsewhere
 
         # # Get the future value at the end step
         future_value_at_end_step = future_values[:,-1:] 
 
-        # Compute the sequence length from rewardsa
-        seq_len = rewards.size(1)
-        discount_factors = compute_discounted_future_value(self.discount_factor, seq_len).to(self.device)
-        
         # Calculate the discount factors for each transition
         accumulative_rewards = calculate_accumulative_rewards(rewards, self.discount_factor, mask)
+
+        # Compute the sequence length from rewardsa
+        seq_len = rewards.size(1)
+        discount_factors = self.discount_factors[:,-seq_len:]
         
         # Calculate the expected values
-        sequence_dones = dones.any(dim=1, keepdim=True).expand_as(dones).type(dones.dtype)
+        sequence_dones = 1 - mask.all(dim=1, keepdim=True).expand_as(mask).type(mask.dtype)
         expected_values = accumulative_rewards + (1 - sequence_dones) * discount_factors * future_value_at_end_step
         return expected_values
     
@@ -65,11 +65,15 @@ class BaseTrainer(TrainingManager, StrategyManager):
         rewards += 0 if intrinsic_value is None else self.calculate_curiosity_rewards(intrinsic_value)
 
         with torch.no_grad():
+            
             if self.use_gae_advantage:
-                advantage = self.calculate_gae_advantage(states, rewards, next_states, dones)
+                trajectory_states = torch.cat([states, next_states[:, -1:]], dim=1)
+                mask = create_padding_mask_before_dones(dones)
+                trajectory_mask = torch.cat([mask, mask[:, -1:]], dim=1)
+                advantage = self.calculate_gae_advantage(trajectory_states, rewards, trajectory_mask)
                 expected_value = advantage + estimated_value
             else:
-                expected_value = self.calculate_expected_value(rewards, next_states, dones)
+                expected_value = self.calculate_expected_value(next_states, rewards, mask)
                 advantage = calculate_advantage(estimated_value, expected_value)
                 
         return expected_value, advantage
@@ -80,7 +84,7 @@ class BaseTrainer(TrainingManager, StrategyManager):
                 actor.reset_noise(reset_noise)
 
     @abstractmethod
-    def trainer_calculate_future_value(self, next_state, mask = None):
+    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
         pass
 
     @abstractmethod

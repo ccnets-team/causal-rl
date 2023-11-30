@@ -134,11 +134,14 @@ class CausalRL(BaseTrainer):
         self.update_target_networks()
         self.update_schedulers()
 
-    def trainer_calculate_future_value(self, next_state, mask = None):
+    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
         with torch.no_grad():
-            future_value = self.target_critic(next_state, mask)
-        return future_value
-    
+            if use_target:
+                future_value = self.target_critic(next_state, mask=mask)
+            else:
+                future_value = self.critic(next_state, mask=mask)
+        return future_value    
+
     def cost_fn(self, predict, target):
         cost = (predict - target.detach()).abs()
         cost = cost.mean(dim=-1, keepdim=True)  # Compute the mean across the state_size dimension
