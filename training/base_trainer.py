@@ -28,17 +28,19 @@ class BaseTrainer(TrainingManager, StrategyManager):
             curiosity_reward = self.curiosity_factor * intrinsic_value.square()
         return curiosity_reward
 
-    def calculate_gae_advantage(self, trajectory_states, rewards, trajectory_mask):
+    def calculate_gae_advantage(self, trajectory_states, rewards, dones):
+        mask = create_padding_mask_before_dones(dones)
+        trajectory_mask = torch.cat([mask, mask[:, -1:]], dim=1)
 
         # Calculate cumulative dones to mask out values and rewards after episode ends
         trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask, use_target=False)  # Assuming critic outputs values for each state in the trajectory
         # Zero-out rewards and values after the end of the episode
-        mask = trajectory_mask[:,:-1]
-        
         advantages = compute_gae(trajectory_values, rewards, mask, self.discount_factor)
         return advantages
 
-    def calculate_expected_value(self, next_states, rewards, mask):
+    def calculate_expected_value(self, next_states, rewards, dones):
+        mask = create_padding_mask_before_dones(dones)
+        
         # Future values calculated from the trainer's future value function
         future_values = self.trainer_calculate_future_value(next_states, mask, use_target=True) # This function needs to be defined elsewhere
 
@@ -53,7 +55,8 @@ class BaseTrainer(TrainingManager, StrategyManager):
         discount_factors = self.discount_factors[:,-seq_len:]
                 
         # Calculate the expected values
-        expected_values = accumulative_rewards + discount_factors * future_value_at_end_step
+        sequence_dones = 1 - mask.all(dim=1, keepdim=True).expand_as(mask).type(mask.dtype)
+        expected_values = accumulative_rewards + (1 - sequence_dones) * discount_factors * future_value_at_end_step        
         return expected_values
     
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, intrinsic_value: torch.Tensor = None):
@@ -62,14 +65,12 @@ class BaseTrainer(TrainingManager, StrategyManager):
         rewards += 0 if intrinsic_value is None else self.calculate_curiosity_rewards(intrinsic_value)
 
         with torch.no_grad():
-            mask = create_padding_mask_before_dones(dones)
             if self.use_gae_advantage:
                 trajectory_states = torch.cat([states, next_states[:, -1:]], dim=1)
-                trajectory_mask = torch.cat([mask, mask[:, -1:]], dim=1)
-                advantage = self.calculate_gae_advantage(trajectory_states, rewards, trajectory_mask)
+                advantage = self.calculate_gae_advantage(trajectory_states, rewards, dones)
                 expected_value = advantage + estimated_value
             else:
-                expected_value = self.calculate_expected_value(next_states, rewards, mask)
+                expected_value = self.calculate_expected_value(next_states, rewards, dones)
                 advantage = calculate_advantage(estimated_value, expected_value)
                 
         return expected_value, advantage

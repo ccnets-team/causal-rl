@@ -78,14 +78,14 @@ def compute_discounted_future_value(discount_factor, max_seq_len):
     # Return the discount factors with an additional dimension to match the expected shape
     return discount_factors.unsqueeze(-1)
 
-def compute_gae(values, rewards, mask, gamma, tau=0.95):
+def compute_gae(values, rewards, dones, gamma, tau=0.95):
     """
     Compute Generalized Advantage Estimation (GAE).
     
     Args:
     - values (torch.Tensor): Estimated values with shape [batch_size, num_td_steps+1, 1].
     - rewards (torch.Tensor): Observed rewards with shape [batch_size, num_td_steps, 1].
-    - mask (torch.Tensor): Mask flags (0 if terminal state, else 1) with shape [batch_size, num_td_steps, 1].
+    - dones (torch.Tensor): done flags (1 if terminal state, else 1) with shape [batch_size, num_td_steps, 1].
     - gamma (float): Discount factor.
     - tau (float): GAE parameter for bias-variance trade-off.
 
@@ -100,9 +100,9 @@ def compute_gae(values, rewards, mask, gamma, tau=0.95):
     # Iterate through timesteps in reverse to calculate GAE
     for t in reversed(range(rewards.size(1))):
         # Calculate temporal difference error
-        delta = rewards[:, t] + gamma * values[:, t + 1] * mask[:, t] - values[:, t]
+        delta = rewards[:, t] + gamma * values[:, t + 1] * (1 - dones[:, t]) - values[:, t]
         # Update GAE
-        gae = delta + gamma * tau * gae * mask[:, t]
+        gae = delta + gamma * tau * gae * (1 - dones[:, t])
         # Store computed advantage
         advantages[:, t] = gae
 
