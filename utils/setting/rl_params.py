@@ -27,13 +27,14 @@ class AlgorithmParameters:
             
 class NetworkParameters:
     # Initialize network parameters
-    def __init__(self, num_layer=5, hidden_size=192, dropout = 0.1):
+    def __init__(self, num_layer=5, hidden_size=192, dropout = 0.1, rev_env_hidden_size_mul = 2):
         self.critic_network = GPT  # Critic network architecture (GPT in this case)
         self.actor_network = GPT  # Actor network architecture (GPT in this case)
         self.reverse_env_network = GPT  # Reverse environment network architecture (GPT in this case)
         self.num_layer = num_layer  # Number of layers in the networks
         self.hidden_size = hidden_size  # Demension of model 
         self.dropout = dropout  # Dropout rate
+        self.rev_env_hidden_size_mul = rev_env_hidden_size_mul  # Hidden size multiplier for reverse environment network
         
 class OptimizationParameters:
     # Initialize optimization parameters

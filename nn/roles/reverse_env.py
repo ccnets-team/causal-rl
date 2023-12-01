@@ -15,14 +15,13 @@ class RevEnv(nn.Module):
     # represent the causative factors in the generative process of the reverse environment. A larger 
     # hidden size allows the network to more powerfully model these complex relationships and dynamics, 
     # which is essential for accurately reversing the environmental dynamics.
-    HIDDEN_SIZE_MULTIPLIER = 2
 
     def __init__(self, net, env_config, network_params):
         super(RevEnv, self).__init__()
         self.use_discrete = env_config.use_discrete
         self.state_size = env_config.state_size
         self.action_size = env_config.action_size
-        self.hidden_size = self.HIDDEN_SIZE_MULTIPLIER*network_params.hidden_size
+        self.hidden_size = int(network_params.rev_env_hidden_size_mul*network_params.hidden_size)
         self.num_layer = network_params.num_layer
         self.value_size = 1
             
