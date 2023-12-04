@@ -38,7 +38,7 @@ class ExperienceMemory:
         return [buf._reset_buffer() for env in self.multi_buffers for buf in env]
 
     def sample_trajectory_from_buffer(self, env_id, agent_id, sample_size, td_steps):
-        return self.multi_buffers[env_id][agent_id].sample(sample_size, td_steps)
+        return self.multi_buffers[env_id][agent_id].sample_trajectories(sample_size, td_steps)
 
     def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories):
         tr = multi_env_trajectories
@@ -52,12 +52,12 @@ class ExperienceMemory:
         attributes = zip(tr.env_ids, tr.agent_ids, tr.states, tr.actions, tr.rewards, tr.next_states, tr.dones_terminated, tr.dones_truncated, td_errors)
         
         for env_id, agent_id, state, action, reward, next_state, done_terminated, done_truncated, td_error in attributes:
-            self.multi_buffers[env_id][agent_id].add(state, action, reward, next_state, done_terminated, done_truncated, td_error)
+            self.multi_buffers[env_id][agent_id].add_transition(state, action, reward, next_state, done_terminated, done_truncated, td_error)
 
     def sample_trajectory_data(self):
         batch_size = self.batch_size
         num_td_steps = self.num_td_steps
-        samples = self._sample_balanced_trajectory_data(batch_size, num_td_steps) 
+        samples = self.sample_balanced_trajectory_data(batch_size, num_td_steps) 
         if samples is None:
             return None
         states      = np.stack([b[0] for b in samples], axis=0)
@@ -70,7 +70,7 @@ class ExperienceMemory:
                                                     [states, actions, rewards, next_states, dones])
         return BatchTrajectory(states, actions, rewards, next_states, dones)
     
-    def _sample_balanced_trajectory_data(self, sample_size = None, num_td_steps = None):
+    def sample_balanced_trajectory_data(self, sample_size = None, num_td_steps = None):
         _num_td_steps = self.num_td_steps if num_td_steps is None else num_td_steps
         _sample_size = self.batch_size if sample_size is None else sample_size
         
