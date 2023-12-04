@@ -1,7 +1,7 @@
 import numpy as np
 from .mlagents_wrapper import MLAgentsEnvWrapper
 from .gym_wrapper import GymEnvWrapper
-from utils.structure.trajectory_handler  import MultiEnvTrajectories
+from utils.structure.trajectories  import MultiEnvTrajectories
 import torch
 
 class EnvironmentPool: 

@@ -1,27 +1,29 @@
 import torch
 from torch.functional import F
 from training.managers.training_manager import TrainingManager 
-from training.managers.strategy_manager import StrategyManager 
+from training.managers.exploration_manager import ExplorationUtils 
+from training.managers.normalization_manager import NormalizationUtils 
 from abc import abstractmethod
 from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from utils.structure.trajectory_handler  import BatchTrajectory
+from utils.structure.trajectories  import BatchTrajectory
 from .trainer_utils import compute_gae, calculate_accumulative_rewards, compute_discounted_future_value, create_padding_mask_before_dones, calculate_advantage
 
-class BaseTrainer(TrainingManager, StrategyManager):
+class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
         training_params, algorithm_params, network_params, \
             optimization_params, exploration_params, memory_params, normalization_params = rl_parmas
         TrainingManager.__init__(self, optimization_params, networks, target_networks)
-        StrategyManager.__init__(self, env_config, exploration_params, normalization_params, device)
+        NormalizationUtils.__init__(self, env_config, normalization_params, device)
+        ExplorationUtils.__init__(self, exploration_params)
         
         self.device = device
         self.curiosity_factor = algorithm_params.curiosity_factor
         self.discount_factor = algorithm_params.discount_factor
         self.use_gae_advantage = algorithm_params.use_gae_advantage
-        num_td_steps = algorithm_params.num_td_steps
-        self.discount_factors = compute_discounted_future_value(self.discount_factor, num_td_steps).to(self.device)
+        self.num_td_steps = algorithm_params.num_td_steps
+        self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
 
     def calculate_curiosity_rewards(self, intrinsic_value):
         with torch.no_grad():

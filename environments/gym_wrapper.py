@@ -1,7 +1,7 @@
 import gymnasium as gym
 import numpy as np
 from .settings.agent_experience_collector import AgentExperienceCollector
-from environments.settings.gym_rewards import get_final_observations_from_info
+from environments.settings.gym_utils import get_final_observations_from_info
 from utils.structure.env_observation import EnvObservation
 
 class GymEnvWrapper(AgentExperienceCollector):

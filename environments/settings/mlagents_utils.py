@@ -20,3 +20,4 @@ def setup_mlagents_environment(env_name):
     state_low, state_high, action_low, action_high = None, None, None, None
 
     return env_name, num_agents, obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high
+

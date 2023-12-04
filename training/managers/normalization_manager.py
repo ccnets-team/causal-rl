@@ -1,7 +1,7 @@
 import torch
 from preprocessing.normalizer.running_z_standardizer import RunningZStandardizer
 import numpy as np
-from utils.structure.trajectory_handler  import BatchTrajectory
+from utils.structure.trajectories  import BatchTrajectory
 
 TRANSITION_STATE_IDX = 0
 TRANSITION_NEXT_STATE_IDX = 3

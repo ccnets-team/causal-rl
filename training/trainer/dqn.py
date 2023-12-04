@@ -7,7 +7,7 @@
 import torch
 import torch.nn.functional as F
 from training.base_trainer import BaseTrainer
-from utils.structure.trajectory_handler  import BatchTrajectory
+from utils.structure.trajectories  import BatchTrajectory
 from nn.roles.actor import SingleInputActor as QNetwork
 import copy
 import torch as Tensor

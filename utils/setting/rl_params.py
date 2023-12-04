@@ -1,4 +1,3 @@
-import numpy as np
 from nn.gpt import GPT
 
 # Start training after this number of steps
@@ -12,14 +11,9 @@ class TrainingParameters:
         self.train_intervel  = train_intervel  # Determines how frequently training updates occur based on the number of explorations before each update
         self.training_start_step = DEFAULT_TRAINING_START_STEP  
         
-    def minimum_samples_per_step(self):
-        # Calculate minimum samples per step
-        samples_per_step = int(max(1, np.ceil(self.batch_size/(self.replay_ratio))))
-        return samples_per_step        
-    
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps=16, discount_factor=0.995, curiosity_factor=0.0, use_gae_advantage=False):
+    def __init__(self, num_td_steps=16, discount_factor=0.99, curiosity_factor=0.0, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step returns
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.curiosity_factor = curiosity_factor  # influences the agent's desire to explore new things and learn through intrinsic rewards
@@ -27,7 +21,7 @@ class AlgorithmParameters:
             
 class NetworkParameters:
     # Initialize network parameters
-    def __init__(self, num_layer=5, hidden_size=192, dropout = 0.1, rev_env_hidden_size_mul = 2):
+    def __init__(self, num_layer=5, hidden_size=256, dropout = 0.0, rev_env_hidden_size_mul = 0.5):
         self.critic_network = GPT  # Critic network architecture (GPT in this case)
         self.actor_network = GPT  # Actor network architecture (GPT in this case)
         self.reverse_env_network = GPT  # Reverse environment network architecture (GPT in this case)
@@ -38,7 +32,7 @@ class NetworkParameters:
         
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, beta1=0.9, lr_gamma=0.9992, step_size=2, lr=3e-4, tau=1e-2):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=1, lr=3e-4, tau=1e-2):
         self.beta1 = beta1  # Beta1 parameter for Adam optimizer
         self.lr_gamma = lr_gamma  # Learning rate decay factor
         self.step_size = step_size  # Step size for learning rate scheduling

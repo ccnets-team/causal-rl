@@ -7,7 +7,7 @@
 import torch
 import torch.nn.functional as F
 
-from utils.structure.trajectory_handler  import BatchTrajectory
+from utils.structure.trajectories  import BatchTrajectory
 from training.base_trainer import BaseTrainer
 
 from nn.roles.critic import DualInputCritic

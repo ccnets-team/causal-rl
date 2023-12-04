@@ -8,7 +8,7 @@ import torch
 import copy
 import torch.nn.functional as F
 from training.base_trainer import BaseTrainer
-from utils.structure.trajectory_handler  import BatchTrajectory
+from utils.structure.trajectories  import BatchTrajectory
 from nn.roles.critic import SingleInputCritic
 from nn.roles.actor import SingleInputActor
 from utils.structure.metrics_recorder import create_training_metrics

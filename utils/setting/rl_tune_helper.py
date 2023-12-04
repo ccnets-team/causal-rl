@@ -4,7 +4,7 @@ from environments.environment_pool import EnvironmentPool
 from utils.init import set_seed
 from utils.printer import print_step, print_metrics, print_scores
 from utils.logger import log_data
-from utils.structure.trajectory_handler  import MultiEnvTrajectories
+from utils.structure.trajectories  import MultiEnvTrajectories
 from memory.replay_buffer import ExperienceMemory
 from utils.loader import save_trainer, load_trainer
 from training.managers.record_manager import RecordManager
@@ -62,7 +62,7 @@ class RLTuneHelper:
 
     def record(self, multi_env_trajectories, training):
         """Records environment transitions."""        
-        self.recorder.record_transitions(multi_env_trajectories, training=training)
+        self.recorder.record_trajectories(multi_env_trajectories, training=training)
 
     def push_trajectories(self, multi_env_trajectories: MultiEnvTrajectories):
         """Pushes trajectories to memory."""
@@ -74,7 +74,7 @@ class RLTuneHelper:
     
     def should_reset_memory(self) -> bool:
         """Checks if the memory should be reset."""
-        return self.parent.memory.get_buffer_size() >= self.buffer_size
+        return self.parent.memory.get_total_data_points() >= self.buffer_size
 
     def should_train_step(self, step: int) -> bool:
         """Checks if the model should be trained on the current step."""

@@ -108,7 +108,7 @@ class RLTune:
         """Fetch samples and update strategy."""
         samples = self.memory.get_trajectory_data()
         if samples is not None:
-            self.trainer.update_strategy(samples)
+            self.trainer.update_normalizer(samples)
 
     def reset_memory_and_train(self) -> None:
         """Reset the memory and train the model again."""

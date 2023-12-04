@@ -44,14 +44,6 @@ class TrainingManager:
     def get_target_networks(self):
         return self._target_networks
 
-    def model_grads(self, networks, require_grad):
-        for network in networks:
-            network.requires_grad_(require_grad)
-
-    def zero_grads(self, networks):
-        for network in networks:
-            network.zero_grad()
-
     def set_train(self, training):
         for network in self._networks:
             if network is not None: 

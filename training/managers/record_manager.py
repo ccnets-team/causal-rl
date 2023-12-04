@@ -3,7 +3,7 @@ from utils.logger import get_log_name
 from pathlib import Path
 import os
 from utils.structure.metrics_recorder import MetricsTracker, RewardTracker
-from utils.structure.trajectory_handler import MultiEnvTrajectories
+from utils.structure.trajectories import MultiEnvTrajectories
 from utils.printer import save_training_parameters_to_file
 from torch.utils.tensorboard import SummaryWriter
 
@@ -58,12 +58,12 @@ class RecordManager:
     def get_records(self):
         return self.train_reward_per_step , self.test_reward_per_step, self.train_accumulative_rewards, self.test_accumulative_rewards, self.avg_metrics
         
-    def record_transitions(self, transitions: MultiEnvTrajectories, training: bool):        
-        env_ids = transitions.env_ids
-        agent_ids = transitions.agent_ids
-        rewards = transitions.rewards
-        dones_terminated = transitions.dones_terminated
-        dones_truncated = transitions.dones_truncated
+    def record_trajectories(self, trajectories: MultiEnvTrajectories, training: bool):        
+        env_ids = trajectories.env_ids
+        agent_ids = trajectories.agent_ids
+        rewards = trajectories.rewards
+        dones_terminated = trajectories.dones_terminated
+        dones_truncated = trajectories.dones_truncated
         if training:
             self.train_tracker._add_rewards(env_ids, agent_ids, rewards, dones_terminated, dones_truncated)
         else:
