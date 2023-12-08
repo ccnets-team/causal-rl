@@ -58,13 +58,12 @@ class ExperienceMemory:
     def select_train_td_steps(self, exploration_rate):
         # Use the new method to sample the TD steps
         max_td_steps = self.num_td_steps
-        selected_td_steps = min(max(int(max_td_steps*(1 - exploration_rate)), 1), max_td_steps)
+        selected_td_steps = min(max(int(round(max_td_steps*(1 - exploration_rate))), 1), max_td_steps)
         return selected_td_steps
 
     def sample_trajectory_data(self, exploration_rate):
         batch_size = self.batch_size
-        num_td_steps = self.select_train_td_steps(exploration_rate) if self.use_dynamic_td_steps else self.num_td_steps
-        samples = self.sample_balanced_trajectory_data(batch_size, num_td_steps) 
+        samples = self.sample_balanced_trajectory_data(exploration_rate, batch_size) 
         if samples is None:
             return None
         states      = np.stack([b[0] for b in samples], axis=0)
@@ -77,8 +76,8 @@ class ExperienceMemory:
                                                     [states, actions, rewards, next_states, dones])
         return BatchTrajectory(states, actions, rewards, next_states, dones)
     
-    def sample_balanced_trajectory_data(self, sample_size = None, num_td_steps = None):
-        _num_td_steps = self.num_td_steps if num_td_steps is None else num_td_steps
+    def sample_balanced_trajectory_data(self, exploration_rate, sample_size = None):
+        _num_td_steps = self.select_train_td_steps(exploration_rate) if self.use_dynamic_td_steps else self.num_td_steps
         _sample_size = self.batch_size if sample_size is None else sample_size
         
         # Step 1: Compute cumulative sizes

@@ -106,7 +106,8 @@ class RLTune:
     # Helpers for Training
     def _update_strategy_from_samples(self) -> None:
         """Fetch samples and update strategy."""
-        samples = self.memory.sample_balanced_trajectory_data()
+        exploration_rate = self.trainer.get_exploration_rate()
+        samples = self.memory.sample_balanced_trajectory_data(exploration_rate)
         if samples is not None:
             self.trainer.update_normalizer(samples)
 

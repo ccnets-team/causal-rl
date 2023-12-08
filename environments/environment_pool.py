@@ -47,7 +47,7 @@ class EnvironmentPool:
     def select_explore_td_steps(self, exploration_rate):
         # Use the new method to sample the TD steps
         max_td_steps = self.num_td_steps
-        selected_td_steps = min(max(int(max_td_steps*(1 - exploration_rate)), 1), max_td_steps)
+        selected_td_steps = min(max(int(round(max_td_steps*(1 - exploration_rate))), 1), max_td_steps)
         return selected_td_steps
         
     def explore_env(self, trainer, training):
