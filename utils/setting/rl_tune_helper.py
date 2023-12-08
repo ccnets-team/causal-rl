@@ -4,6 +4,7 @@ from environments.environment_pool import EnvironmentPool
 from utils.init import set_seed
 from utils.printer import print_step, print_metrics, print_scores
 from utils.logger import log_data
+from utils.wandb_logger import wandb_log_data, wandb_init
 from utils.structure.trajectories  import MultiEnvTrajectories
 from memory.replay_buffer import ExperienceMemory
 from utils.loader import save_trainer, load_trainer
@@ -14,12 +15,15 @@ DEFAULT_PRINT_INTERVAL = 100
 DEFAULT_SAVE_INTERVAL = 1000
 
 class RLTuneHelper:
-    def __init__(self, parent, trainer_name, env_config, rl_params, use_graphics, use_print):
+    def __init__(self, parent, trainer_name, env_config, rl_params, use_graphics, use_print, use_wandb):
         self.recorder = RecordManager(trainer_name, env_config, rl_params)
 
         self.parent = parent
         self.use_graphics, self.use_print = use_graphics, use_print
         self.env_config, self.rl_params = env_config, rl_params
+        if use_wandb:
+            wandb_init(env_config, rl_params)
+        self.use_wandb = use_wandb
         
         self.print_interval = DEFAULT_PRINT_INTERVAL
         self.save_interval = DEFAULT_SAVE_INTERVAL
@@ -85,6 +89,9 @@ class RLTuneHelper:
         training_params = self.rl_params.training
         exploration_params = self.rl_params.exploration
         memory_params = self.rl_params.memory
+
+        self.num_td_steps = self.rl_params.algorithm.num_td_steps
+        self.use_dynamic_td_steps = self.rl_params.algorithm.use_dynamic_td_steps
         
         self.max_steps = exploration_params.max_steps
         self.training_start_step = training_params.training_start_step
@@ -92,6 +99,7 @@ class RLTuneHelper:
         self.replay_ratio = training_params.replay_ratio
         self.train_intervel = training_params.train_intervel
         self.buffer_size = memory_params.buffer_size
+        
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_intervel*self.batch_size))
 
     def _setup_training(self):
@@ -106,11 +114,10 @@ class RLTuneHelper:
 
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
-            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.rl_params.algorithm.num_td_steps, self.parent.device)
-
+            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.num_td_steps, self.use_dynamic_td_steps, self.parent.device)
     def _ensure_test_environment_exists(self):
         if not self.parent.test_env:
-            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.rl_params.algorithm.num_td_steps, self.parent.device, self.use_graphics)
+            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.num_td_steps, self.use_dynamic_td_steps, self.parent.device, self.use_graphics)
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
@@ -134,7 +141,8 @@ class RLTuneHelper:
         self.recorder.compute_records()
         metrics = self.recorder.get_records()
         log_data(self.parent.trainer, self.recorder.tensor_board_logger, *metrics, step, time.time() - self.recorder.pivot_time)
-        
+        if self.use_wandb:
+            wandb_log_data(self.parent.trainer, *metrics, step, time.time() - self.recorder.pivot_time)
         if self.use_print:
             self._print_step_details(step, metrics)
         

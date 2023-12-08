@@ -17,6 +17,7 @@ class ExperienceMemory:
     def __init__(self, env_config, training_params, algorithm_params, memory_params, device):
         self.device = device
         num_td_steps = algorithm_params.num_td_steps
+        self.use_dynamic_td_steps = algorithm_params.use_dynamic_td_steps
         
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
@@ -54,9 +55,15 @@ class ExperienceMemory:
         for env_id, agent_id, state, action, reward, next_state, done_terminated, done_truncated, td_error in attributes:
             self.multi_buffers[env_id][agent_id].add_transition(state, action, reward, next_state, done_terminated, done_truncated, td_error)
 
-    def sample_trajectory_data(self):
+    def select_train_td_steps(self, exploration_rate):
+        # Use the new method to sample the TD steps
+        max_td_steps = self.num_td_steps
+        selected_td_steps = min(max(int(max_td_steps*(1 - exploration_rate)), 1), max_td_steps)
+        return selected_td_steps
+
+    def sample_trajectory_data(self, exploration_rate):
         batch_size = self.batch_size
-        num_td_steps = self.num_td_steps
+        num_td_steps = self.select_train_td_steps(exploration_rate) if self.use_dynamic_td_steps else self.num_td_steps
         samples = self.sample_balanced_trajectory_data(batch_size, num_td_steps) 
         if samples is None:
             return None

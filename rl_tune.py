@@ -6,7 +6,7 @@ class RLTune:
     """
     Class for tuning and training reinforcement learning models using a specified Trainer.
     """
-    def __init__(self, env_config: EnvConfig, trainer, device, use_graphics=False, use_print=False):
+    def __init__(self, env_config: EnvConfig, trainer, device, use_graphics=False, use_print=False, use_wandb = False):
         """Initialize an instance of RLTune.
         Args:
             env_config (EnvConfig): Configuration for the environment.
@@ -20,7 +20,7 @@ class RLTune:
         self.device = device
         self.max_steps = trainer.rl_params.exploration.max_steps
         self.train_env, self.test_env, self.memory = None, None, None
-        self.helper = RLTuneHelper(self, trainer.trainer_name, env_config, trainer.rl_params, use_graphics, use_print)
+        self.helper = RLTuneHelper(self, trainer.trainer_name, env_config, trainer.rl_params, use_graphics, use_print, use_wandb)
 
     # Context Management
     def __enter__(self):
@@ -118,7 +118,8 @@ class RLTune:
         
     def train_step(self) -> None:
         """Single step of training."""
-        transition = self.memory.sample_trajectory_data()
+        exploration_rate = self.trainer.get_exploration_rate()
+        transition = self.memory.sample_trajectory_data(exploration_rate)
         if transition is not None:
             self.trainer.transform_transition(transition)
             train_data = self.trainer.train_model(transition)

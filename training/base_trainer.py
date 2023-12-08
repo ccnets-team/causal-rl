@@ -42,23 +42,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def calculate_expected_value(self, next_states, rewards, dones):
         mask = create_padding_mask_before_dones(dones)
-        
+
         # Future values calculated from the trainer's future value function
         future_values = self.trainer_calculate_future_value(next_states, mask, use_target=True) # This function needs to be defined elsewhere
 
-        # # Get the future value at the end step
-        future_value_at_end_step = future_values[:,-1:] 
-
-        # Calculate the discount factors for each transition
-        accumulative_rewards = calculate_accumulative_rewards(rewards, self.discount_factor, mask)
-
-        # Compute the sequence length from rewardsa
-        seq_len = rewards.size(1)
-        discount_factors = self.discount_factors[:,-seq_len:]
-                
-        # Calculate the expected values
-        sequence_dones = dones.any(dim=1, keepdim=True).expand_as(dones).type(dones.dtype)
-        expected_values = accumulative_rewards + (1 - sequence_dones) * discount_factors * future_value_at_end_step        
+        expected_values = rewards + self.discount_factor * (1 - dones) * future_values        
         return expected_values
     
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, intrinsic_value: torch.Tensor = None):
