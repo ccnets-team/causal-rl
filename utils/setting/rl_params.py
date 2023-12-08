@@ -62,10 +62,11 @@ class MemoryParameters:
         
 class NormalizationParameters:
     # Initialize normalization parameters
-    def __init__(self, reward_scale=1, state_normalizer='running_z_standardizer', reward_normalizer='none'):
+    def __init__(self, reward_scale=1, reward_shift = 0.0, reward_normalizer='running_z_standardizer', state_normalizer='none'):
         self.reward_scale = reward_scale  # Scaling factor for rewards
+        self.reward_shift = reward_shift # Shifts reward to adjust mean, useful when reward mean isn't zero after normalization.
+        self.reward_normalizer = reward_normalizer  # reward normalization method (e.g., 'running_z_standardizer')
         self.state_normalizer = state_normalizer  # State normalization method (e.g., 'running_z_standardizer')
-        self.reward_normalizer = reward_normalizer  # State normalization method (e.g., 'running_z_standardizer')
 
 class RLParameters:
     def __init__(self,
