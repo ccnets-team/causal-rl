@@ -65,6 +65,38 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
+def calculate_lambda_returns(rewards, values, future_values, mask, discount_factor, td_lambda):
+    """
+    Calculate lambda returns for each time step in the trajectory.
+
+    Args:
+    - rewards (torch.Tensor): Tensor of rewards.
+    - values (torch.Tensor): Tensor of estimated state values.
+    - future_returns (torch.Tensor): Tensor of future returns estimated, for example, by a target network.
+    - mask (torch.Tensor): Mask to indicate valid parts of the trajectory.
+    - discount_factor (float): Discount factor (gamma).
+    - td_lambda (float): Lambda parameter for weighting n-step returns.
+
+    Returns:
+    - torch.Tensor: Lambda returns for each time step.
+    """
+    batch_size, seq_len, _ = rewards.shape
+    lambda_returns = torch.zeros_like(rewards)
+    future_returns = torch.zeros_like(future_values)
+    future_returns[:,-1:] = future_values[:,-1:]
+    
+    for t in reversed(range(seq_len)):
+        # Calculate the TD error
+        td_error = rewards[:, t, :] + discount_factor * future_returns[:, t, :] - values[:, t, :]
+
+        # Update the future return
+        future_returns[:, t, :] = values[:, t, :] + td_error * td_lambda
+
+        # Apply the mask and store the lambda return
+        lambda_returns[:, t, :] = future_returns[:, t, :] * mask[:, t, :]
+
+    return lambda_returns
+
 def calculate_accumulative_rewards(rewards, discount_factor, mask):
     batch_size, seq_len, _ = rewards.shape
     # Initialize a tensor for accumulative rewards with zeros

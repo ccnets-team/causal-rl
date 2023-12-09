@@ -8,7 +8,7 @@ from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
-from .trainer_utils import compute_gae, calculate_accumulative_rewards, compute_discounted_future_value, create_padding_mask_before_dones, calculate_advantage
+from .trainer_utils import compute_gae, calculate_lambda_returns, compute_discounted_future_value, create_padding_mask_before_dones, calculate_advantage
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
@@ -23,6 +23,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.discount_factor = algorithm_params.discount_factor
         self.use_gae_advantage = algorithm_params.use_gae_advantage
         self.num_td_steps = algorithm_params.num_td_steps
+        self.td_lambda = algorithm_params.td_lambda
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
 
     def calculate_curiosity_rewards(self, intrinsic_value):
@@ -40,14 +41,16 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         advantages = compute_gae(trajectory_values, rewards, mask, self.discount_factor)
         return advantages
 
-    def calculate_expected_value(self, next_states, rewards, dones):
+    def calculate_expected_value(self, values, next_states, rewards, dones):
         mask = create_padding_mask_before_dones(dones)
-
+        
         # Future values calculated from the trainer's future value function
         future_values = self.trainer_calculate_future_value(next_states, mask, use_target=True) # This function needs to be defined elsewhere
-
-        expected_values = rewards + self.discount_factor * (1 - dones) * future_values        
+        
+        # # Get the future value at the end step
+        expected_values = calculate_lambda_returns(rewards, values, future_values, mask, self.discount_factor, self.td_lambda)
         return expected_values
+    
     
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, intrinsic_value: torch.Tensor = None):
         """Compute the advantage and expected value."""
@@ -60,7 +63,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 advantage = self.calculate_gae_advantage(trajectory_states, rewards, dones)
                 expected_value = advantage + estimated_value
             else:
-                expected_value = self.calculate_expected_value(next_states, rewards, dones)
+                expected_value = self.calculate_expected_value(estimated_value, next_states, rewards, dones)
                 advantage = calculate_advantage(estimated_value, expected_value)
                 
         return expected_value, advantage

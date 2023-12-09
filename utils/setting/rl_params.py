@@ -1,11 +1,11 @@
 from nn.gpt import GPT
 
 # Start training after this number of steps
-DEFAULT_TRAINING_START_STEP = 0
+DEFAULT_TRAINING_START_STEP = 2000
 
 class TrainingParameters:
     # Initialize training parameters
-    def __init__(self, batch_size=1024, replay_ratio=4, train_intervel = 1):
+    def __init__(self, batch_size=1024, replay_ratio=4, train_intervel = 20):
         self.batch_size = batch_size  # Batch size for training
         self.replay_ratio = replay_ratio  # How often past experiences are reused in training (batch size / samples per step)
         self.train_intervel  = train_intervel  # Determines how frequently training updates occur based on the number of explorations before each update
@@ -13,8 +13,9 @@ class TrainingParameters:
         
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, discount_factor=0.99, num_td_steps=16, use_dynamic_td_steps=True, use_gae_advantage=False, curiosity_factor=0.0):
+    def __init__(self, discount_factor=0.995, td_lambda = 0.9, num_td_steps=16, use_dynamic_td_steps=False, use_gae_advantage=False, curiosity_factor=0.0):
         self.discount_factor = discount_factor  # Discount factor for future rewards
+        self.td_lambda = td_lambda # TD lambda parameter for weighting n-step returns.
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step returns
         # Flag to enable dynamic adjustment of TD steps based on exploration-exploitation balance.
         # When True, the number of TD steps is automatically adjusted during training, potentially 
@@ -36,7 +37,7 @@ class NetworkParameters:
         
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=4, lr=1e-4, tau=5e-3):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=4, lr=1e-4, tau=1e-2):
         self.beta1 = beta1  # Beta1 parameter for Adam optimizer
         self.lr_gamma = lr_gamma  # Learning rate decay factor
         self.step_size = step_size  # Step size for learning rate scheduling
@@ -46,7 +47,7 @@ class OptimizationParameters:
 class ExplorationParameters:
     # Initialize exploration parameters
     def __init__(self, noise_type='none', initial_exploration=1.0, min_exploration=0.01, decay_percentage=0.8, decay_mode='linear',
-                 max_steps=40000):
+                 max_steps=400000):
         self.noise_type = noise_type  # Type of exploration noise ('none' for no noise)
         self.initial_exploration = initial_exploration  # Initial exploration rate
         self.min_exploration = min_exploration  # Minimum exploration rate
