@@ -76,8 +76,11 @@ class ExperienceMemory:
                                                     [states, actions, rewards, next_states, dones])
         return BatchTrajectory(states, actions, rewards, next_states, dones)
     
-    def sample_balanced_trajectory_data(self, exploration_rate, sample_size = None):
-        _num_td_steps = self.select_train_td_steps(exploration_rate) if self.use_dynamic_td_steps else self.num_td_steps
+    def sample_balanced_trajectory_data(self, exploration_rate, sample_size = None, sample_td_step = None):
+        if sample_td_step is None:
+            _num_td_steps = self.select_train_td_steps(exploration_rate) if self.use_dynamic_td_steps else self.num_td_steps
+        else:
+            _num_td_steps = sample_td_step
         _sample_size = self.batch_size if sample_size is None else sample_size
         
         # Step 1: Compute cumulative sizes

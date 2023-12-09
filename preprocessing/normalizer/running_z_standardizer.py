@@ -3,7 +3,7 @@
 import torch
 
 class RunningZStandardizer:
-    def __init__(self, num_features, device, max_count = 1e9):
+    def __init__(self, num_features, device, max_count = 1e8):
         self.device = device
         self.mean = torch.zeros(num_features, device=self.device)
         self.M2 = torch.zeros(num_features, device=self.device)
@@ -33,7 +33,7 @@ class RunningZStandardizer:
         return torch.sqrt(self.M2 / max(self.count, 1))
                 
     def normalize(self, values):
-        if len(values) < 1:
+        if len(values) < 1 or self.count < 1:
             return values
         mean = self.get_mean()
         std = self.get_std()

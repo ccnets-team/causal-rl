@@ -74,7 +74,7 @@ class RLTuneHelper:
 
     def should_update_strategy(self, step: int) -> bool:
         """Checks if the strategy should be updated."""
-        return (step % self.train_intervel == 0) and (len(self.parent.memory) >= self.batch_size)
+        return (self.parent.memory.get_total_data_points() >= self.samples_per_step)
     
     def should_reset_memory(self) -> bool:
         """Checks if the memory should be reset."""
@@ -99,7 +99,8 @@ class RLTuneHelper:
         self.replay_ratio = training_params.replay_ratio
         self.train_intervel = training_params.train_intervel
         self.buffer_size = memory_params.buffer_size
-        
+
+        self.samples_per_step = training_params.batch_size//training_params.replay_ratio
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_intervel*self.batch_size))
 
     def _setup_training(self):

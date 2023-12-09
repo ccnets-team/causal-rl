@@ -1,7 +1,7 @@
 from nn.gpt import GPT
 
 # Start training after this number of steps
-DEFAULT_TRAINING_START_STEP = 2000
+DEFAULT_TRAINING_START_STEP = 0
 
 class TrainingParameters:
     # Initialize training parameters
@@ -13,7 +13,7 @@ class TrainingParameters:
         
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, discount_factor=0.995, num_td_steps=16, use_dynamic_td_steps=True, use_gae_advantage=False, curiosity_factor=0.0):
+    def __init__(self, discount_factor=0.99, num_td_steps=16, use_dynamic_td_steps=True, use_gae_advantage=False, curiosity_factor=0.0):
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step returns
         # Flag to enable dynamic adjustment of TD steps based on exploration-exploitation balance.
@@ -25,7 +25,7 @@ class AlgorithmParameters:
             
 class NetworkParameters:
     # Initialize network parameters
-    def __init__(self, num_layer=5, hidden_size=256, dropout = 0.05, rev_env_hidden_size_mul = 1):
+    def __init__(self, num_layer=5, hidden_size=256, dropout = 0.0, rev_env_hidden_size_mul = 0.5):
         self.critic_network = GPT  # Critic network architecture (GPT in this case)
         self.actor_network = GPT  # Actor network architecture (GPT in this case)
         self.reverse_env_network = GPT  # Reverse environment network architecture (GPT in this case)
@@ -36,7 +36,7 @@ class NetworkParameters:
         
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=8, lr=1e-4, tau=1e-2):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=4, lr=1e-4, tau=5e-3):
         self.beta1 = beta1  # Beta1 parameter for Adam optimizer
         self.lr_gamma = lr_gamma  # Learning rate decay factor
         self.step_size = step_size  # Step size for learning rate scheduling
@@ -46,7 +46,7 @@ class OptimizationParameters:
 class ExplorationParameters:
     # Initialize exploration parameters
     def __init__(self, noise_type='none', initial_exploration=1.0, min_exploration=0.01, decay_percentage=0.8, decay_mode='linear',
-                 max_steps=100000):
+                 max_steps=40000):
         self.noise_type = noise_type  # Type of exploration noise ('none' for no noise)
         self.initial_exploration = initial_exploration  # Initial exploration rate
         self.min_exploration = min_exploration  # Minimum exploration rate
@@ -62,7 +62,7 @@ class MemoryParameters:
         
 class NormalizationParameters:
     # Initialize normalization parameters
-    def __init__(self, reward_scale=1, reward_shift = 0.0, reward_normalizer='running_z_standardizer', state_normalizer='none'):
+    def __init__(self, reward_scale = 1, reward_shift = 0.0, reward_normalizer='none', state_normalizer='running_z_standardizer'):
         self.reward_scale = reward_scale  # Scaling factor for rewards
         self.reward_shift = reward_shift # Shifts reward to adjust mean, useful when reward mean isn't zero after normalization.
         self.reward_normalizer = reward_normalizer  # reward normalization method (e.g., 'running_z_standardizer')
