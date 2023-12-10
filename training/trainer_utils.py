@@ -65,7 +65,7 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-def calculate_lambda_returns(rewards, values, future_values, mask, discount_factor, td_lambda):
+def calculate_lambda_returns(rewards, values, future_values, dones, discount_factor, td_lambda):
     """
     Calculate lambda returns for each time step in the trajectory.
 
@@ -84,16 +84,17 @@ def calculate_lambda_returns(rewards, values, future_values, mask, discount_fact
     lambda_returns = torch.zeros_like(rewards)
     future_returns = torch.zeros_like(future_values)
     future_returns[:,-1:] = future_values[:,-1:]
+    mask = 1 - dones
     
     for t in reversed(range(seq_len)):
         # Calculate the TD error
-        td_error = rewards[:, t, :] + discount_factor * future_returns[:, t, :] - values[:, t, :]
+        td_error = rewards[:, t, :] + mask[:, t, :] * (discount_factor * future_returns[:, t, :] - values[:, t, :]) 
 
         # Update the future return
-        future_returns[:, t, :] = values[:, t, :] + td_error * td_lambda
+        future_returns[:, t, :] =  mask[:, t, :] * values[:, t, :] + td_error * td_lambda
 
         # Apply the mask and store the lambda return
-        lambda_returns[:, t, :] = future_returns[:, t, :] * mask[:, t, :]
+        lambda_returns[:, t, :] = future_returns[:, t, :] 
 
     return lambda_returns
 

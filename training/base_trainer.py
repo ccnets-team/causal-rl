@@ -48,9 +48,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         future_values = self.trainer_calculate_future_value(next_states, mask, use_target=True) # This function needs to be defined elsewhere
         
         # # Get the future value at the end step
-        expected_values = calculate_lambda_returns(rewards, values, future_values, mask, self.discount_factor, self.td_lambda)
+        expected_values = calculate_lambda_returns(rewards, values, future_values, dones, self.discount_factor, self.td_lambda)
         return expected_values
-    
     
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, intrinsic_value: torch.Tensor = None):
         """Compute the advantage and expected value."""
