@@ -146,13 +146,13 @@ class RLTuneHelper:
             wandb_log_data(self.parent.trainer, *metrics, step, time.time() - self.recorder.pivot_time)
         if self.use_print:
             self._print_step_details(step, metrics)
+        self.recorder.pivot_time = None
         
     def _print_step_details(self, step, metrics):
         """Prints detailed information about the current step."""
         print_step(self.parent.trainer, self.parent.memory, step, time.time() - self.recorder.pivot_time)
         print_metrics(metrics[4])
         print_scores(*metrics[:4])
-        self.recorder.pivot_time = None
         
     def _should_print(self, step: int) -> bool:
        """Determines if logs should be printed for a given step."""        
