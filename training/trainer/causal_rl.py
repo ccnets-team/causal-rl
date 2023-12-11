@@ -130,6 +130,7 @@ class CausalRL(BaseTrainer):
         return metrics
     
     def update_step(self):
+        self.clip_gradients()
         self.update_optimizers()
         self.update_target_networks()
         self.update_schedulers()
@@ -148,8 +149,21 @@ class CausalRL(BaseTrainer):
         return cost
     
     def error_fn(self, predict, target):
-        error = (predict - target.detach()).abs()
-        return error 
+        """
+        Compute a balanced error between the combined predicted costs and a single target cost.
+
+        The function addresses a specific scenario in Causal Reinforcement Learning where the predicted value 
+        ('predict') is the sum of two cost values, and the target value ('target') is a single cost. The error 
+        is the absolute difference between these values, halved to maintain proportional gradient scales. This 
+        approach prevents the potential doubling of gradient magnitude due to the comparison of summed costs 
+        against a single cost, thereby ensuring stable and effective learning.
+
+        :param predict: Tensor representing the sum of two predicted cost values.
+        :param target: Tensor representing a single target cost value.
+        :return: Balanced error tensor.
+        """
+        error = (predict - target.detach()).abs() / 2
+        return error
 
     def backwards(self, networks, network_errors):
         """
