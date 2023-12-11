@@ -25,6 +25,8 @@ class RLTuneHelper:
             wandb_init(env_config, rl_params)
         self.use_wandb = use_wandb
         
+        self.use_normalizer = (rl_params.normalization.reward_normalizer) != 'none' or (rl_params.normalization.state_normalizer != 'none')
+        
         self.print_interval = DEFAULT_PRINT_INTERVAL
         self.save_interval = DEFAULT_SAVE_INTERVAL
         self.logger = logging.getLogger(__name__)
@@ -74,7 +76,7 @@ class RLTuneHelper:
 
     def should_update_strategy(self, step: int) -> bool:
         """Checks if the strategy should be updated."""
-        return (step % self.train_intervel == 0) and (len(self.parent.memory) >= self.batch_size)
+        return (step % self.train_intervel == 0) and (len(self.parent.memory) >= self.batch_size and self.use_normalizer)
     
     def should_reset_memory(self) -> bool:
         """Checks if the memory should be reset."""
