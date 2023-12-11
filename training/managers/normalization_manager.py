@@ -1,5 +1,9 @@
 import torch
 from preprocessing.normalizer.running_z_standardizer import RunningZStandardizer
+from preprocessing.normalizer.running_mean_std import RunningMeanStd
+from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
+from preprocessing.normalizer.hybrid_moving_mean_var import HybridMovingMeanVar
+
 import numpy as np
 from utils.structure.trajectories  import BatchTrajectory
 
@@ -15,6 +19,13 @@ class NormalizerBase:
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_z_standardizer":
             self.normalizer = RunningZStandardizer(vector_size, device)
+        elif norm_type == "running_mean_std":
+            self.normalizer = RunningMeanStd(vector_size, device)
+        elif norm_type == "exponential_moving_mean_var":
+            self.normalizer = ExponentialMovingMeanVar(vector_size, device)
+        elif norm_type == "hybrid_moving_mean_var":
+            self.normalizer = HybridMovingMeanVar(vector_size, device)
+            
         self.device = device
             
     def _update_normalizer(self, data):
