@@ -47,10 +47,8 @@ def configure_parameters(env_name: str, is_unity: bool = False) -> Tuple[Optiona
         obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high)
 
     noise_type = "boltzmann" if env_config.use_discrete else "none"
-    state_normalizer = select_state_normalization_strategy(env_config=env_config)
 
     rl_params.exploration.noise_type = noise_type
-    rl_params.normalization.state_normalizer= state_normalizer
     apply_configuration_to_parameters(env_specific_args, env_name, rl_params)
 
     return env_config, rl_params
