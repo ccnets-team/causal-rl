@@ -43,7 +43,7 @@ class CausalRL(BaseTrainer):
     def get_action(self, state, mask = None, training: bool = False):
         exploration_rate = self.get_exploration_rate()
         with torch.no_grad():
-            estimated_value = self.critic(state)
+            estimated_value = self.critic(state, mask = mask)
             if training:
                 action = self.actor.sample_action(state, estimated_value, mask=mask, exploration_rate=exploration_rate)
             else:

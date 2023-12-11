@@ -35,14 +35,24 @@ def create_layer(input_size = None, output_size = None, act_fn ="none"):
     add_activation_to_layers(layers, act_fn)
     return nn.Sequential(*layers)
 
-def init_weights(module):
+def init_weights(module, init_log_std=-2.0):
     """
     Applies Xavier uniform initialization to certain layers in a module and its submodules.
-    
     Args:
         module (nn.Module): The module to initialize.
     """
-    if isinstance(module, (nn.Linear, nn.Conv2d, nn.ConvTranspose2d)):
+    if hasattr(module, 'log_std_layer'):
+        # Check if log_std_layer is Sequential and contains a Linear layer
+        if isinstance(module.log_std_layer, nn.Linear):
+            # Initialize the first Linear layer in log_std_layer
+            nn.init.zeros_(module.log_std_layer.weight)
+            nn.init.constant_(module.log_std_layer.bias, init_log_std)
+        elif isinstance(module.log_std_layer, nn.Sequential):
+            for child in module.log_std_layer.children():
+                if isinstance(child, nn.Linear):
+                    nn.init.zeros_(child.weight)
+                    nn.init.constant_(child.bias, init_log_std)    
+    elif isinstance(module, (nn.Linear, nn.Conv2d, nn.ConvTranspose2d)):
         nn.init.xavier_uniform_(module.weight)
         if module.bias is not None:
             nn.init.zeros_(module.bias)
@@ -50,6 +60,7 @@ def init_weights(module):
         nn.init.xavier_uniform_(module.in_proj_weight)
         if module.in_proj_bias is not None:
             nn.init.zeros_(module.in_proj_bias)
-            
+                    
     for child in module.children():
         init_weights(child)  # Apply recursively to child submodules
+        
