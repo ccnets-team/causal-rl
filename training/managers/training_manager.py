@@ -1,4 +1,5 @@
 import torch.optim as optim
+import torch.nn  
 
 class TrainingManager:
     def __init__(self, optimization_params, networks, target_networks):
@@ -13,6 +14,7 @@ class TrainingManager:
         self._target_networks = target_networks 
         self._networks = networks 
         self._tau = optimization_params.tau
+        self.max_grad_norm = optimization_params.max_grad_norm
         
     def get_optimizers(self):
         return self._optimizers
@@ -21,7 +23,9 @@ class TrainingManager:
         return self._schedulers
 
     def update_optimizers(self):
+        max_grad_norm = self.max_grad_norm 
         for opt in self._optimizers:
+            torch.nn.utils.clip_grad_norm_(opt.param_groups[0]['params'], max_grad_norm)
             opt.step()
 
     def update_schedulers(self):

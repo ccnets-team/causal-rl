@@ -37,13 +37,14 @@ class NetworkParameters:
         
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=4, lr=1e-4, tau=1e-2):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=4, lr=2e-5, tau=1e-2, max_grad_norm=1.0):
         self.beta1 = beta1  # Beta1 parameter for Adam optimizer
         self.lr_gamma = lr_gamma  # Learning rate decay factor
         self.step_size = step_size  # Step size for learning rate scheduling
         self.lr = lr  # Initial learning rate
         self.tau = tau  # Target network update rate
-        
+        self.max_grad_norm = max_grad_norm
+                
 class ExplorationParameters:
     # Initialize exploration parameters
     def __init__(self, noise_type='none', initial_exploration=1.0, min_exploration=0.01, decay_percentage=0.8, decay_mode='linear',
