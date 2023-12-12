@@ -1,4 +1,8 @@
 import wandb
+from datetime import datetime
+
+now = datetime.now()
+formatted_date = now.strftime("%y-%m-%d %H:%M:%S")
 
 def convert_to_dict(rl_params):
     params_dict = rl_params.__dict__.copy()
@@ -9,6 +13,15 @@ def convert_to_dict(rl_params):
 
     return params_dict
 
+def sort_key(item):
+    key, value = item
+    if isinstance(value, str):
+        return (0, key)  
+    elif isinstance(value, bool):
+        return (1, key)  
+    else:
+        return (2, key)  
+
 METRICS_CATEGORY_MAP = {
     'losses': 'Losses',
     'values': 'Values',
@@ -16,16 +29,24 @@ METRICS_CATEGORY_MAP = {
     'costs': 'TransitionCosts'
 }
 
-def wandb_init(env_config, rl_params):
+def wandb_init(trainer_name, env_config, rl_params):
     wandb.login()
+    
+    env_config_dict = convert_to_dict(env_config)
     rl_params_dict = convert_to_dict(rl_params)
+    env_config_dict = {k: v for k, v in env_config_dict.items() if isinstance(v, (int, float, str, bool))}
+    env_config_dict = dict(sorted(env_config_dict.items(), key=sort_key))
+    env_config_dict = {'env_config':env_config_dict}
+    merged_config_dict = {**env_config_dict, **rl_params_dict}
+    
     wandb.init(
         project=env_config.env_name,
+        name= f'{trainer_name}-{env_config.env_name} : {formatted_date}',
         save_code = True,
         monitor_gym = False, 
-        config= rl_params_dict    
+        config= merged_config_dict
     )
-
+    
 def wandb_end():
     wandb.finish()
 
