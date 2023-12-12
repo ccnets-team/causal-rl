@@ -30,7 +30,7 @@ class CausalRL(BaseTrainer):
         self.critic = SingleInputCritic(critic_network, env_config, network_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, network_params, exploration_params).to(device)
         self.revEnv = RevEnv(reverse_env_network, env_config, network_params).to(device)
-        self.target_critic = copy.deepcopy(self.critic)
+        self.target_critic = copy.deepcopy(self.critic) if network_params.use_target_network else None
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 
                                         networks = [self.critic, self.actor, self.revEnv], \
@@ -91,7 +91,7 @@ class CausalRL(BaseTrainer):
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, estimated_value, intrinsic_value=coop_revEnv_error)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value, dones, intrinsic_value=coop_revEnv_error)
             
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = calculate_value_loss(estimated_value, expected_value, mask)   
