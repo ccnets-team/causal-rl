@@ -27,6 +27,8 @@ class RLTune:
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        if self.helper.use_wandb:
+            self.helper.wandb_end()
         self._close_environments()
 
     def _close_environments(self):
@@ -50,6 +52,7 @@ class RLTune:
         training_method = self.train_on_policy if on_policy else self.train_off_policy
         for step in tqdm(range(self.max_steps)):
             self._train_step_logic(step, training_method)
+
 
     def test(self, max_episodes: int = 100) -> None:
         self.helper.setup(training=False)

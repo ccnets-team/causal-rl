@@ -26,6 +26,9 @@ def wandb_init(env_config, rl_params):
         config= rl_params_dict    
     )
 
+def wandb_end():
+    wandb.finish()
+
 def wandb_log_data(trainer, train_reward_per_step, test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards, metrics, step, time_cost):
     epsilon = trainer.get_exploration_rate()
     learning_rate = trainer.get_lr()
