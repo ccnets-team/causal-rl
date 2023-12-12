@@ -22,7 +22,7 @@ class RLTuneHelper:
         self.use_graphics, self.use_print = use_graphics, use_print
         self.env_config, self.rl_params = env_config, rl_params
         if use_wandb:
-            wandb_logger.wandb_init(trainer_name, env_config, rl_params)
+            wandb_init(trainer_name, env_config, rl_params)
         self.use_wandb = use_wandb
         
         self.use_normalizer = (rl_params.normalization.reward_normalizer) != 'none' or (rl_params.normalization.state_normalizer != 'none')
