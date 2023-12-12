@@ -7,11 +7,12 @@
 import torch
 import torch.nn.functional as F
 from training.base_trainer import BaseTrainer
-from utils.structure.trajectory_handler  import BatchTrajectory
-from nn.roles.actor_network import SingleInputActor as QNetwork
+from utils.structure.trajectories  import BatchTrajectory
+from nn.roles.actor import SingleInputActor as QNetwork
 import copy
 import torch as Tensor
 from utils.structure.metrics_recorder import create_training_metrics
+from training.trainer_utils import create_padding_mask_before_dones, calculate_value_loss
         
 class DQN(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -26,9 +27,9 @@ class DQN(BaseTrainer):
         trainer_name = "dqn"
         self.network_names = ["q_network"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        policy_network = network_params.policy_network
+        actor_network = network_params.actor_network
 
-        self.q_network = QNetwork(policy_network, env_config, network_params, exploration_params).to(device)
+        self.q_network = QNetwork(actor_network, env_config, network_params, exploration_params).to(device)
         self.target_q_network = copy.deepcopy(self.q_network)
         
         super(DQN, self).__init__(trainer_name, env_config, rl_params, \
@@ -37,7 +38,7 @@ class DQN(BaseTrainer):
                                    device = device
                                    )
 
-    def get_action(self, state, training: bool):
+    def get_action(self, state, mask = None, training: bool = False):
         """
         Determines the action to be taken based on the current state.
         
@@ -53,10 +54,10 @@ class DQN(BaseTrainer):
         """
         with torch.no_grad():
             if training:
-                epsilon = self.get_exploration_rate() 
-                action = self.q_network.sample_action(state, epsilon)
+                exploration_rate = self.get_exploration_rate() 
+                action = self.q_network.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
-                action = self.q_network.select_action(state)
+                action = self.q_network.select_action(state, mask=mask)
         return action
     
 
@@ -76,17 +77,22 @@ class DQN(BaseTrainer):
         self.set_train(training=True)
         optimizer = self.get_optimizers()[0]
         
-        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
+        states, actions, rewards, next_states, dones = trajectory
+        mask = create_padding_mask_before_dones(dones)
 
-        expected_value = self.calculate_expected_value(rewards, next_states, dones).detach()
+        expected_value = self.calculate_expected_value(rewards, next_states, dones, mask = mask).detach()
 
-        predicted_q_value, _ = self.q_network(states)
+        predicted_q_value, _ = self.q_network(states, mask = mask)
 
-        # Choose the action with highest probability
-        discrete_actions = actions.argmax(dim=-1, keepdim=True)
+        # Set actions values to a very large negative number where mask is False
+        masked_actions = actions.masked_fill(mask == 0, float('-inf'))
+
+        # Now calculate argmax; the -inf values will be ignored
+        discrete_actions = masked_actions.argmax(dim=-1, keepdim=True)        
+        
         q_value_for_action = predicted_q_value.gather(-1, discrete_actions)      
 
-        loss = self.calculate_value_loss(q_value_for_action, expected_value)
+        loss = calculate_value_loss(q_value_for_action, expected_value, mask = mask)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -101,7 +107,7 @@ class DQN(BaseTrainer):
         return metrics
 
 
-    def trainer_calculate_future_value(self, next_state: Tensor):
+    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
         """
         Calculates the discounted future value of the next state.
         
@@ -115,8 +121,11 @@ class DQN(BaseTrainer):
         This method calculates the future value of the next state by taking the maximum Q-value of the next state, discounted by the discount factor raised to the power of the end step.
         """
         with torch.no_grad():
-            next_q_values, _ = self.target_q_network(next_state)
-            next_q_value, _ = next_q_values.max(dim=1, keepdim = True)
+            if use_target:
+                next_q_values, _ = self.target_q_network(next_state, mask)
+            else:
+                next_q_values, _ = self.q_network(next_state, mask)
+            next_q_value, _ = next_q_values.max(dim=-1, keepdim=True)
             future_value = next_q_value
         return future_value
 

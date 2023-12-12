@@ -1,5 +1,10 @@
 import torch.optim as optim
 
+def _apply_gradient_clipping(network, clip_range):
+    for param in network.parameters():
+        if param.grad is not None:
+            param.grad.data = param.grad.data.clamp(-clip_range, clip_range)
+
 class TrainingManager:
     def __init__(self, optimization_params, networks, target_networks):
         self._optimizers = []
@@ -13,12 +18,18 @@ class TrainingManager:
         self._target_networks = target_networks 
         self._networks = networks 
         self._tau = optimization_params.tau
+        self.clip_grad_range = optimization_params.clip_grad_range
         
     def get_optimizers(self):
         return self._optimizers
 
     def get_schedulers(self):
         return self._schedulers
+
+    def clip_gradients(self):
+        clip_grad_range = self.clip_grad_range 
+        for net in self._networks:
+            _apply_gradient_clipping(net, clip_grad_range)
 
     def update_optimizers(self):
         for opt in self._optimizers:
@@ -43,14 +54,6 @@ class TrainingManager:
         
     def get_target_networks(self):
         return self._target_networks
-
-    def model_grads(self, networks, require_grad):
-        for network in networks:
-            network.requires_grad_(require_grad)
-
-    def zero_grads(self, networks):
-        for network in networks:
-            network.zero_grad()
 
     def set_train(self, training):
         for network in self._networks:

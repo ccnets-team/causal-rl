@@ -3,11 +3,10 @@
 import torch
 
 class RunningZStandardizer:
-    def __init__(self, num_features, device, max_count = 1e8):
+    def __init__(self, num_features, device):
         self.device = device
         self.mean = torch.zeros(num_features, device=self.device)
         self.M2 = torch.zeros(num_features, device=self.device)
-        self.max_count = max_count
         self.count = 0
 
     def update(self, x):
@@ -24,10 +23,6 @@ class RunningZStandardizer:
         delta2 = x.mean(dim=0) - self.mean
         self.M2 += delta * delta2 * batch_size + ((x - self.mean) ** 2).sum(dim=0)
 
-        # If count exceeds max_count, apply decay
-        if self.count > self.max_count:
-            self.M2 *= self.max_count/self.count
-            self.count = self.max_count
         return self
 
     def get_mean(self):
@@ -37,7 +32,7 @@ class RunningZStandardizer:
         return torch.sqrt(self.M2 / max(self.count, 1))
                 
     def normalize(self, values):
-        if len(values) < 1:
+        if len(values) < 1 or self.count < 1:
             return values
         mean = self.get_mean()
         std = self.get_std()

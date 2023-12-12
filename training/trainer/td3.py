@@ -7,11 +7,12 @@
 import torch
 import torch.nn.functional as F
 import copy
-from utils.structure.trajectory_handler  import BatchTrajectory
+from utils.structure.trajectories  import BatchTrajectory
 from training.base_trainer import BaseTrainer
-from nn.roles.actor_network import SingleInputActor
-from nn.roles.critic_network import DualInputCritic
+from nn.roles.actor import SingleInputActor
+from nn.roles.critic import DualInputCritic
 from utils.structure.metrics_recorder import create_training_metrics
+from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
 
 class TD3(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -29,12 +30,12 @@ class TD3(BaseTrainer):
         self.total_steps = 0
         self.policy_update = 2
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        value_network = network_params.value_network
-        policy_network = network_params.policy_network
+        critic_network = network_params.critic_network
+        actor_network = network_params.actor_network
         
-        self.critic1 = DualInputCritic(value_network, env_config, network_params).to(device)
-        self.critic2 = DualInputCritic(value_network, env_config, network_params).to(device)
-        self.actor = SingleInputActor(policy_network, env_config, network_params, exploration_params).to(device)
+        self.critic1 = DualInputCritic(critic_network, env_config, network_params).to(device)
+        self.critic2 = DualInputCritic(critic_network, env_config, network_params).to(device)
+        self.actor = SingleInputActor(actor_network, env_config, network_params, exploration_params).to(device)
         self.target_critic1 = copy.deepcopy(self.critic1)
         self.target_critic2 = copy.deepcopy(self.critic2)
         self.target_actor = copy.deepcopy(self.actor)
@@ -47,7 +48,7 @@ class TD3(BaseTrainer):
                                   )
         self.policy_noise = self.get_exploration_rate()
 
-    def get_action(self, state, training):
+    def get_action(self, state, mask = None, training: bool = False):
         """
         Selects an action given the current state, using the actor network.
         
@@ -60,10 +61,10 @@ class TD3(BaseTrainer):
         """
         with torch.no_grad():
             if training:
-                epsilon = self.get_exploration_rate()
-                action = self.actor.sample_action(state, epsilon)
+                exploration_rate = self.get_exploration_rate()
+                action = self.actor.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
-                action = self.actor.select_action(state)
+                action = self.actor.select_action(state, mask=mask)
         return action
     
     def train_model(self, trajectory: BatchTrajectory):
@@ -79,18 +80,18 @@ class TD3(BaseTrainer):
         self.set_train(training=True)
         critic1_optimizer, critic2_optimizer, actor_optimizer = self.get_optimizers()
 
-        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
+        state, action, rewards, next_state, done = trajectory
+        mask = create_padding_mask_before_dones(done)
 
-        state, action = self.select_first_transitions(states, actions)
 
         # Critic Training
         with torch.no_grad():            
-            target_value = self.calculate_expected_value(rewards, next_states, dones)
+            target_value = self.calculate_expected_value(rewards, next_state, done)
 
-        current_Q1 = self.critic1(state, action)
-        current_Q2 = self.critic2(state, action)
-        critic1_loss = self.calculate_value_loss(current_Q1, target_value)
-        critic2_loss = self.calculate_value_loss(current_Q2, target_value)
+        current_Q1 = self.critic1(state, action, mask)
+        current_Q2 = self.critic2(state, action, mask)
+        critic1_loss = calculate_value_loss(current_Q1, target_value, mask)
+        critic2_loss = calculate_value_loss(current_Q2, target_value, mask)
 
         critic1_optimizer.zero_grad()
         critic1_loss.backward()
@@ -102,7 +103,7 @@ class TD3(BaseTrainer):
 
         # Actor Training
         if self.total_steps % self.policy_update == 0:
-            self.actor_loss = -self.critic1(state, self.actor.predict_action(state)).mean()
+            self.actor_loss = -masked_tensor_mean(self.critic1(state, self.actor(state)), mask)
             actor_optimizer.zero_grad()
             self.actor_loss.backward()
             actor_optimizer.step()
@@ -127,7 +128,7 @@ class TD3(BaseTrainer):
         self.total_steps += 1
         self.policy_noise = self.get_exploration_rate()
 
-    def trainer_calculate_future_value(self, next_state):
+    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
         """
         Calculates the future value of the next state using target actor and critics.
         
@@ -140,11 +141,18 @@ class TD3(BaseTrainer):
         torch.Tensor: The calculated future value tensor.
         """
         with torch.no_grad():
-            next_action = self.target_actor.predict_action(next_state)
-            noise = torch.normal(torch.zeros_like(next_action), self.policy_noise)
-            new_next_action = noise + noise
-            target_Q1 = self.target_critic1(next_state, new_next_action)
-            target_Q2 = self.target_critic2(next_state, new_next_action)
+            if use_target:
+                next_action = self.target_actor(next_state, mask)
+                noise = torch.normal(torch.zeros_like(next_action), self.policy_noise)
+                new_next_action = noise + noise
+                target_Q1 = self.target_critic1(next_state, new_next_action, mask)
+                target_Q2 = self.target_critic2(next_state, new_next_action, mask)
+            else:
+                next_action = self.actor(next_state, mask)
+                noise = torch.normal(torch.zeros_like(next_action), self.policy_noise)
+                new_next_action = noise + noise
+                target_Q1 = self.critic1(next_state, new_next_action, mask)
+                target_Q2 = self.critic2(next_state, new_next_action, mask)
             target_Q = torch.min(target_Q1, target_Q2)
             future_value = target_Q
         return future_value

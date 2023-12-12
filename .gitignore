@@ -211,6 +211,7 @@ docs/source/changelog.md
 
 examples/
 log/
-DDPG-using-PyTorch-and-ML-Agents-master/
 
 saved/
+
+wandb/ 

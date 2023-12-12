@@ -1,12 +1,13 @@
 from tqdm.notebook import tqdm
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_tune_helper import RLTuneHelper
+from utils.wandb_logger import wandb_end
 
 class RLTune:
     """
     Class for tuning and training reinforcement learning models using a specified Trainer.
     """
-    def __init__(self, env_config: EnvConfig, trainer, device, use_graphics=False, use_print=False):
+    def __init__(self, env_config: EnvConfig, trainer, device, use_graphics=False, use_print=False, use_wandb = False):
         """Initialize an instance of RLTune.
         Args:
             env_config (EnvConfig): Configuration for the environment.
@@ -15,17 +16,20 @@ class RLTune:
             use_graphics (bool, optional): Whether to use graphics during training/testing. Default is False.
             use_print (bool, optional): Whether to print training/testing logs. Default is False.
         """
+        
         self.trainer = trainer.initialize(env_config, device)
         self.device = device
         self.max_steps = trainer.rl_params.exploration.max_steps
         self.train_env, self.test_env, self.memory = None, None, None
-        self.helper = RLTuneHelper(self, trainer.trainer_name, env_config, trainer.rl_params, use_graphics, use_print)
+        self.helper = RLTuneHelper(self, trainer.trainer_name, env_config, trainer.rl_params, use_graphics, use_print, use_wandb)
 
     # Context Management
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        if self.helper.use_wandb:
+            wandb_end()
         self._close_environments()
 
     def _close_environments(self):
@@ -49,6 +53,7 @@ class RLTune:
         training_method = self.train_on_policy if on_policy else self.train_off_policy
         for step in tqdm(range(self.max_steps)):
             self._train_step_logic(step, training_method)
+
 
     def test(self, max_episodes: int = 100) -> None:
         self.helper.setup(training=False)
@@ -82,17 +87,19 @@ class RLTune:
 
     def train_on_policy(self, step: int) -> None:
         """Train the model with on-policy algorithms."""
+        self.process_train_environment(self.train_env)
+        self.trainer.update_exploration_rate()
+
         if self.helper.should_update_strategy(step):
             self._update_strategy_from_samples()
 
         if self.helper.should_reset_memory():
             self.reset_memory_and_train()
-        else:
-            self.process_train_environment(self.train_env)
 
     def train_off_policy(self, step: int) -> None:
         """Train the model with off-policy algorithms."""
         self.process_train_environment(self.train_env)
+        self.trainer.update_exploration_rate()
         
         if self.helper.should_update_strategy(step):
             self._update_strategy_from_samples()
@@ -103,8 +110,10 @@ class RLTune:
     # Helpers for Training
     def _update_strategy_from_samples(self) -> None:
         """Fetch samples and update strategy."""
-        samples = self.memory.get_agent_samples()
-        self.trainer.update_strategy(samples)
+        exploration_rate = self.trainer.get_exploration_rate()
+        samples = self.memory.sample_balanced_trajectory_data(exploration_rate)
+        if samples is not None:
+            self.trainer.update_normalizer(samples)
 
     def reset_memory_and_train(self) -> None:
         """Reset the memory and train the model again."""
@@ -114,8 +123,9 @@ class RLTune:
         
     def train_step(self) -> None:
         """Single step of training."""
-        transition = self.memory.sample_agent_transition()
-        if transition:
+        exploration_rate = self.trainer.get_exploration_rate()
+        transition = self.memory.sample_trajectory_data(exploration_rate)
+        if transition is not None:
             self.trainer.transform_transition(transition)
             train_data = self.trainer.train_model(transition)
             self.helper.add_train_metrics(train_data)

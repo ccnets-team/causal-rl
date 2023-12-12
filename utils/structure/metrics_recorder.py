@@ -180,15 +180,17 @@ class RewardTracker:
     def is_best_record_period(self):
         return self.best_period
 
-    def _add_rewards(self, env_ids, agent_ids, rewards, dones):
+    def _add_rewards(self, env_ids, agent_ids, rewards, dones_terminated, dones_truncated):
         if rewards is None:
             return 
         self.steps[self.index] = 0 if len(rewards) == 0 else np.mean(np.array(rewards, np.float32))
         self.counts[self.index] = len(rewards)
 
-        for env_id, agent_id, reward, done in zip(env_ids, agent_ids, rewards, dones):
+        for env_id, agent_id, reward, terminated, truncated in zip(env_ids, agent_ids, rewards, dones_terminated, dones_truncated):
             key = (env_id, agent_id)
             self.accumulative_rewards[key] = self.accumulative_rewards.get(key, 0) + reward
+
+            done = terminated or truncated  
             if done:
                 self.episode_accumulative_rewards[key] = self.accumulative_rewards[key]
                 del self.accumulative_rewards[key]  # Reset accumulative reward for the episode that ended

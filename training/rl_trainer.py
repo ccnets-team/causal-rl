@@ -1,4 +1,4 @@
-from training.trainer.crl import CausalRL
+from training.trainer.causal_rl import CausalRL
 from training.trainer.ddpg import DDPG
 from training.trainer.sac import SAC
 from training.trainer.a2c import A2C
@@ -19,7 +19,7 @@ class RLTrainer:
     def initialize(self, env_config, device):
         self.saved_trainer = None
         trainer_map = {
-            "crl": CausalRL,
+            "causal_rl": CausalRL,
             "ddpg": DDPG,
             "a2c": A2C,
             "dqn": DQN,

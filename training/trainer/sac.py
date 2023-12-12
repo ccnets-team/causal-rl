@@ -7,12 +7,13 @@
 import torch
 import torch.nn.functional as F
 import copy
-from utils.structure.trajectory_handler  import BatchTrajectory
+from utils.structure.trajectories  import BatchTrajectory
 from training.base_trainer import BaseTrainer
-from nn.roles.critic_network import DualInputCritic as Critic
-from nn.roles.actor_network import SingleInputActor as PolicyNetwork
-from nn.roles.critic_network import SingleInputCritic as ValueNetwork
+from nn.roles.critic import DualInputCritic as Critic
+from nn.roles.actor import SingleInputActor as PolicyNetwork
+from nn.roles.critic import SingleInputCritic as ValueNetwork
 from utils.structure.metrics_recorder import create_training_metrics
+from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
 
 class SAC(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -25,12 +26,12 @@ class SAC(BaseTrainer):
         - device: Device to which model will be allocated.
         """
         network_params, exploration_params, optimization_params = rl_params.network, rl_params.exploration, rl_params.optimization
-        value_network = network_params.value_network
-        policy_network = network_params.policy_network
-        self.critic1 = Critic(value_network, env_config, network_params).to(device)
-        self.critic2 = Critic(value_network, env_config, network_params).to(device)
-        self.value = ValueNetwork(value_network, env_config, network_params).to(device)
-        self.policy = PolicyNetwork(policy_network, env_config, network_params, exploration_params).to(device)
+        critic_network = network_params.critic_network
+        actor_network = network_params.actor_network
+        self.critic1 = Critic(critic_network, env_config, network_params).to(device)
+        self.critic2 = Critic(critic_network, env_config, network_params).to(device)
+        self.value = ValueNetwork(actor_network, env_config, network_params).to(device)
+        self.policy = PolicyNetwork(critic_network, env_config, network_params, exploration_params).to(device)
         
         self.target_critic1 = copy.deepcopy(self.critic1)
         self.target_critic2 = copy.deepcopy(self.critic2)
@@ -45,7 +46,7 @@ class SAC(BaseTrainer):
         self.alpha = self.log_alpha.exp().item()
         self.alpha_optimizer = torch.optim.Adam([self.log_alpha], lr=optimization_params.lr)        
 
-    def get_action(self, state, training):
+    def get_action(self, state, mask = None, training: bool = False):
         """
         Given a state, selects an action using the policy network.
         
@@ -58,10 +59,10 @@ class SAC(BaseTrainer):
         """
         with torch.no_grad():
             actor = self.policy  # Simplifying by using the policy directly
-            action = actor.select_action(state)
+            action = actor.select_action(state, mask=mask)
         return action
     
-    def update_value_network(self, state, next_state):
+    def update_model_network(self, state, next_state, mask = None):
         """
         Updates the value network based on the given state and the next_state.
         
@@ -78,12 +79,12 @@ class SAC(BaseTrainer):
             min_qf_next = torch.min(qf1_next, qf2_next)
             v_target = min_qf_next - self.alpha * next_log_pi
         
-        v_pred = self.value(state)
-        value_loss = self.calculate_value_loss(v_pred, v_target)
+        v_pred = self.value(state, mask = mask)
+        value_loss = calculate_value_loss(v_pred, v_target, mask = mask)
         return value_loss
 
     
-    def update_q_functions(self, state, action, reward, next_state, done):
+    def update_q_functions(self, state, action, reward, next_state, done, mask = None):
         """
         Computes the loss for the Q-functions based on the given transitions.
         
@@ -101,16 +102,16 @@ class SAC(BaseTrainer):
             next_v = self.value(next_state)
             next_q_value = reward + self.discount_factor * (1 - done) * next_v
 
-        qf1 = self.critic1(state, action)
-        qf2 = self.critic2(state, action)
+        qf1 = self.critic1(state, action, mask = mask)
+        qf2 = self.critic2(state, action, mask = mask)
 
-        qf1_loss = self.calculate_value_loss(qf1, next_q_value)
-        qf2_loss = self.calculate_value_loss(qf2, next_q_value)
+        qf1_loss = calculate_value_loss(qf1, next_q_value, mask = mask)
+        qf2_loss = calculate_value_loss(qf2, next_q_value, mask = mask)
         qf_loss = qf1_loss + qf2_loss
 
         return qf_loss
 
-    def update_policy_network(self, state):
+    def update_model_network(self, state, mask = None):
         """
         Updates the policy network based on the given state.
         
@@ -120,15 +121,23 @@ class SAC(BaseTrainer):
         Returns:
         tuple: A tuple containing the computed policy loss tensor and the log_pi tensor.
         """
-        new_action, log_pi = self.policy.evaluate_action(state)
-        qf1_pi = self.critic1(state, new_action)
-        qf2_pi = self.critic2(state, new_action)
-        min_qf_pi = torch.min(qf1_pi, qf2_pi)
-        policy_loss = (self.alpha * log_pi - min_qf_pi).mean()
+        new_action, log_pi = self.policy.evaluate_action(state, mask = mask)
+        qf1_pi = self.critic1(state, new_action, mask = mask)
+        qf2_pi = self.critic2(state, new_action, mask = mask)
+        if mask is None:
+            min_qf_pi = torch.min(qf1_pi, qf2_pi)
+        else:
+            # Masking
+            masked_qf1 = qf1_pi.masked_fill(mask == 0, float('inf'))
+            masked_qf2 = qf2_pi.masked_fill(mask == 0, float('inf'))
+
+            # Calculate the minimum of the masked tensors
+            min_qf_pi  = torch.min(masked_qf1, masked_qf2)            
+        policy_loss = masked_tensor_mean(self.alpha * log_pi - min_qf_pi, mask)
         
         return policy_loss, log_pi
 
-    def optimize_alpha(self, log_pi):
+    def optimize_alpha(self, log_pi, mask = None):
         """
         Optimizes the alpha parameter based on the log_pi values.
         
@@ -136,7 +145,7 @@ class SAC(BaseTrainer):
         log_pi (torch.Tensor): The log_pi tensor obtained from the policy network.
         """
 
-        alpha_loss = -(self.log_alpha * (log_pi + self.target_entropy).detach()).mean()
+        alpha_loss = -masked_tensor_mean(self.log_alpha * (log_pi + self.target_entropy).detach(), mask)
         
         self.alpha_optimizer.zero_grad()
         alpha_loss.backward()
@@ -156,12 +165,11 @@ class SAC(BaseTrainer):
         self.set_train(training=True)
         value_optimizer, policy_optimizer, critic1_optimizer, critic2_optimizer = self.get_optimizers()
         
-        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
-
-        state, action, reward, next_state, done = self.select_first_transitions(states, actions, rewards, next_states, dones)
+        state, action, reward, next_state, done = trajectory
+        mask = create_padding_mask_before_dones(done)
 
         # ------------ Value Network Update ------------
-        value_loss = self.update_value_network(state, next_state)
+        value_loss = self.update_model_network(state, next_state, mask = mask)
 
         value_optimizer.zero_grad()
         value_loss.backward()
@@ -170,7 +178,7 @@ class SAC(BaseTrainer):
         # ------------ Q-functions Update ------------
         # Use the updated value network for the target Q-values
                 
-        qf_loss = self.update_q_functions(state, action, reward, next_state, done)
+        qf_loss = self.update_q_functions(state, action, reward, next_state, done, mask = mask)
         critic1_optimizer.zero_grad()
         critic2_optimizer.zero_grad()
         qf_loss.backward()
@@ -178,13 +186,13 @@ class SAC(BaseTrainer):
         critic2_optimizer.step()
 
         # ------------ Policy Network Update ------------
-        policy_loss, log_pi = self.update_policy_network(state)
+        policy_loss, log_pi = self.update_model_network(state, mask = mask)
         
         policy_optimizer.zero_grad()
         policy_loss.backward()
         policy_optimizer.step()
         
-        self.optimize_alpha(log_pi)  # Assuming log_pi is obtained from the policy network during update.
+        self.optimize_alpha(log_pi, mask)  # Assuming log_pi is obtained from the policy network during update.
         
         self.update_step()
 

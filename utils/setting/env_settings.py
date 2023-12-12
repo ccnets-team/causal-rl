@@ -2,41 +2,28 @@ from utils.printer import print_env_specs
 import numpy as np
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-
 from typing import Tuple, Optional, Union, Type, Dict, List
-from environments.settings.gym_config import setup_gym_environment
-from environments.settings.mlagents_config import setup_mlagents_environment
+from environments.settings.gym_utils import setup_gym_environment
+from environments.settings.mlagents_utils import setup_mlagents_environment
+from utils.setting.custom_env_settings import MLAGENTS_ENV_SPECIFIC_ARGS, GYM_ENV_SPECIFIC_ARGS
 
 GYM_NUM_ENVIRONMENTS = 1
-MLAGENTS_ENV_SPECIFIC_ARGS = {
-    "3DBall": {'max_steps': 50000},
-    "3DBallHard": {'max_steps': 50000},
-    "Worm": {'discount_factor': 0.995, 'max_steps': 500000},
-    "Crawler": {'discount_factor': 0.995, 'hidden_size': 192, 'max_steps': 500000},
-    "Walker": {'discount_factor': 0.995, 'hidden_size': 256, 'max_steps': 500000},
-    "Hallway": {'state_normalizer': 'none', 'max_steps': 500000},
-    "PushBlock": {'num_td_steps': 10, 'hidden_size': 128, 'state_normalizer': 'none', 'batch_size': 1024, 'max_steps': 200000},
-    "Pyramids": {'discount_factor': 0.995,  'num_td_steps': 20, 'hidden_size': 256, 'state_normalizer': 'none', 'batch_size': 1024}
-}
-
-GYM_ENV_SPECIFIC_ARGS = {
-    "Ant-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'max_steps': 500000},
-    "Reacher-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'max_steps': 500000},
-    "Pusher-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'max_steps': 500000},
-    "Humanoid-": {'reward_scale': 0.1, 'replay_ratio': 3, 'train_frequency': 2, 'hidden_size': 256, 'max_steps': 500000},
-    "HumanoidStandup-": {'reward_scale': 0.001, 'replay_ratio': 3, 'train_frequency': 2, 'batch_size': 1024, 'hidden_size': 256, 'max_steps': 500000}
-}
 
 def analyze_env(env_name):
     env_config, rl_params = None, None
     use_unity = True
     if "-v" in env_name:
         use_unity = False
-    env_config, rl_params = initialize_and_configure_parameters(env_name, is_unity=use_unity)
+    env_config, rl_params = configure_parameters(env_name, is_unity=use_unity)
     print_env_specs(env_config)
     return env_config, rl_params
 
-def initialize_and_configure_parameters(env_name: str, is_unity: bool = False) -> Tuple[Optional[Type[EnvConfig]], Type[RLParameters]]:
+def calculate_min_samples_per_step(training_params):
+    # Calculate minimum samples per step
+    samples_per_step = int(max(1, np.ceil(training_params.batch_size/(training_params.replay_ratio))))
+    return samples_per_step        
+
+def configure_parameters(env_name: str, is_unity: bool = False) -> Tuple[Optional[Type[EnvConfig]], Type[RLParameters]]:
     env_specific_args = MLAGENTS_ENV_SPECIFIC_ARGS if is_unity else GYM_ENV_SPECIFIC_ARGS
 
     env_config = setup_environment(env_name, is_unity)
@@ -48,7 +35,7 @@ def initialize_and_configure_parameters(env_name: str, is_unity: bool = False) -
     rl_params = RLParameters()
     apply_configuration_to_parameters(env_specific_args, env_name, rl_params)
 
-    min_samples_per_step = rl_params.training.minimum_samples_per_step()
+    min_samples_per_step = calculate_min_samples_per_step(rl_params.training)
     if is_unity:
         num_environments = max(1, int(np.ceil(min_samples_per_step / num_agents)))
     else:
@@ -59,11 +46,9 @@ def initialize_and_configure_parameters(env_name: str, is_unity: bool = False) -
         env_name, 'mlagents' if is_unity else 'gym', num_environments, num_agents,
         obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high)
 
-    noise_type = "boltzmann" if env_config.use_discrete else "ou"
-    state_normalizer = determine_state_normalizer(env_config=env_config)
+    noise_type = "boltzmann" if env_config.use_discrete else "none"
 
     rl_params.exploration.noise_type = noise_type
-    rl_params.normalization.state_normalizer= state_normalizer
     apply_configuration_to_parameters(env_specific_args, env_name, rl_params)
 
     return env_config, rl_params
@@ -106,7 +91,7 @@ def create_environment_config(
     # Set any other default values for EnvironmentConfig here if needed
     return env_config
 
-def determine_state_normalizer(env_config):
+def select_state_normalization_strategy(env_config):
     if env_config.state_low is None or env_config.state_high is None:
         return "running_z_standardizer"
     elif (env_config.state_low >= 0).all() and (env_config.state_high <= 1).all():

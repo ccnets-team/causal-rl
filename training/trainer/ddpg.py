@@ -7,13 +7,14 @@
 import torch
 import torch.nn.functional as F
 
-from utils.structure.trajectory_handler  import BatchTrajectory
+from utils.structure.trajectories  import BatchTrajectory
 from training.base_trainer import BaseTrainer
 
-from nn.roles.critic_network import DualInputCritic
-from nn.roles.actor_network import SingleInputActor
+from nn.roles.critic import DualInputCritic
+from nn.roles.actor import SingleInputActor
 import copy
 from utils.structure.metrics_recorder import create_training_metrics
+from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
 
 class DDPG(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -28,11 +29,11 @@ class DDPG(BaseTrainer):
         trainer_name = "ddpg"
         self.network_names = ["critic", "actor"]
         network_params, exploration_params = rl_params.network, rl_params.exploration
-        value_network = network_params.value_network
-        policy_network = network_params.policy_network
+        critic_network = network_params.critic_network
+        actor_network = network_params.actor_network
 
-        self.critic = DualInputCritic(value_network, env_config, network_params).to(device)
-        self.actor = SingleInputActor(policy_network, env_config, network_params, exploration_params).to(device)
+        self.critic = DualInputCritic(critic_network, env_config, network_params).to(device)
+        self.actor = SingleInputActor(actor_network, env_config, network_params, exploration_params).to(device)
         self.target_critic = copy.deepcopy(self.critic)
         self.target_actor = copy.deepcopy(self.actor)
 
@@ -42,7 +43,7 @@ class DDPG(BaseTrainer):
                                    device = device
                                    )
 
-    def get_action(self, state, training):
+    def get_action(self, state, mask = None, training: bool = False):
         """
         Get action based on the state and whether the model is in training mode.
         
@@ -58,10 +59,10 @@ class DDPG(BaseTrainer):
         """
         with torch.no_grad():
             if training:
-                epsilon = self.get_exploration_rate()
-                action = self.actor.sample_action(state, epsilon)
+                exploration_rate = self.get_exploration_rate()
+                action = self.actor.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
-                action = self.actor.select_action(state)
+                action = self.actor.select_action(state, mask=mask)
         return action
     
     def train_model(self, trajectory: BatchTrajectory):
@@ -80,21 +81,19 @@ class DDPG(BaseTrainer):
         self.set_train(training=True)
         critic_optimizer, actor_optimizer = self.get_optimizers()
 
-        states, actions, rewards, next_states, dones = self.select_trajectory_segment(trajectory)
-
-        state, action = self.select_first_transitions(states, actions)
+        states, actions, rewards, next_states, dones = trajectory
+        mask = create_padding_mask_before_dones(dones)
 
         # Critic Update
-        target_Qs = self.calculate_expected_value(rewards, next_states, dones).detach()
-        target_Q = self.select_first_transitions(target_Qs)
+        target_Q = self.calculate_expected_value(rewards, next_states, dones).detach()
 
        # Compute the target Q value
 
         # Get current Q estimate
-        current_Q = self.critic(state, action)
+        current_Q = self.critic(states, actions, mask = mask)
 
         # Compute critic loss
-        critic_loss = self.calculate_value_loss(current_Q, target_Q)
+        critic_loss = calculate_value_loss(current_Q, target_Q, mask = mask)
 
         # Optimize the critic
         critic_optimizer.zero_grad()
@@ -102,7 +101,7 @@ class DDPG(BaseTrainer):
         critic_optimizer.step()
 
         # Compute actor loss
-        actor_loss = -self.critic(state, self.actor.predict_action(state)).mean()
+        actor_loss = -masked_tensor_mean(self.critic(states, self.actor(states), mask = mask), mask)
 
         # Optimize the actor
         actor_optimizer.zero_grad()
@@ -119,7 +118,7 @@ class DDPG(BaseTrainer):
         )        
         return metrics
 
-    def trainer_calculate_future_value(self, next_state):
+    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
         """
         Calculate the future value of the next state using the target networks.
         
@@ -133,10 +132,15 @@ class DDPG(BaseTrainer):
         This method calculates the future value by using the target actor to predict the next action and the target critic to estimate the Q-value of the next state-action pair.
         """
         with torch.no_grad():
-            next_action = self.target_actor.predict_action(next_state)
-            future_value = self.target_critic(next_state, next_action)
-            # Add discounted future value element-wise for each item in the batch
-        return future_value
+            if use_target:
+                next_action = self.target_actor(next_state, mask)
+                # Add discounted future value element-wise for each item in the batch
+                future_value = self.target_critic(next_state, next_action, mask)
+            else:
+                next_action = self.actor(next_state, mask)
+                # Add discounted future value element-wise for each item in the batch
+                future_value = self.critic(next_state, next_action, mask)
+        return future_value    
     
     
     def update_model(self):

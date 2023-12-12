@@ -8,7 +8,7 @@ METRICS_CATEGORY_MAP = {
     'costs': 'TransitionCosts'
 }
 
-def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards, metrics, episode, time_cost):
+def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards, metrics, step, time_cost):
     epsilon = trainer.get_exploration_rate()
     learning_rate = trainer.get_lr()
 
@@ -26,7 +26,7 @@ def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train
     # Log scalar data
     for name, value in scalar_logs.items():
         if value is not None:
-            logger.add_scalar(name, value, episode)
+            logger.add_scalar(name, value, step)
 
     if metrics is not None:
         # Loop over each metrics category and log each metric with a specific prefix
@@ -44,8 +44,7 @@ def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train
                         new_metric_name = components[0].title()                         
                         
                     log_name = f"{mapped_category_name}/{new_metric_name}"
-                    logger.add_scalar(log_name, metric_value, episode)
-
+                    logger.add_scalar(log_name, metric_value, step)
 
 def get_log_name(log_path):
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
