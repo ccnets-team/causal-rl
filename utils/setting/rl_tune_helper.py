@@ -9,7 +9,7 @@ from utils.structure.trajectories  import MultiEnvTrajectories
 from memory.replay_buffer import ExperienceMemory
 from utils.loader import save_trainer, load_trainer
 from training.managers.record_manager import RecordManager
-import logging, wandb
+import logging
 
 DEFAULT_PRINT_INTERVAL = 100
 DEFAULT_SAVE_INTERVAL = 1000
@@ -22,7 +22,7 @@ class RLTuneHelper:
         self.use_graphics, self.use_print = use_graphics, use_print
         self.env_config, self.rl_params = env_config, rl_params
         if use_wandb:
-            wandb_init(trainer_name, env_config, rl_params)
+            wandb_logger.wandb_init(trainer_name, env_config, rl_params)
         self.use_wandb = use_wandb
         
         self.use_normalizer = (rl_params.normalization.reward_normalizer) != 'none' or (rl_params.normalization.state_normalizer != 'none')
@@ -85,9 +85,6 @@ class RLTuneHelper:
     def should_train_step(self, step: int) -> bool:
         """Checks if the model should be trained on the current step."""
         return (step % self.train_intervel == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
-
-    def wandb_end(self):
-        wandb.finish()
 
     # Private Helpers
     def _initialize_training_parameters(self):

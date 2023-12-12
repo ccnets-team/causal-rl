@@ -8,13 +8,13 @@ from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
-from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value, create_padding_mask_before_dones, calculate_advantage
+from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
         training_params, algorithm_params, network_params, \
             optimization_params, exploration_params, memory_params, normalization_params = rl_parmas
-        TrainingManager.__init__(self, network_params, optimization_params, networks, target_networks)
+        TrainingManager.__init__(self, optimization_params, networks, target_networks)
         NormalizationUtils.__init__(self, env_config, normalization_params, device)
         ExplorationUtils.__init__(self, exploration_params)
         
@@ -23,7 +23,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.discount_factor = algorithm_params.discount_factor
         self.use_gae_advantage = algorithm_params.use_gae_advantage
         self.num_td_steps = algorithm_params.num_td_steps
-        self.use_target_network = algorithm_params.use_target_network
+        self.use_target_network = network_params.use_target_network
         
         self.advantage_lambda = algorithm_params.advantage_lambda
             

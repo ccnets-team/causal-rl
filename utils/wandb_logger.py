@@ -1,4 +1,7 @@
-import wandb
+try:
+    import wandb
+except ImportError:
+    wandb = None
 from datetime import datetime
 
 now = datetime.now()
@@ -30,6 +33,8 @@ METRICS_CATEGORY_MAP = {
 }
 
 def wandb_init(trainer_name, env_config, rl_params):
+    if wandb is None:
+        raise RuntimeError("wandb is not installed. Please install wandb to use wandb_init.")
     wandb.login()
     
     env_config_dict = convert_to_dict(env_config)
@@ -48,9 +53,14 @@ def wandb_init(trainer_name, env_config, rl_params):
     )
     
 def wandb_end():
+    if wandb is None:
+        raise RuntimeError("wandb is not installed. Please install wandb to use wandb_end.")
     wandb.finish()
 
 def wandb_log_data(trainer, train_reward_per_step, test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards, metrics, step, time_cost):
+    if wandb is None:
+        print("wandb is not installed. Skipping wandb_log_data.")
+        return
     epsilon = trainer.get_exploration_rate()
     learning_rate = trainer.get_lr()
 

@@ -1,6 +1,7 @@
 from tqdm.notebook import tqdm
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_tune_helper import RLTuneHelper
+from utils.wandb_logger import wandb_end
 
 class RLTune:
     """
@@ -28,7 +29,7 @@ class RLTune:
 
     def __exit__(self, exc_type, exc_value, traceback):
         if self.helper.use_wandb:
-            self.helper.wandb_end()
+            wandb_end()
         self._close_environments()
 
     def _close_environments(self):

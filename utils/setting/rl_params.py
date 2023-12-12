@@ -12,9 +12,9 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, discount_factor=0.99, td_lambda = 0.9, num_td_steps=16, use_dynamic_td_steps=False, use_gae_advantage=False, curiosity_factor=0.0):
+    def __init__(self, discount_factor=0.99, advantage_lambda = 0.9, num_td_steps=16, use_dynamic_td_steps=False, use_gae_advantage=False, curiosity_factor=0.0):
         self.discount_factor = discount_factor  # Discount factor for future rewards
-        self.td_lambda = td_lambda # TD lambda parameter for weighting n-step returns.
+        self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting n-step returns.
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step returns
         # Flag to enable dynamic adjustment of TD steps based on exploration-exploitation balance.
         # When True, the number of TD steps is automatically adjusted during training, potentially 
@@ -25,7 +25,7 @@ class AlgorithmParameters:
             
 class NetworkParameters:
     # Initialize network parameters
-    def __init__(self, num_layer=5, hidden_size=256, dropout = 0.0, rev_env_hidden_size_mul = 0.5):
+    def __init__(self, num_layer=5, hidden_size=256, dropout = 0.0, rev_env_hidden_size_mul = 0.5, use_target_network=True):
         self.critic_network = GPT  # Critic network architecture (GPT in this case)
         self.actor_network = GPT  # Actor network architecture (GPT in this case)
         self.reverse_env_network = GPT  # Reverse environment network architecture (GPT in this case)
@@ -33,6 +33,7 @@ class NetworkParameters:
         self.hidden_size = hidden_size  # Demension of model 
         self.dropout = dropout  # Dropout rate
         self.rev_env_hidden_size_mul = rev_env_hidden_size_mul  # Hidden size multiplier for reverse environment network
+        self.use_target_network = use_target_network
         
 class OptimizationParameters:
     # Initialize optimization parameters
@@ -57,7 +58,7 @@ class ExplorationParameters:
         
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_type='standard', buffer_size=128000):
+    def __init__(self, buffer_type='standard', buffer_size=80000):
         self.buffer_type = buffer_type  # Type of replay buffer ('standard' for standard buffer)
         self.buffer_size = int(buffer_size)  # Size of the replay buffer
         
