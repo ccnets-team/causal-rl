@@ -101,17 +101,23 @@ class StandardBuffer(BaseBuffer):
         if self.size < self.capacity:
             self.size += 1
         # Remove invalid indices caused by the circular nature of the buffer
-        
-    def sample_trajectories(self, sample_size, td_steps):
-        # Check if there are enough valid indices to sample from
-        if len(self.valid_set) < sample_size:
+
+    def sample_trajectories(self, indices, td_steps):
+        # Convert valid_set to a list to maintain order
+        ordered_valid_set = list(self.valid_set)
+
+        # Check if the indices are more than the available samples
+        if len(indices) > len(ordered_valid_set):
             raise ValueError("Not enough valid samples in the buffer to draw the requested sample size.")
 
-        # Randomly select 'sample_size' indices from the set of valid indices
-        selected_indices = random.sample(self.valid_set, sample_size)
+        # Map the requested indices to actual indices in the valid set
+        actual_indices = [ordered_valid_set[idx] for idx in indices]
+
+        # Retrieve trajectories for the given actual indices
+        samples = self._fetch_trajectory_slices(actual_indices, td_steps)
         
-        # Retrieve trajectories for the selected indices
-        samples = self._fetch_trajectory_slices(selected_indices, td_steps)
-        
-        assert(len(samples) == sample_size)
+        # Ensure the number of samples matches the number of requested indices
+        if len(samples) != len(indices):
+            raise ValueError("Mismatch in the number of samples fetched and the number of requested indices.")
+
         return samples

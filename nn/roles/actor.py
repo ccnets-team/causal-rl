@@ -22,13 +22,13 @@ class _BaseActor(nn.Module):
         # Environment and network configuration
         self.use_discrete = env_config.use_discrete
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
-        self.num_layer, self.hidden_size = network_params.num_layer, network_params.hidden_size
+        self.num_layers, self.d_model = network_params.num_layers, network_params.d_model
 
         # Actor network layers
-        self.embedding_layer = ContinuousFeatureEmbeddingLayer(input_size, self.hidden_size)
-        self.mean_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
-        self.log_std_layer = create_layer(self.hidden_size, self.action_size, act_fn='none')
-        self.net = net(self.num_layer, self.hidden_size, dropout = network_params.dropout) 
+        self.embedding_layer = ContinuousFeatureEmbeddingLayer(input_size, self.d_model)
+        self.mean_layer = create_layer(self.d_model, self.action_size, act_fn='none')
+        self.log_std_layer = create_layer(self.d_model, self.action_size, act_fn='none')
+        self.net = net(self.num_layers, self.d_model, dropout = network_params.dropout) 
         self.value_size = 1
         
         # Exploration strategy initialization

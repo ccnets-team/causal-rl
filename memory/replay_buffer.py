@@ -38,8 +38,8 @@ class ExperienceMemory:
     def reset_buffers(self):
         return [buf._reset_buffer() for env in self.multi_buffers for buf in env]
 
-    def sample_trajectory_from_buffer(self, env_id, agent_id, sample_size, td_steps):
-        return self.multi_buffers[env_id][agent_id].sample_trajectories(sample_size, td_steps)
+    def sample_trajectory_from_buffer(self, env_id, agent_id, indices, td_steps):
+        return self.multi_buffers[env_id][agent_id].sample_trajectories(indices, td_steps)
 
     def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories):
         tr = multi_env_trajectories
@@ -81,7 +81,7 @@ class ExperienceMemory:
             _num_td_steps = self.select_train_td_steps(exploration_rate) if self.use_dynamic_td_steps else self.num_td_steps
         else:
             _num_td_steps = sample_td_step
-        _sample_size = self.batch_size if sample_size is None else sample_size
+        indices = self.batch_size if sample_size is None else sample_size
         
         # Step 1: Compute cumulative sizes
         cumulative_sizes = []
@@ -91,30 +91,35 @@ class ExperienceMemory:
                 total_buffer_size += len(self.multi_buffers[env_id][agent_id])
                 cumulative_sizes.append(total_buffer_size)
 
-        if _sample_size > total_buffer_size:
+        if indices > total_buffer_size:
             return None
             # raise ValueError("Sample size exceeds the total number of experiences available")
 
         # Step 2: Randomly sample indices
-        sampled_indices = random.sample(range(total_buffer_size), _sample_size)
+        sampled_indices = random.sample(range(total_buffer_size), indices)
 
-        # Step 3: Count the number of samples needed from each buffer
-        buffer_sample_counts = defaultdict(int)
+        # Step 3: Count the number of samples needed from each buffer and store their indices
+        buffer_indices = defaultdict(list)
         for idx in sampled_indices:
             # Find the buffer this index belongs to
             buffer_id = next(i for i, cum_size in enumerate(cumulative_sizes) if idx < cum_size)
-            buffer_sample_counts[buffer_id] += 1
-
+            buffer_indices[buffer_id].append(idx)
+           
         # Step 4: Fetch the experiences using sample_from_buffer
         samples = []
-        for buffer_id, _sample_size in buffer_sample_counts.items():
+        for buffer_id, global_indices in buffer_indices.items():
             # Map buffer_id back to env_id and agent_id
             env_id = buffer_id // self.num_agents
             agent_id = buffer_id % self.num_agents
 
-            # Fetch the experience
-            batch = self.sample_trajectory_from_buffer(env_id, agent_id, _sample_size, _num_td_steps)
-            samples.extend(batch)
-        return samples
-        
+            # Calculate the starting index for the current buffer
+            cumulative_start_index = cumulative_sizes[buffer_id - 1] if buffer_id > 0 else 0
 
+            # Convert global indices to local indices for the specific buffer
+            local_indices = [idx - cumulative_start_index for idx in global_indices]
+
+            # Fetch the experience using local indices
+            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices, _num_td_steps)
+            samples.extend(batch)
+
+        return samples

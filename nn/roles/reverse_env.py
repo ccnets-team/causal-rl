@@ -7,28 +7,22 @@
 import torch
 import torch.nn as nn
 from ..utils.network_init import init_weights, create_layer
-from ..utils.embedding_layer import ContinuousFeatureEmbeddingLayer, FactorizedFeatureEmbeddingLayer
+from ..utils.embedding_layer import ContinuousFeatureEmbeddingLayer
 
 class RevEnv(nn.Module):
-    # HIDDEN_SIZE_MULTIPLIER is used to enhance the network's capacity for effectively capturing the 
-    # influence of the current state, based on the next state, action, and value. These elements 
-    # represent the causative factors in the generative process of the reverse environment. A larger 
-    # hidden size allows the network to more powerfully model these complex relationships and dynamics, 
-    # which is essential for accurately reversing the environmental dynamics.
-
-    def __init__(self, net, env_config, network_params):
+    def __init__(self, net, env_config, rev_env_params):
         super(RevEnv, self).__init__()
         self.use_discrete = env_config.use_discrete
         self.state_size = env_config.state_size
         self.action_size = env_config.action_size
-        self.hidden_size = int(network_params.rev_env_hidden_size_mul*network_params.hidden_size)
-        self.num_layer = network_params.num_layer
+        self.d_model = rev_env_params.d_model
+        self.num_layers = rev_env_params.num_layers
         self.value_size = 1
             
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(self.state_size + self.action_size \
-            + self.value_size, self.hidden_size)
-        self.final_layer = create_layer(self.hidden_size, self.state_size, "none")        
-        self.net = net(self.num_layer, self.hidden_size, dropout = network_params.dropout)
+            + self.value_size, self.d_model)
+        self.final_layer = create_layer(self.d_model, self.state_size, "none")        
+        self.net = net(self.num_layers, self.d_model, dropout = rev_env_params.dropout)
         self.apply(init_weights)
 
     def forward(self, next_state, action, value, mask=None):

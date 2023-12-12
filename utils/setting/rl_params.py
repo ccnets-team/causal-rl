@@ -4,7 +4,7 @@ from nn.gpt import GPT
 
 class TrainingParameters:
     # Initialize training parameters
-    def __init__(self, batch_size=64, replay_ratio=8, train_intervel = 4):
+    def __init__(self, batch_size=64, replay_ratio=8, train_intervel = 2):
         self.batch_size = batch_size  # Batch size for training
         self.replay_ratio = replay_ratio  # How often past experiences are reused in training (batch size / samples per step)
         self.train_intervel  = train_intervel  # Determines how frequently training updates occur based on the number of explorations before each update
@@ -22,19 +22,31 @@ class AlgorithmParameters:
         self.use_dynamic_td_steps = use_dynamic_td_steps  
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
         self.curiosity_factor = curiosity_factor  # Influences the agent's desire to explore new experiences and learn through intrinsic rewards
-            
+
+class GPTParams:
+    def __init__(self, d_model, num_layers, dropout):
+        """
+        Initialize a GPT network.
+        Args:
+        - d_model (int): Dimension of the model.
+        - num_layers (int): Number of layers in the network.
+        - dropout (float): Dropout rate.
+        """
+        self.d_model = d_model
+        self.num_layers = num_layers
+        self.dropout = dropout
+        # Initialize other GPT specific configurations here
+
 class NetworkParameters:
-    # Initialize network parameters
-    def __init__(self, num_layer=5, hidden_size=256, dropout = 0.0, rev_env_hidden_size_mul = 0.5, use_target_network=True):
-        self.critic_network = GPT  # Critic network architecture (GPT in this case)
-        self.actor_network = GPT  # Actor network architecture (GPT in this case)
-        self.reverse_env_network = GPT  # Reverse environment network architecture (GPT in this case)
-        self.num_layer = num_layer  # Number of layers in the networks
-        self.hidden_size = hidden_size  # Demension of model 
-        self.dropout = dropout  # Dropout rate
-        self.rev_env_hidden_size_mul = rev_env_hidden_size_mul  # Hidden size multiplier for reverse environment network
+    def __init__(self, num_layers=5, d_model=256, dropout=0.0, use_target_network=False):
+        self.critic_network = GPT
+        self.actor_network = GPT
+        self.reverse_env_network = GPT
+        self.critic_params = GPTParams(d_model = d_model//2, num_layers = num_layers, dropout = dropout)
+        self.actor_params = GPTParams(d_model = d_model, num_layers = num_layers, dropout = dropout)
+        self.rev_env_params = GPTParams(d_model = d_model//2, num_layers = num_layers, dropout = dropout)
         self.use_target_network = use_target_network
-        
+                   
 class OptimizationParameters:
     # Initialize optimization parameters
     def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=4, lr=1e-4, tau=5e-3, clip_grad_range=0.5):
