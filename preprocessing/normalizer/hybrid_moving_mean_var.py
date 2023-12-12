@@ -1,10 +1,11 @@
 from .running_mean_std import RunningMeanStd
 from .exponential_moving_mean_var import ExponentialMovingMeanVar
+import torch
 
 class HybridMovingMeanVar:
-    def __init__(self, num_features, alpha=None, window_size=None, device='cpu'):
+    def __init__(self, num_features, device, alpha=None, window_size=None):
         self.rms = RunningMeanStd(num_features, device)
-        self.emmv = ExponentialMovingMeanVar(num_features, alpha, window_size, device)
+        self.emmv = ExponentialMovingMeanVar(num_features, device, alpha, window_size)
         self.device = device
 
     @property
@@ -26,6 +27,12 @@ class HybridMovingMeanVar:
     def update(self, x):
         self.rms.update(x)
         self.emmv.update(x)
+
+    def normalize(self, values):
+        if len(values) < 1:
+            return values
+        normalized_values = (values - self.mean) / (torch.sqrt(self.var) + 1e-8)
+        return normalized_values
 
     def save(self, path):
         self.rms.save(path + "-rms.pt")

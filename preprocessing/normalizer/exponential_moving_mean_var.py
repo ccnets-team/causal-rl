@@ -1,7 +1,7 @@
 import torch
 
 class ExponentialMovingMeanVar:
-    def __init__(self, num_features, alpha=None, window_size=None, device='cpu'):
+    def __init__(self, num_features, device, alpha=None, window_size=None):
         assert (alpha is None) != (window_size is None), "Specify either alpha or window_size, not both"
         self.device = device
 
@@ -26,6 +26,12 @@ class ExponentialMovingMeanVar:
         self.mean = torch.sum(weights * x, dim=0) + (1 - torch.sum(weights)) * self.mean
         self.squared_mean = torch.sum(weights * (x ** 2), dim=0) + (1 - torch.sum(weights)) * self.squared_mean
         self.var = self.squared_mean - self.mean ** 2
+
+    def normalize(self, values):
+        if len(values) < 1:
+            return values
+        normalized_values = (values - self.mean) / (torch.sqrt(self.var) + 1e-8)
+        return normalized_values
 
     def save(self, path):
         torch.save({'mean': self.mean, 'var': self.var, 'initialized': self.initialized}, path)

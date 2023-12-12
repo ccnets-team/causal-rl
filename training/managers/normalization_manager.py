@@ -15,6 +15,8 @@ class NormalizerBase:
     def __init__(self, vector_size, norm_type_key, normalization_params, device):
         self.normalizer = None
         self.vector_size = vector_size
+        window_size = normalization_params.window_size 
+        self.clip_norm_range = normalization_params.clip_norm_range 
 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_z_standardizer":
@@ -22,9 +24,9 @@ class NormalizerBase:
         elif norm_type == "running_mean_std":
             self.normalizer = RunningMeanStd(vector_size, device)
         elif norm_type == "exponential_moving_mean_var":
-            self.normalizer = ExponentialMovingMeanVar(vector_size, device)
+            self.normalizer = ExponentialMovingMeanVar(vector_size, device, window_size=window_size)
         elif norm_type == "hybrid_moving_mean_var":
-            self.normalizer = HybridMovingMeanVar(vector_size, device)
+            self.normalizer = HybridMovingMeanVar(vector_size, device, window_size=window_size)
             
         self.device = device
             
@@ -37,7 +39,9 @@ class NormalizerBase:
 
     def normalize_data(self, data):
         if self.normalizer is not None:
+            clip = self.clip_norm_range
             data = self.normalizer.normalize(data)
+            data.clamp_(-clip, clip)
         return data
     
 class NormalizationUtils:
@@ -45,7 +49,6 @@ class NormalizationUtils:
         self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization, device=device)
         self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization, device=device)
         self.reward_scale = normalization.reward_scale
-        self.reward_shift = normalization.reward_shift
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
@@ -53,7 +56,7 @@ class NormalizationUtils:
         return self.state_manager.normalize_data(   state)
 
     def normalize_reward(self, reward):
-        return self.reward_scale*self.reward_manager.normalize_data(reward) + self.reward_shift
+        return self.reward_scale*self.reward_manager.normalize_data(reward) 
     
     def get_state_normalizer(self):
         return self.state_manager.normalizer

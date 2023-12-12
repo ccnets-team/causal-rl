@@ -96,13 +96,13 @@ class RLTuneHelper:
         self.use_dynamic_td_steps = self.rl_params.algorithm.use_dynamic_td_steps
         
         self.max_steps = exploration_params.max_steps
-        self.training_start_step = training_params.training_start_step
+        self.buffer_size = memory_params.buffer_size
         self.batch_size = training_params.batch_size
         self.replay_ratio = training_params.replay_ratio
         self.train_intervel = training_params.train_intervel
-        self.buffer_size = memory_params.buffer_size
 
         self.samples_per_step = training_params.batch_size//training_params.replay_ratio
+        self.training_start_step = self.buffer_size//int(self.batch_size/training_params.replay_ratio) if training_params.early_training_start_step == "none" else training_params.early_training_start_step
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_intervel*self.batch_size))
 
     def _setup_training(self):
