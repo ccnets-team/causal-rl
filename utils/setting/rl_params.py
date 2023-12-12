@@ -49,7 +49,7 @@ class NetworkParameters:
                    
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=4, lr=1e-4, tau=5e-3, clip_grad_range=0.5):
+    def __init__(self, beta1=0.9, lr_gamma=0.9998, step_size=4, lr=1e-4, tau=1e-2, clip_grad_range=0.5):
         self.beta1 = beta1  # Beta1 parameter for Adam optimizer
         self.lr_gamma = lr_gamma  # Learning rate decay factor
         self.step_size = step_size  # Step size for learning rate scheduling
@@ -76,7 +76,7 @@ class MemoryParameters:
         
 class NormalizationParameters:
     # Initialize normalization parameters
-    def __init__(self, reward_scale = 1, clip_norm_range = 10, window_size = 20, reward_normalizer='hybrid_moving_mean_var', state_normalizer='running_mean_std'):
+    def __init__(self, reward_scale = 1, clip_norm_range = 10, window_size = 20, reward_normalizer='none', state_normalizer='running_mean_std'):
         self.reward_scale = reward_scale  # Scaling factor for rewards
         self.clip_norm_range = clip_norm_range  
         self.window_size = window_size  
