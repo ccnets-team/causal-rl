@@ -53,7 +53,7 @@ def wandb_init(trainer_name, env_config, rl_params):
     
     
     wandb.init(
-        project=env_config.env_name,
+        project='rl-tune'f'-{env_config.env_name}',
         name= f'{trainer_name}-{env_config.env_name} : {formatted_date}',
         save_code = True,
         monitor_gym = False, 
