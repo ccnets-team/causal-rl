@@ -27,9 +27,9 @@ class TrainingManager:
         return self._schedulers
 
     def clip_gradients(self):
-        clip_grad_range = self.clip_grad_range 
-        for net in self._networks:
-            _apply_gradient_clipping(net, clip_grad_range)
+        if self.clip_grad_range is not None:  
+            for net in self._networks:
+                _apply_gradient_clipping(net, self.clip_grad_range)
 
     def update_optimizers(self):
         for opt in self._optimizers:
