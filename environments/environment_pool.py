@@ -5,7 +5,7 @@ from utils.structure.trajectories  import MultiEnvTrajectories
 import torch
 
 class EnvironmentPool: 
-    def __init__(self, env_config, num_td_steps, use_dynamic_td_steps, device, test_env, use_graphics):
+    def __init__(self, env_config, num_td_steps, use_sample_td_steps, device, test_env, use_graphics):
         super(EnvironmentPool, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
@@ -13,7 +13,7 @@ class EnvironmentPool:
         w_id += 100
         self.device = device
         self.num_td_steps = num_td_steps
-        self.use_dynamic_td_steps = use_dynamic_td_steps
+        self.use_sample_td_steps = use_sample_td_steps
          
         if env_config.env_type == "gym":
             self.env_list = [GymEnvWrapper(env_config, num_td_steps, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
@@ -44,10 +44,12 @@ class EnvironmentPool:
         for env in self.env_list:
             env.step_environment()
 
-    def select_explore_td_steps(self, exploration_rate):
-        # Use the new method to sample the TD steps
-        max_td_steps = self.num_td_steps
-        selected_td_steps = min(max(int(round(max_td_steps*(1 - exploration_rate))), 1), max_td_steps)
+    def sample_explore_td_steps(self, exploration_rate):
+        # Sample from a normal distribution with mean=self.num_td_steps and std=exploration_rate
+        sampled_td_steps = np.random.normal(loc=self.num_td_steps, scale=exploration_rate)
+
+        # Ensure that the sampled value is within valid bounds (1 to max_td_steps)
+        selected_td_steps = min(max(int(round(sampled_td_steps)), 1), self.num_td_steps)
         return selected_td_steps
         
     def explore_env(self, trainer, training):
@@ -60,12 +62,11 @@ class EnvironmentPool:
         state_tensor = torch.from_numpy(np_state).to(self.device)
         mask_tensor = torch.from_numpy(np_mask).to(self.device)
 
-        if training and self.use_dynamic_td_steps:
-            # Use the new method to sample the TD steps
+        if training and self.use_sample_td_steps:
             exploration_rate = trainer.get_exploration_rate()
-            selected_td_steps = self.select_explore_td_steps(exploration_rate)
-            state_tensor = state_tensor[:, -selected_td_steps:]
-            mask_tensor = mask_tensor[:, -selected_td_steps:]
+            sampled_td_steps = self.sample_explore_td_steps(exploration_rate)
+            state_tensor = state_tensor[:, -sampled_td_steps:]
+            mask_tensor = mask_tensor[:, -sampled_td_steps:]
         
         state_tensor = trainer.normalize_state(state_tensor)
         action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
@@ -86,10 +87,10 @@ class EnvironmentPool:
             start_idx = end_idx
 
     @staticmethod
-    def create_train_environments(env_config, num_td_steps, use_dynamic_td_steps, device):
-        return EnvironmentPool(env_config, num_td_steps, use_dynamic_td_steps, device, test_env=False, use_graphics = False)
+    def create_train_environments(env_config, num_td_steps, use_sample_td_steps, device):
+        return EnvironmentPool(env_config, num_td_steps, use_sample_td_steps, device, test_env=False, use_graphics = False)
     
     @staticmethod
-    def create_test_environments(env_config, num_td_steps, use_dynamic_td_steps, device, use_graphics):
-        return EnvironmentPool(env_config, num_td_steps, use_dynamic_td_steps, device, test_env=True, use_graphics = use_graphics)
+    def create_test_environments(env_config, num_td_steps, use_sample_td_steps, device, use_graphics):
+        return EnvironmentPool(env_config, num_td_steps, use_sample_td_steps, device, test_env=True, use_graphics = use_graphics)
 
