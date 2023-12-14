@@ -110,8 +110,9 @@ class RLTune:
     # Helpers for Training
     def _update_strategy_from_samples(self) -> None:
         """Fetch samples and update strategy."""
-        exploration_rate = self.trainer.get_exploration_rate()
-        samples = self.memory.sample_balanced_trajectory_data(exploration_rate)
+        sample_size = self.helper.batch_size
+        samples_td_steps = 1
+        samples = self.memory.sample_balanced_trajectory_data(sample_size, samples_td_steps)
         if samples is not None:
             self.trainer.update_normalizer(samples)
 
@@ -123,8 +124,7 @@ class RLTune:
         
     def train_step(self) -> None:
         """Single step of training."""
-        exploration_rate = self.trainer.get_exploration_rate()
-        transition = self.memory.sample_trajectory_data(exploration_rate)
+        transition = self.memory.sample_trajectory_data()
         if transition is not None:
             self.trainer.transform_transition(transition)
             train_data = self.trainer.train_model(transition)

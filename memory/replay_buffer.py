@@ -55,9 +55,9 @@ class ExperienceMemory:
         for env_id, agent_id, state, action, reward, next_state, done_terminated, done_truncated, td_error in attributes:
             self.multi_buffers[env_id][agent_id].add_transition(state, action, reward, next_state, done_terminated, done_truncated, td_error)
 
-    def sample_trajectory_data(self, exploration_rate):
+    def sample_trajectory_data(self):
         batch_size = self.batch_size
-        samples = self.sample_balanced_trajectory_data(exploration_rate, batch_size) 
+        samples = self.sample_balanced_trajectory_data(batch_size) 
         if samples is None:
             return None
         states      = np.stack([b[0] for b in samples], axis=0)
@@ -70,7 +70,7 @@ class ExperienceMemory:
                                                     [states, actions, rewards, next_states, dones])
         return BatchTrajectory(states, actions, rewards, next_states, dones)
     
-    def sample_balanced_trajectory_data(self, exploration_rate, sample_size = None, sample_td_step = None):
+    def sample_balanced_trajectory_data(self, sample_size = None, sample_td_step = None):
         if sample_td_step is None:
             _num_td_steps = self.num_td_steps
         else:
