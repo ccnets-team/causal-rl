@@ -20,13 +20,13 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         self.device = device
         self.curiosity_factor = algorithm_params.curiosity_factor
-        self.discount_factor = algorithm_params.discount_factor
         self.use_gae_advantage = algorithm_params.use_gae_advantage
         self.num_td_steps = algorithm_params.num_td_steps
         self.use_target_network = network_params.use_target_network
         
         self.advantage_lambda = algorithm_params.advantage_lambda
             
+        self.discount_factor = algorithm_params.discount_factor
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
 
     def calculate_curiosity_rewards(self, intrinsic_value):
@@ -41,21 +41,16 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         discount_factor = self.discount_factor
         with torch.no_grad():
-            trajectory_state = torch.cat([states, next_states[:, -1:]], dim=1)
-            trajectory_mask = torch.cat([mask, torch.ones_like(mask[:, -1:])], dim=1)
-            if self.use_target_network:
-                trajectory_value = self.trainer_calculate_future_value(trajectory_state, trajectory_mask, use_target=self.use_target_network)
-                trajectory_value[:,:-1] = estimated_value
-            else:
-                trajectory_value = self.trainer_calculate_future_value(trajectory_state, trajectory_mask, use_target=self.use_target_network)
+            future_value = self.trainer_calculate_future_value(next_states, mask, use_target=self.use_target_network)
+            extended_value = torch.cat([estimated_value, future_value[:,-1:]], dim = 1)
             
             if self.use_gae_advantage:
                 gae_lambda = self.advantage_lambda
-                advantage = calculate_gae_returns(trajectory_value, rewards, dones, discount_factor, gae_lambda)
+                advantage = calculate_gae_returns(extended_value, rewards, dones, discount_factor, gae_lambda)
                 expected_value = (advantage + estimated_value)
             else:
                 td_lambda = self.advantage_lambda
-                expected_value = calculate_lambda_returns(trajectory_value, rewards, dones, discount_factor, td_lambda)
+                expected_value = calculate_lambda_returns(extended_value, rewards, dones, discount_factor, td_lambda)
                 advantage = (expected_value - estimated_value)
                 
         return expected_value, advantage

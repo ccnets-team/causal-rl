@@ -46,10 +46,10 @@ class EnvironmentPool:
 
     def sample_explore_td_steps(self, exploration_rate):
         # Sample from a normal distribution with mean=self.num_td_steps and std=exploration_rate
-        sampled_td_steps = np.random.normal(loc=self.num_td_steps, scale=exploration_rate)
+        sampled_td_steps = int(round(np.random.normal(loc=1, scale=exploration_rate)*self.num_td_steps))
 
         # Ensure that the sampled value is within valid bounds (1 to max_td_steps)
-        selected_td_steps = min(max(int(round(sampled_td_steps)), 1), self.num_td_steps)
+        selected_td_steps = min(max(sampled_td_steps, 1), self.num_td_steps)
         return selected_td_steps
         
     def explore_env(self, trainer, training):

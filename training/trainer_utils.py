@@ -88,35 +88,18 @@ def compute_discounted_future_value(discount_factor, max_seq_len):
     return discount_factors.unsqueeze(-1)
 
 def calculate_lambda_returns(values, rewards, dones, discount_factor, td_lambda):
-    """
-    Calculate lambda returns for each time step in the trajectory.
-
-    Args:
-    - rewards (torch.Tensor): Tensor of rewards.
-    - values (torch.Tensor): Tensor of estimated state values.
-    - future_returns (torch.Tensor): Tensor of future returns estimated, for example, by a target network.
-    - mask (torch.Tensor): Mask to indicate valid parts of the trajectory.
-    - discount_factor (float): Discount factor (gamma).
-    - td_lambda (float): Lambda parameter for weighting n-step returns.
-
-    Returns:
-    - torch.Tensor: Lambda returns for each time step.
-    """
     batch_size, seq_len, _ = rewards.shape
-    lambda_returns = torch.zeros_like(values[:,:-1])
-    future_returns = torch.zeros_like(values[:,:-1])
-    future_returns[:,-1:] = values[:,-1:]
+    lambda_returns = torch.zeros_like(values)
+    lambda_returns[:,-1:] = values[:,-1:]
     
-    for t in reversed(range(seq_len)):
+    for t in reversed(range(seq_len)):  # Start from the second-to-last time step
         # Calculate the TD error
-        td_error = rewards[:, t, :] + (1 - dones[:, t, :]) * (discount_factor * future_returns[:, t, :] - values[:, t, :]) 
+        td_error = rewards[:, t, :] + (1 - dones[:, t, :]) * discount_factor * lambda_returns[:, t + 1, :] - values[:, t, :] 
 
         # Update the future return
-        future_returns[:, t, :] =  (1 - dones[:, t, :]) * values[:, t, :] + td_error * td_lambda
-
-        # Apply the mask and store the lambda return
-        lambda_returns[:, t, :] = future_returns[:, t, :] 
-
+        lambda_returns[:, t, :] = values[:, t, :] + td_lambda * td_error
+    
+    lambda_returns = lambda_returns[:, :-1, :]
     return lambda_returns
 
 def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
