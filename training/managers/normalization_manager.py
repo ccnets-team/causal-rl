@@ -53,6 +53,7 @@ class NormalizationUtils:
         self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization, device=device)
         self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization, device=device)
         self.reward_scale = normalization.reward_scale
+        self.reward_shift = normalization.reward_shift
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
@@ -60,7 +61,7 @@ class NormalizationUtils:
         return self.state_manager.normalize_data(   state)
 
     def normalize_reward(self, reward):
-        return self.reward_scale*self.reward_manager.normalize_data(reward) 
+        return self.reward_scale*self.reward_manager.normalize_data(reward) + self.reward_shift
     
     def get_state_normalizer(self):
         return self.state_manager.normalizer

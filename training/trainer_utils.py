@@ -87,19 +87,20 @@ def compute_discounted_future_value(discount_factor, max_seq_len):
     # Return the discount factors with an additional dimension to match the expected shape
     return discount_factors.unsqueeze(-1)
 
-def calculate_lambda_returns(values, target_values, rewards, dones, discount_factor, td_lambda):
+def calculate_lambda_returns(values, rewards, dones, discount_factor, td_lambda):
     batch_size, seq_len, _ = rewards.shape
     lambda_returns = torch.zeros_like(values)
+    lambda_returns[:,-1:] = values[:,-1:]
     
-    for t in reversed(range(seq_len - 1)):  # Start from the second-to-last time step
-        # Calculate the TD error using the target network for the next state value
-        td_error = rewards[:, t, :] + (1 - dones[:, t, :]) * discount_factor * target_values[:, t, :] - values[:, t, :] 
+    for t in reversed(range(seq_len)):  # Start from the second-to-last time step
+        # Calculate the TD error
+        td_error = rewards[:, t, :] + (1 - dones[:, t, :]) * discount_factor * lambda_returns[:, t + 1, :] - values[:, t, :] 
 
         # Update the future return
         lambda_returns[:, t, :] = values[:, t, :] + td_lambda * td_error
     
+    lambda_returns = lambda_returns[:, :-1, :]
     return lambda_returns
-
 
 def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
     """
