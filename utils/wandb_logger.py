@@ -53,12 +53,17 @@ def wandb_init(trainer_name, env_config, rl_params):
     
     
     wandb.init(
-        project='rl-tune'f'-{env_config.env_name}',
+        project='rl-tune-gym',
         name= f'{trainer_name}-{env_config.env_name} : {formatted_date}',
         save_code = True,
         monitor_gym = False, 
         config= merged_config_dict
     )
+    
+    artifact = wandb.Artifact(f'{trainer_name}-{env_config.env_name}', type='model')
+    artifact.add_dir(f'./saved/{env_config.env_name}/{trainer_name}', name="saved/")
+    wandb.log_artifact(artifact)
+
     
 def wandb_end():
     if wandb is None:
