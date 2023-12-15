@@ -3,6 +3,7 @@ from preprocessing.normalizer.running_z_standardizer import RunningZStandardizer
 from preprocessing.normalizer.running_mean_std import RunningMeanStd
 from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
 from preprocessing.normalizer.hybrid_moving_mean_var import HybridMovingMeanVar
+from preprocessing.normalizer.running_abs_mean import RunningAbsMean
 
 import numpy as np
 from utils.structure.trajectories  import BatchTrajectory
@@ -23,10 +24,13 @@ class NormalizerBase:
             self.normalizer = RunningZStandardizer(vector_size, device)
         elif norm_type == "running_mean_std":
             self.normalizer = RunningMeanStd(vector_size, device)
+        elif norm_type == "running_abs_mean":
+            self.normalizer = RunningAbsMean(vector_size, device)
         elif norm_type == "exponential_moving_mean_var":
             self.normalizer = ExponentialMovingMeanVar(vector_size, device, window_size=window_size)
         elif norm_type == "hybrid_moving_mean_var":
             self.normalizer = HybridMovingMeanVar(vector_size, device, window_size=window_size)
+
             
         self.device = device
             
