@@ -12,15 +12,14 @@ class RunningAbsMean:
             return self  # Do not update if the batch size is zero
 
         abs_x = torch.abs(x)
-        delta = abs_x.mean(dim=0) - self.abs_mean
         new_count = self.count + batch_size
-        new_abs_mean = self.abs_mean + delta * batch_size / new_count
+        new_abs_mean = (self.abs_mean * self.count + abs_x.mean(dim=0) * batch_size) / new_count
 
         self.abs_mean = new_abs_mean
         self.count = new_count
 
         return self
-
+    
     def get_abs_mean(self):
         return self.abs_mean
 
