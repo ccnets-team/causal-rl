@@ -14,7 +14,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
         training_params, algorithm_params, network_params, \
             optimization_params, exploration_params, memory_params, normalization_params = rl_parmas
-        TrainingManager.__init__(self, optimization_params, networks, target_networks)
+        total_iterations = exploration_params.max_steps//training_params.train_intervel
+        TrainingManager.__init__(self, optimization_params, total_iterations, networks, target_networks)
         NormalizationUtils.__init__(self, env_config, normalization_params, device)
         ExplorationUtils.__init__(self, exploration_params)
         
@@ -23,11 +24,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.use_gae_advantage = algorithm_params.use_gae_advantage
         self.num_td_steps = algorithm_params.num_td_steps
         self.use_target_network = network_params.use_target_network
-        
+        # normalization_params.
         self.advantage_lambda = algorithm_params.advantage_lambda
-            
         self.discount_factor = algorithm_params.discount_factor
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
+
 
     def calculate_curiosity_rewards(self, intrinsic_value):
         with torch.no_grad():

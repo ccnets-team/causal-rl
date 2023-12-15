@@ -1,4 +1,13 @@
 import torch.optim as optim
+from torch.optim.lr_scheduler import _LRScheduler
+
+class LinearDecayLR(_LRScheduler):
+    def __init__(self, optimizer, total_steps, last_epoch=-1):
+        self.total_steps = total_steps
+        super(LinearDecayLR, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        return [base_lr * (1 - self.last_epoch / self.total_steps) for base_lr in self.base_lrs]
 
 def _apply_gradient_clipping(network, clip_range):
     for param in network.parameters():
@@ -6,7 +15,7 @@ def _apply_gradient_clipping(network, clip_range):
             param.grad.data = param.grad.data.clamp(-clip_range, clip_range)
 
 class TrainingManager:
-    def __init__(self, optimization_params, networks, target_networks):
+    def __init__(self, optimization_params, total_iterations, networks, target_networks):
         self._optimizers = []
         self._schedulers = []
         for network in networks:
@@ -14,7 +23,7 @@ class TrainingManager:
                 continue
             opt = optim.Adam(network.parameters(), lr=optimization_params.lr, betas=(0.9, 0.999))
             self._optimizers.append(opt)
-            self._schedulers.append(optim.lr_scheduler.StepLR(opt, step_size=optimization_params.step_size, gamma=optimization_params.lr_gamma))
+            self._schedulers.append(LinearDecayLR(opt, total_steps=total_iterations))
         self._target_networks = target_networks 
         self._networks = networks 
         self._tau = optimization_params.tau
