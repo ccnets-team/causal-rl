@@ -32,7 +32,7 @@ class _BaseActor(nn.Module):
         self.value_size = 1
         
         # Exploration strategy initialization
-        self.noise_strategy, self.use_noise_before_activation, = self._initialize_noise_strategy(
+        self.noise_strategy, self.use_noise_before_activation, self.use_deterministic = self._initialize_noise_strategy(
             exploration_params
         )
         self.noise_type = exploration_params.noise_type 
@@ -40,6 +40,7 @@ class _BaseActor(nn.Module):
     def _initialize_noise_strategy(self, exploration_params):
         noise_strategy = None
         use_noise_before_activation = False
+        use_deterministic = False
 
         if exploration_params.noise_type == "epsilon_greedy":
             noise_strategy = EpsilonGreedy(self.use_discrete)
@@ -50,8 +51,10 @@ class _BaseActor(nn.Module):
         elif exploration_params.noise_type == "boltzmann" and self.use_discrete:
             noise_strategy = BoltzmannExploration(self.use_discrete)
             use_noise_before_activation = True
-
-        return noise_strategy, use_noise_before_activation
+        elif exploration_params.noise_type == "deterministic":
+            use_deterministic = True
+            
+        return noise_strategy, use_noise_before_activation, use_deterministic
         
     def apply_noise(self, y, exploration_rate = None):
         if self.noise_strategy is None:
@@ -135,7 +138,7 @@ class _BaseActor(nn.Module):
         return log_prob
 
     def _sample_action(self, mean, std, mask = None, exploration_rate=None):
-        if exploration_rate is None or exploration_rate == 0:
+        if exploration_rate is None or exploration_rate == 0 or self.use_deterministic:
             return self._select_action(mean)
 
         if self.use_discrete:
@@ -183,7 +186,7 @@ class SingleInputActor(_BaseActor):
     def forward(self, state, mask = None):
         z = self.embedding_layer(state)
         mean, std = self._compute_forward_pass(z, mask)
-        return Normal(mean, std).rsample()
+        return mean if self.use_deterministic else Normal(mean, std).rsample()
 
     def _forward(self, state, mask = None):
         z = self.embedding_layer(state)
@@ -229,7 +232,7 @@ class DualInputActor(_BaseActor):
     def forward(self, state, value, mask = None):
         z = self.embedding_layer(torch.cat([state, value], dim =-1))
         mean, std = self._compute_forward_pass(z, mask)
-        return Normal(mean, std).rsample()
+        return mean if self.use_deterministic else Normal(mean, std).rsample()
 
     def _forward(self, state, value, mask = None):
         z = self.embedding_layer(torch.cat([state, value], dim =-1))

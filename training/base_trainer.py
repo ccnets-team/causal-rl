@@ -42,8 +42,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         discount_factor = self.discount_factor
         with torch.no_grad():
-            future_value = self.trainer_calculate_future_value(next_states, mask, use_target=self.use_target_network)
-            extended_value = torch.cat([estimated_value, future_value[:,-1:]], dim = 1)
+            target_value = self.trainer_calculate_future_value(next_states, mask, use_target=self.use_target_network)
+            extended_value = torch.cat([estimated_value, target_value[:,-1:]], dim = 1)
             
             if self.use_gae_advantage:
                 gae_lambda = self.advantage_lambda
@@ -51,7 +51,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 expected_value = (advantage + estimated_value)
             else:
                 td_lambda = self.advantage_lambda
-                expected_value = calculate_lambda_returns(extended_value, rewards, dones, discount_factor, td_lambda)
+                expected_value = calculate_lambda_returns(estimated_value, target_value, rewards, dones, discount_factor, td_lambda)
                 advantage = (expected_value - estimated_value)
                 
         return expected_value, advantage
