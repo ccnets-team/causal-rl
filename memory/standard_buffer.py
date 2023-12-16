@@ -24,7 +24,8 @@ class BaseBuffer:
         self.actions = np.empty((self.capacity, self.action_size))
         self.rewards = np.empty(self.capacity)
         self.next_states = np.empty((self.capacity, self.state_size))
-        self.dones = np.empty(self.capacity)       
+        self.terminated = np.empty(self.capacity)       
+        self.truncated = np.empty(self.capacity)       
         self.valid_indices.fill(False)  # Reset all indices to invalid
         self.valid_set.clear() 
 
@@ -32,10 +33,10 @@ class BaseBuffer:
         return len(self.valid_set)
 
     def _include_for_sampling(self, index, terminated, truncated):
-        if not truncated and self.size >= self.num_td_steps:
+        if self.size >= self.num_td_steps:
             start_idx = (self.capacity + index - self.num_td_steps + 1)
             end_idx = self.capacity + index
-            if terminated:
+            if terminated or truncated:
                 if not self.valid_indices[index]:
                     self.valid_indices[index] = True
                     self.valid_set.add(index)                
@@ -43,7 +44,7 @@ class BaseBuffer:
                 is_fail: bool = False
                 for idx in range(start_idx, end_idx):
                     current_idx = idx % self.capacity
-                    if self.dones[current_idx]:
+                    if (self.terminated[current_idx] or self.truncated[current_idx]):
                         is_fail = True
                         break
                 if not is_fail:
@@ -71,7 +72,10 @@ class BaseBuffer:
         actions_slices = self.actions[expanded_indices].reshape(batch_size, td_steps, -1)
         rewards_slices = self.rewards[expanded_indices].reshape(batch_size, td_steps, -1)
         next_states_slices = self.next_states[expanded_indices].reshape(batch_size, td_steps, -1)
-        dones_slices = self.dones[expanded_indices].reshape(batch_size, td_steps, -1)
+        terminated_slices = self.terminated[expanded_indices].reshape(batch_size, td_steps, -1)
+        truncated_slices = self.truncated[expanded_indices].reshape(batch_size, td_steps, -1)
+        truncated_slices[:, -1] = False  # Set the last element to False to prevent truncation
+        dones_slices = np.logical_or(terminated_slices, truncated_slices)
         
         transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions
@@ -89,7 +93,8 @@ class StandardBuffer(BaseBuffer):
         self.actions[self.index] = action
         self.rewards[self.index] = reward
         self.next_states[self.index] = next_state
-        self.dones[self.index] = terminated or truncated
+        self.terminated[self.index] = terminated
+        self.truncated[self.index] = truncated
 
         # Check if adding this data creates a valid trajectory
         self._include_for_sampling(self.index, terminated, truncated)
