@@ -60,12 +60,6 @@ class EnvironmentPool:
         reset_tensor = torch.from_numpy(np_reset).to(self.device)
         state_tensor = torch.from_numpy(np_state).to(self.device)
         mask_tensor = torch.from_numpy(np_mask).to(self.device)
-
-        if training and self.use_sample_td_steps:
-            exploration_rate = trainer.get_exploration_rate()
-            sampled_td_steps = self.sample_explore_td_steps(exploration_rate)
-            state_tensor = state_tensor[:, -sampled_td_steps:]
-            mask_tensor = mask_tensor[:, -sampled_td_steps:]
         
         state_tensor = trainer.normalize_state(state_tensor)
         action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
