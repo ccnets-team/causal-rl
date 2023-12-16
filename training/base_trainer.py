@@ -20,7 +20,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         ExplorationUtils.__init__(self, exploration_params)
         
         self.device = device
-        self.curiosity_factor = algorithm_params.curiosity_factor
         self.use_gae_advantage = algorithm_params.use_gae_advantage
         self.num_td_steps = algorithm_params.num_td_steps
         self.use_target_network = network_params.use_target_network
@@ -28,30 +27,22 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.advantage_lambda = algorithm_params.advantage_lambda
         self.discount_factor = algorithm_params.discount_factor
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
-
-
-    def calculate_curiosity_rewards(self, intrinsic_value):
-        with torch.no_grad():
-            curiosity_reward = self.curiosity_factor * intrinsic_value.square()
-        return curiosity_reward
     
-    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, mask: torch.Tensor, intrinsic_value: torch.Tensor = None):
+    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, mask: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory
-        rewards += 0 if intrinsic_value is None else self.calculate_curiosity_rewards(intrinsic_value)
 
-        discount_factor = self.discount_factor
+        gamma = self.discount_factor
+        lambd = self.advantage_lambda
         with torch.no_grad():
-            future_value = self.trainer_calculate_future_value(next_states, mask, use_target=self.use_target_network)
-            extended_value = torch.cat([estimated_value, future_value[:,-1:]], dim = 1)
+            future_values = self.trainer_calculate_future_value(next_states, mask, use_target=self.use_target_network)
+            trajectory_values = torch.cat([torch.zeros_like(estimated_value[:,:1]),  future_values], dim = 1)
             
             if self.use_gae_advantage:
-                gae_lambda = self.advantage_lambda
-                advantage = calculate_gae_returns(extended_value, rewards, dones, discount_factor, gae_lambda)
+                advantage = calculate_gae_returns(trajectory_values, rewards, dones, gamma, lambd)
                 expected_value = (advantage + estimated_value)
             else:
-                td_lambda = self.advantage_lambda
-                expected_value = calculate_lambda_returns(extended_value, rewards, dones, discount_factor, td_lambda)
+                expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, gamma, lambd)
                 advantage = (expected_value - estimated_value)
                 
         return expected_value, advantage

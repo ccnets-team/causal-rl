@@ -17,7 +17,6 @@ class ExperienceMemory:
     def __init__(self, env_config, training_params, algorithm_params, memory_params, device):
         self.device = device
         num_td_steps = algorithm_params.num_td_steps
-        self.use_sample_td_steps = algorithm_params.use_sample_td_steps
         
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments

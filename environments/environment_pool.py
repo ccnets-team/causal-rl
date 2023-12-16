@@ -5,7 +5,7 @@ from utils.structure.trajectories  import MultiEnvTrajectories
 import torch
 
 class EnvironmentPool: 
-    def __init__(self, env_config, num_td_steps, use_sample_td_steps, device, test_env, use_graphics):
+    def __init__(self, env_config, num_td_steps, device, test_env, use_graphics):
         super(EnvironmentPool, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
@@ -13,7 +13,6 @@ class EnvironmentPool:
         w_id += 100
         self.device = device
         self.num_td_steps = num_td_steps
-        self.use_sample_td_steps = use_sample_td_steps
          
         if env_config.env_type == "gym":
             self.env_list = [GymEnvWrapper(env_config, num_td_steps, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
@@ -87,10 +86,10 @@ class EnvironmentPool:
             start_idx = end_idx
 
     @staticmethod
-    def create_train_environments(env_config, num_td_steps, use_sample_td_steps, device):
-        return EnvironmentPool(env_config, num_td_steps, use_sample_td_steps, device, test_env=False, use_graphics = False)
+    def create_train_environments(env_config, num_td_steps, device):
+        return EnvironmentPool(env_config, num_td_steps, device, test_env=False, use_graphics = False)
     
     @staticmethod
-    def create_test_environments(env_config, num_td_steps, use_sample_td_steps, device, use_graphics):
-        return EnvironmentPool(env_config, num_td_steps, use_sample_td_steps, device, test_env=True, use_graphics = use_graphics)
+    def create_test_environments(env_config, num_td_steps, device, use_graphics):
+        return EnvironmentPool(env_config, num_td_steps, device, test_env=True, use_graphics = use_graphics)
 

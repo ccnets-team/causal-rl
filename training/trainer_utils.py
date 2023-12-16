@@ -60,6 +60,15 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
+def compute_discounted_future_value(discount_factor, max_seq_len):
+    # Create a range tensor [0, 1, 2, ..., max_seq_len-1]
+    discount_exponents = max_seq_len - torch.arange(max_seq_len).unsqueeze(0)
+
+    # Compute the discount factors by raising to the power of the exponents
+    discount_factors = discount_factor ** discount_exponents
+
+    # Return the discount factors with an additional dimension to match the expected shape
+    return discount_factors.unsqueeze(-1)
 
 def calculate_accumulative_rewards(rewards, discount_factor, mask):
     batch_size, seq_len, _ = rewards.shape
@@ -77,29 +86,25 @@ def calculate_accumulative_rewards(rewards, discount_factor, mask):
 
     return accumulative_rewards
 
-def compute_discounted_future_value(discount_factor, max_seq_len):
-    # Create a range tensor [0, 1, 2, ..., max_seq_len-1]
-    discount_exponents = max_seq_len - torch.arange(max_seq_len).unsqueeze(0)
-
-    # Compute the discount factors by raising to the power of the exponents
-    discount_factors = discount_factor ** discount_exponents
-
-    # Return the discount factors with an additional dimension to match the expected shape
-    return discount_factors.unsqueeze(-1)
-
-def calculate_lambda_returns(values, rewards, dones, discount_factor, td_lambda):
+def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
+    # Determine the batch size and sequence length from the rewards shape
     batch_size, seq_len, _ = rewards.shape
-    lambda_returns = torch.zeros_like(values)
-    lambda_returns[:,-1:] = values[:,-1:]
-    
-    for t in reversed(range(seq_len)):  # Start from the second-to-last time step
-        # Calculate the TD error
-        td_error = rewards[:, t, :] + (1 - dones[:, t, :]) * discount_factor * lambda_returns[:, t + 1, :] - values[:, t, :] 
 
-        # Update the future return
-        lambda_returns[:, t, :] = values[:, t, :] + td_lambda * td_error
-    
+    # Initialize lambda returns with the same shape as values
+    lambda_returns = torch.zeros_like(values)
+
+    # Set the last timestep's lambda return to the last timestep's value
+    lambda_returns[:, -1:] = values[:, -1:]
+
+    # Iterate backwards through each timestep in the sequence
+    for t in reversed(range(seq_len)):
+        # Calculate lambda return for each timestep:
+        # Current reward + discounted future value, adjusted by td_lambda
+        lambda_returns[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * ((1 - td_lambda) * values[:, t + 1, :] + td_lambda * lambda_returns[:, t + 1, :])
+
+    # Remove the last timestep to align lambda returns with their corresponding states
     lambda_returns = lambda_returns[:, :-1, :]
+
     return lambda_returns
 
 def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
