@@ -70,8 +70,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, gamma, lambd)
                 advantage = (expected_value - estimated_value)
                 
-        estimated_value, expected_value, advantage = scale_advantage(estimated_value, expected_value, advantage, self.advantage_normalizer, self.advantage_threshold)
-        return estimated_value, expected_value, advantage
+        advantage = scale_advantage(advantage, self.advantage_normalizer, self.advantage_threshold)
+        return advantage
 
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():

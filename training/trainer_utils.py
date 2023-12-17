@@ -25,6 +25,14 @@ def calculate_value_loss(estimated_value, expected_value, mask=None):
         loss = loss.mean(dim = 0)
     return loss
 
+def calculate_value_loss_from_advantage(advantage, mask=None):
+    loss = advantage.square()
+    if mask is not None:
+        loss = masked_tensor_mean(loss, mask)
+    else:
+        loss = loss.mean(dim = 0)
+    return loss
+
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 
@@ -137,13 +145,11 @@ def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
 
     return advantages
 
-def scale_advantage(values, target_values, advantages, norm_type = None, threshold = None):
+def scale_advantage(advantages, norm_type = None, threshold = None):
     if norm_type == 'L1_norm':
         advantage_abs_mean = advantages.abs().mean()
         if advantage_abs_mean != 0:
             if threshold is not None and advantage_abs_mean > threshold:
-                scaled_values = (values* threshold)/advantage_abs_mean
-                scaled_target_values = (target_values* threshold)/advantage_abs_mean
                 scaled_advantages = (advantages* threshold)/advantage_abs_mean
-            return scaled_values, scaled_target_values, scaled_advantages 
-    return values, target_values, advantages 
+            return scaled_advantages 
+    return advantages 
