@@ -145,11 +145,29 @@ def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
 
     return advantages
 
-def scale_advantage(advantages, norm_type = None, threshold = None):
-    if norm_type == 'L1_norm':
-        advantage_abs_mean = advantages.abs().mean()
-        if advantage_abs_mean != 0:
-            if threshold is not None and advantage_abs_mean > threshold:
-                scaled_advantages = (advantages* threshold)/advantage_abs_mean
-            return scaled_advantages 
-    return advantages 
+def scale_advantage(advantages, norm_type=None, threshold=None):
+    """
+    Scales the advantages based on the L1 norm and a specified threshold.
+
+    :param advantages: Tensor of advantage values to be scaled.
+    :param norm_type: Type of norm to be used for scaling, e.g., 'L1_norm'.
+    :param threshold: The threshold value for scaling. If None, normalization is applied.
+    :return: Scaled advantages.
+    """
+    if norm_type != 'L1_norm':
+        return advantages
+
+    abs_mean_advantage = advantages.detach().abs().mean()
+    if abs_mean_advantage == 0:
+        return advantages
+
+    # Normalize if no threshold is provided
+    if threshold is None:
+        advantage_scale = 1.0 / abs_mean_advantage
+        return advantage_scale * advantages
+
+    # Scale advantages if the mean exceeds the threshold
+    if abs_mean_advantage > threshold:
+        return (advantages * threshold) / abs_mean_advantage
+
+    return advantages
