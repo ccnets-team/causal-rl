@@ -12,7 +12,7 @@ from utils.structure.trajectories  import BatchTrajectory
 from nn.roles.critic import SingleInputCritic
 from nn.roles.actor import SingleInputActor
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss_from_advantage
+from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
 
 class A2C(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -78,10 +78,10 @@ class A2C(BaseTrainer):
         estimated_value = self.critic(states, mask)
         
         # Compute the advantage and expected value
-        advantage = self.compute_values(trajectory, estimated_value, dones)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value, dones)
 
         # Compute critic loss
-        value_loss = calculate_value_loss_from_advantage(advantage, mask)
+        value_loss = calculate_value_loss(estimated_value, expected_value, mask)
         critic_optimizer.zero_grad()
         value_loss.backward()
         critic_optimizer.step()
@@ -99,7 +99,7 @@ class A2C(BaseTrainer):
 
         metrics = create_training_metrics(
             estimated_value=estimated_value,
-            expected_value=estimated_value + advantage,
+            expected_value=expected_value,
             advantage=advantage,
             value_loss=value_loss,
             actor_loss=actor_loss

@@ -25,14 +25,6 @@ def calculate_value_loss(estimated_value, expected_value, mask=None):
         loss = loss.mean(dim = 0)
     return loss
 
-def calculate_value_loss_from_advantage(advantage, mask=None):
-    loss = advantage.square()
-    if mask is not None:
-        loss = masked_tensor_mean(loss, mask)
-    else:
-        loss = loss.mean(dim = 0)
-    return loss
-
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 

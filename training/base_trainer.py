@@ -71,7 +71,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 
         advantage = (expected_value - estimated_value)
         advantage = scale_advantage(advantage, self.advantage_normalizer, self.advantage_threshold)
-        return advantage
+        return expected_value, advantage
 
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
