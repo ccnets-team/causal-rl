@@ -14,7 +14,13 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_parmas: RLParameters, networks, target_networks, device):  
         training_params, algorithm_params, network_params, \
             optimization_params, exploration_params, memory_params, normalization_params = rl_parmas
+            
         total_iterations = exploration_params.max_steps//training_params.train_intervel
+        training_start_step = training_params.early_training_start_step
+        if training_start_step is None:
+            training_start_step = memory_params.buffer_size//int(training_params.batch_size/training_params.replay_ratio) 
+        total_iterations = max(exploration_params.max_steps - training_start_step, 0)
+            
         TrainingManager.__init__(self, optimization_params, total_iterations, networks, target_networks)
         NormalizationUtils.__init__(self, env_config, normalization_params, device)
         ExplorationUtils.__init__(self, exploration_params)
