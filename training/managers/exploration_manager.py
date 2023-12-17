@@ -22,8 +22,6 @@ class ExplorationUtils:
             self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, self.max_steps, self.decay_percentage)
         elif self.decay_mode == "exponential":
             self.decay_factor = compute_exp_decay_factor(self.initial_exploration, self.min_exploration, self.max_steps, self.decay_percentage)
-        else:
-            raise ValueError(f"Invalid decay mode: {self.decay_mode}")
 
         self.exploration_rate = self.initial_exploration
         

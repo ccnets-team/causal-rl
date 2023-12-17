@@ -137,7 +137,7 @@ class CausalRL(BaseTrainer):
 
     def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
         with torch.no_grad():
-            if use_target:
+            if use_target:  
                 future_value = self.target_critic(next_state, mask=mask)
             else:
                 future_value = self.critic(next_state, mask=mask)
@@ -162,7 +162,7 @@ class CausalRL(BaseTrainer):
         :param target: Tensor representing a single target cost value.
         :return: Balanced error tensor.
         """
-        error = (predict - target.detach()).abs() / 2
+        error = (predict - target.detach()).abs()
         return error
 
     def backwards(self, networks, network_errors):

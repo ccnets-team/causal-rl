@@ -15,19 +15,19 @@ def _apply_gradient_clipping(network, clip_range):
             param.grad.data = param.grad.data.clamp(-clip_range, clip_range)
 
 class TrainingManager:
-    def __init__(self, optimization_params, total_iterations, networks, target_networks):
+    def __init__(self, networks, target_networks, lr, clip_grad_range, tau, total_iterations):
         self._optimizers = []
         self._schedulers = []
         for network in networks:
             if network is None:
                 continue
-            opt = optim.Adam(network.parameters(), lr=optimization_params.lr, betas=(0.9, 0.999))
+            opt = optim.Adam(network.parameters(), lr=lr, betas=(0.9, 0.999))
             self._optimizers.append(opt)
             self._schedulers.append(LinearDecayLR(opt, total_steps=total_iterations))
         self._target_networks = target_networks 
         self._networks = networks 
-        self._tau = optimization_params.tau
-        self.clip_grad_range = optimization_params.clip_grad_range
+        self._tau = tau
+        self._clip_grad_range = clip_grad_range
         
     def get_optimizers(self):
         return self._optimizers
@@ -36,9 +36,9 @@ class TrainingManager:
         return self._schedulers
 
     def clip_gradients(self):
-        if self.clip_grad_range is not None:  
+        if self._clip_grad_range is not None:  
             for net in self._networks:
-                _apply_gradient_clipping(net, self.clip_grad_range)
+                _apply_gradient_clipping(net, self._clip_grad_range)
 
     def update_optimizers(self):
         for opt in self._optimizers:

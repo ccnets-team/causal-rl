@@ -12,7 +12,7 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps=16, discount_factor=0.995, advantage_lambda = 0.95, use_gae_advantage=False):
+    def __init__(self, num_td_steps=16, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step returns
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting n-step returns.
@@ -36,26 +36,26 @@ class GPTParams:
         # Initialize other GPT specific configurations here
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.05, use_target_network=True):
+    def __init__(self, num_layers=5, d_model=256, dropout=0.05, tau=None, use_target_network=False):
         self.critic_network = GPT
         self.actor_network = GPT
         self.reverse_env_network = GPT
         self.critic_params = GPTParams(d_model = d_model, num_layers = num_layers, dropout = dropout)
         self.actor_params = GPTParams(d_model = d_model, num_layers = num_layers, dropout = dropout)
         self.rev_env_params = GPTParams(d_model = d_model, num_layers = num_layers, dropout = dropout)
+        self.tau = tau  # Target network update rate
         self.use_target_network = use_target_network
                    
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=3e-5, tau=5e-3, clip_grad_range=None):
+    def __init__(self, lr=3e-5, clip_grad_range=None):
         self.lr = lr  # Initial learning rate
-        self.tau = tau  # Target network update rate
         self.clip_grad_range = clip_grad_range  
         
 class ExplorationParameters:
     # Initialize exploration parameters
     def __init__(self, noise_type='none', 
-                 initial_exploration=1.0, min_exploration=0.01, decay_percentage=0.8, decay_mode='linear',
+                 initial_exploration=0.0, min_exploration=0.0, decay_percentage=0.0, decay_mode=None,
                  max_steps=100000):
         self.noise_type = noise_type  # Type of exploration noise ('none' for no noise)
         self.initial_exploration = initial_exploration  # Initial exploration rate
@@ -72,13 +72,15 @@ class MemoryParameters:
         
 class NormalizationParameters:
     # Initialize normalization parameters
-    def __init__(self, reward_scale = 0.05, clip_norm_range = 10, window_size = 20, 
-                 reward_normalizer='running_abs_mean', state_normalizer='running_mean_std'):
+    def __init__(self, reward_scale = 1, clip_norm_range = 10, window_size = 20, 
+                 reward_normalizer='running_mean_std', state_normalizer='running_mean_std', advantage_normalizer='L1_norm', advantage_threshold = 1.0):
         self.reward_scale = reward_scale  # Scaling factor for rewards
         self.clip_norm_range = clip_norm_range  
         self.window_size = window_size  
         self.reward_normalizer = reward_normalizer  # reward normalization method (e.g., 'running_mean_std, hybrid_moving_mean_var')
         self.state_normalizer = state_normalizer  # State normalization method (e.g., 'running_mean_std, hybrid_moving_mean_var')
+        self.advantage_normalizer = advantage_normalizer  
+        self.advantage_threshold = advantage_threshold  
 
 class RLParameters:
     def __init__(self,
