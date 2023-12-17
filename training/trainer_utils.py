@@ -137,12 +137,13 @@ def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
 
     return advantages
 
-def scale_advantage(values, advantages, norm_type = None, threshold = None):
+def scale_advantage(values, target_values, advantages, norm_type = None, threshold = None):
     if norm_type == 'L1_norm':
         advantage_abs_mean = advantages.abs().mean()
         if advantage_abs_mean != 0:
             if threshold is not None and advantage_abs_mean > threshold:
-                scaled_advantage = (advantages* threshold)/advantage_abs_mean
                 scaled_values = (values* threshold)/advantage_abs_mean
-            return scaled_advantage, scaled_values
-    return advantages, values
+                scaled_target_values = (target_values* threshold)/advantage_abs_mean
+                scaled_advantages = (advantages* threshold)/advantage_abs_mean
+            return scaled_values, scaled_target_values, scaled_advantages 
+    return values, target_values, advantages 

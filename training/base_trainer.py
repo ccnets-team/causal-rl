@@ -16,6 +16,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
         self._init_trainer_specific_params()
+        self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -28,7 +29,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         TrainingManager.__init__(self, networks, target_networks, self.optimization_params.lr, 
                                  self.optimization_params.clip_grad_range, self.network_params.tau, total_iterations)
         self.device = device
-        self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
 
     def _init_normalization_utils(self, env_config, device):
         NormalizationUtils.__init__(self, env_config, self.normalization_params, device)
@@ -70,8 +70,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, gamma, lambd)
                 advantage = (expected_value - estimated_value)
                 
-        expected_value, advantage = scale_advantage(expected_value, advantage, self.advantage_normalizer, self.advantage_threshold)
-        return expected_value, advantage
+        estimated_value, expected_value, advantage = scale_advantage(estimated_value, expected_value, advantage, self.advantage_normalizer, self.advantage_threshold)
+        return estimated_value, expected_value, advantage
 
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
