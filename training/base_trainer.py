@@ -64,12 +64,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask, use_target=self.use_target_network)
             
             if self.use_gae_advantage:
-                advantage = calculate_gae_returns(trajectory_values, rewards, dones, gamma, lambd)
-                expected_value = (advantage + estimated_value)
+                _advantage = calculate_gae_returns(trajectory_values, rewards, dones, gamma, lambd)
+                expected_value = (_advantage + estimated_value)
             else:
                 expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, gamma, lambd)
-                advantage = (expected_value - estimated_value)
                 
+        advantage = (expected_value - estimated_value)
         advantage = scale_advantage(advantage, self.advantage_normalizer, self.advantage_threshold)
         return advantage
 
