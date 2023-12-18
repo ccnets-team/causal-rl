@@ -1,6 +1,4 @@
-from nn.gpt import GPT
-import torch
-# Start training after this number of steps
+from nn.gpt import GPT, GPTParams
 
 class TrainingParameters:
     # Initialize training parameters
@@ -16,71 +14,55 @@ class AlgorithmParameters:
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step returns
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting n-step returns.
-        # Flag to enable dynamic adjustment of TD steps based on exploration-exploitation balance.
-        # When True, the number of TD steps is automatically adjusted during training, potentially 
-        # increasing as the exploration rate decreases, to balance exploration and exploitation.
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
 
-class GPTParams:
-    def __init__(self, d_model, num_layers, dropout):
-        """
-        Initialize a GPT network.	
-        Args:
-        - d_model (int): Dimension of the model.
-        - num_layers (int): Number of layers in the network.
-        - dropout (float): Dropout rate.
-        """
-        self.d_model = d_model
-        self.num_layers = num_layers
-        self.dropout = dropout
-        # Initialize other GPT specific configurations here
-
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.05, tau=None, use_target_network=False):
-        self.critic_network = GPT
-        self.actor_network = GPT
-        self.reverse_env_network = GPT
-        self.critic_params = GPTParams(d_model = d_model, num_layers = num_layers, dropout = dropout)
-        self.actor_params = GPTParams(d_model = d_model, num_layers = num_layers, dropout = dropout)
-        self.rev_env_params = GPTParams(d_model = d_model, num_layers = num_layers, dropout = dropout)
-        self.tau = tau  # Target network update rate
-        self.use_target_network = use_target_network
-                   
+    def __init__(self, num_layers=5, d_model=256, dropout=0.05, 
+                 tau=None, use_target_network=False):
+        self.critic_network = GPT  # GPT-based network used for the critic.
+        self.actor_network = GPT  # GPT-based network used for the actor.
+        self.reverse_env_network = GPT  # GPT-based network for reverse environment modeling.
+        self.critic_params = GPTParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the critic network.
+        self.actor_params = GPTParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
+        self.rev_env_params = GPTParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the reverse environment network.
+        self.tau = tau  # Target network update rate, used in algorithms with target networks.
+        self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
+
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=3e-5, clip_grad_range=None):
-        self.lr = lr  # Initial learning rate
-        self.clip_grad_range = clip_grad_range  
-        
+    def __init__(self, lr=2e-5, clip_grad_range=None):
+        self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
+        self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
+
 class ExplorationParameters:
     # Initialize exploration parameters
     def __init__(self, noise_type='none', 
                  initial_exploration=0.0, min_exploration=0.0, decay_percentage=0.0, decay_mode=None,
                  max_steps=100000):
-        self.noise_type = noise_type  # Type of exploration noise ('none' for no noise)
-        self.initial_exploration = initial_exploration  # Initial exploration rate
-        self.min_exploration = min_exploration  # Minimum exploration rate
-        self.decay_percentage = decay_percentage  # Percentage of total steps for exploration decay
-        self.decay_mode = decay_mode  # Mode of exploration decay ('linear' for linear decay)
-        self.max_steps = max_steps 
-        
+        self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent.
+        self.initial_exploration = initial_exploration  # Initial rate of exploration, determining initial randomness in actions.
+        self.min_exploration = min_exploration  # Minimum exploration rate, ensuring some level of exploration throughout training.
+        self.decay_percentage = decay_percentage  # Defines how quickly the exploration rate decays.
+        self.decay_mode = decay_mode  # Determines the method of decay for exploration rate (e.g., 'linear').
+        self.max_steps = max_steps  # Maximum number of steps for the exploration phase.
+
 class MemoryParameters:
     # Initialize memory parameters
     def __init__(self, buffer_type='standard', buffer_size=64000):
-        self.buffer_type = buffer_type  # Type of replay buffer ('standard' for standard buffer)
-        self.buffer_size = int(buffer_size)  # Size of the replay buffer
+        self.buffer_type = buffer_type  # Determines the type of memory buffer used for storing experiences.
+        self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
+
         
 class NormalizationParameters:
-    # Initialize normalization parameters
-    def __init__(self, reward_scale = 1, clip_norm_range = 10, window_size = 20, 
-                 reward_normalizer='running_mean_std', state_normalizer='running_mean_std', advantage_normalizer='L1_norm', advantage_threshold = 1.0):
-        self.reward_scale = reward_scale  # Scaling factor for rewards
-        self.clip_norm_range = clip_norm_range  
-        self.window_size = window_size  
-        self.reward_normalizer = reward_normalizer  # reward normalization method (e.g., 'running_mean_std, hybrid_moving_mean_var')
-        self.state_normalizer = state_normalizer  # State normalization method (e.g., 'running_mean_std, hybrid_moving_mean_var')
-        self.advantage_normalizer = advantage_normalizer  
-        self.advantage_threshold = advantage_threshold  
+    def __init__(self, reward_scale=0.1, 
+                 reward_normalizer='running_mean_std', state_normalizer='running_mean_std', 
+                 advantage_normalizer='L1_norm', min_threshold=1.0, max_threshold=None):
+        self.reward_scale = reward_scale  # Scaling factor for rewards, used to adjust the magnitude of rewards appplies after reward normalization.
+        self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
+        self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
+        self.advantage_normalizer = advantage_normalizer  # Determines the normalization technique for advantage values, for example, 'L1_norm'.
+        self.min_threshold = min_threshold  # Sets the lower threshold for scaling when normalizing advantages; scaling is applied if the mean is below this value.
+        self.max_threshold = max_threshold  # Sets the upper threshold for scaling when normalizing advantages; scaling is applied if the mean is above this value.
 
 class RLParameters:
     def __init__(self,
@@ -109,4 +91,3 @@ class RLParameters:
         yield self.exploration
         yield self.memory
         yield self.normalization
-        

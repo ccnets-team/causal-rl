@@ -43,7 +43,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
         self.advantage_normalizer = self.normalization_params.advantage_normalizer
-        self.advantage_threshold = self.normalization_params.advantage_threshold 
+        self.min_threshold = self.normalization_params.min_threshold 
+        self.max_threshold = self.normalization_params.max_threshold 
 
     def _compute_training_start_step(self):
         training_start_step = self.training_params.early_training_start_step
@@ -70,7 +71,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, gamma, lambd)
                 
         advantage = (expected_value - estimated_value)
-        advantage = scale_advantage(advantage, self.advantage_normalizer, self.advantage_threshold)
+        advantage = scale_advantage(advantage, self.advantage_normalizer, self.min_threshold, self.max_threshold)
         return expected_value, advantage
 
     def reset_actor_noise(self, reset_noise):

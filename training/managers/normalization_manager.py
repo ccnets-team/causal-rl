@@ -10,11 +10,10 @@ TRANSITION_NEXT_STATE_IDX = 3
 TRANSITION_REWARD_IDX = 2
 
 class NormalizerBase:
-    def __init__(self, vector_size, norm_type_key, normalization_params, device):
+    def __init__(self, vector_size, norm_type_key, normalization_params, device, clip_norm_range=10.0):
         self.normalizer = None
         self.vector_size = vector_size
-        window_size = normalization_params.window_size 
-        self.clip_norm_range = normalization_params.clip_norm_range 
+        self.clip_norm_range = clip_norm_range
 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
@@ -47,7 +46,7 @@ class NormalizationUtils:
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
     def normalize_state(self, state):
-        return self.state_manager.normalize_data(   state)
+        return self.state_manager.normalize_data(state)
 
     def normalize_reward(self, reward):
         return self.reward_scale*self.reward_manager.normalize_data(reward)
