@@ -76,7 +76,7 @@ class RLTuneHelper:
 
     def should_update_strategy(self, step: int) -> bool:
         """Checks if the strategy should be updated."""
-        return (step % self.train_intervel == 0) and (len(self.parent.memory) >= self.batch_size and self.use_normalizer)
+        return (step % self.train_intervel == 0) and self.use_normalizer
     
     def should_reset_memory(self) -> bool:
         """Checks if the memory should be reset."""
