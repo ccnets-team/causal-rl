@@ -178,7 +178,6 @@ class SingleInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params, exploration_params):
         super().__init__(net, env_config, network_params, exploration_params, env_config.state_size)
         self.apply(init_weights)
-        self.apply(init_log_std)
 
     def forward(self, state, mask = None):
         z = self.embedding_layer(state)
@@ -220,7 +219,6 @@ class DualInputActor(_BaseActor):
         value_size = 1
         super().__init__(net, env_config, network_params, exploration_params, env_config.state_size + value_size)
         self.apply(init_weights)
-        self.apply(init_log_std)
         
         # Comment about joint representation for the actor and reverse-env network:
         # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
