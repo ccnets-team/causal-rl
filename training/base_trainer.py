@@ -52,11 +52,32 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
             training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
+
+    def scale_seq_rewards(self, rewards, mask):
+        # Compute the scaling factors for each trajectory
+        # Here we use a broadcasting approach
+        # Expand self.discount_factors to have the same batch dimension
+        expanded_discount_factors = self.discount_factors.expand_as(mask)
+
+        # Calculate the sum of discounted gammas for each trajectory
+        # Utilize the mask for correct summation
+        sum_discounted_gamma_traj = torch.sum(expanded_discount_factors * mask, dim=1, keepdim=True)
+                                                                                                                
+        # Compute the scaling factors for each trajectory
+        scaling_factors = 1.0 / sum_discounted_gamma_traj
+
+        # Scale the vcalues using the scaling factors
+        # Since scaling_factors has a reduced dimension (batch_size, 1), we use broadcasting
+        scaled_rewards = scaling_factors * rewards 
+
+        return scaled_rewards
     
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, mask: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory
 
+        scaled_rewards = self.scale_seq_rewards(rewards, mask)
+        
         gamma = self.discount_factor
         lambd = self.advantage_lambda
         with torch.no_grad():
@@ -65,10 +86,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask, use_target=self.use_target_network)
             
             if self.use_gae_advantage:
-                _advantage = calculate_gae_returns(trajectory_values, rewards, dones, gamma, lambd)
+                _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, gamma, lambd)
                 expected_value = (_advantage + estimated_value)
             else:
-                expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, gamma, lambd)
+                expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, gamma, lambd)
                 
         advantage = (expected_value - estimated_value)
         advantage = scale_advantage(advantage, self.advantage_normalizer, self.min_threshold, self.max_threshold)
