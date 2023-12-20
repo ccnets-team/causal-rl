@@ -19,7 +19,7 @@ def masked_tensor_mean(tensor, mask, dim=0, keepdim=False):
     return mean_per_sequence
 
 def calculate_value_loss(estimated_value, expected_value, mask=None):
-    loss = F.smooth_l1_loss(estimated_value, expected_value, reduction="none")
+    loss = (estimated_value - expected_value).square()
     if mask is not None:
         loss = masked_tensor_mean(loss, mask)
     else:
