@@ -55,7 +55,7 @@ def adaptive_sequence_reduction(tensor, mask):
 def calculate_value_loss(estimated_value, expected_value, mask=None):
     loss = (estimated_value - expected_value).square()
     if mask is not None:
-        loss = adaptive_sequence_reduction(loss, mask)
+        loss = masked_tensor_mean(loss, mask)
     else:
         loss = loss.mean(dim = 0)
     return loss
