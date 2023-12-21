@@ -18,38 +18,44 @@ def masked_tensor_mean(tensor, mask, dim=0, keepdim=False):
     mean_per_sequence = sum_per_sequence / count_per_sequence
     return mean_per_sequence
 
-def seq_weighted_masked_tensor_mean(tensor, mask):
-    # Ensure mask is a boolean tensor
-    mask_bool = mask.bool()
+def adaptive_sequence_reduction(tensor, mask):
+    # Ensure mask is a boolean tensor and compatible with tensor dimensions
+    mask_bool = mask.bool()  # Remove the last dimension to match tensor's [B, S] shape
 
-    # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
-    masked_tensor = tensor * mask_bool
+    # Check if each sequence in the batch is fully masked
+    mask_bool_all_seq = mask_bool.all(dim=1).squeeze(-1)
 
-    # Count the number of True entries in the mask per sequence for normalization
-    count_per_sequence = torch.sum(mask_bool, dim=1, keepdim=True)
+    if mask_bool_all_seq.any():
+        mean_full = tensor[mask_bool_all_seq].mean(dim=0)
+    else:
+        mean_full = None
 
-    # Compute weights proportional to the inverse of the sequence length
-    # Shorter sequences get higher weight. If a sequence is fully masked (length 0), set its weight to 0.
-    weights = torch.reciprocal(torch.clamp(count_per_sequence, min=1).float())
-    weights[count_per_sequence == 0] = 0
+    # Calculate mean for partially masked sequences
+    mask_bool_partial = ~mask_bool_all_seq
+    if mask_bool_partial.any():
+        masked_tensor_partial = tensor[mask_bool_partial]
+        mask_bool_partial = mask_bool[mask_bool_partial]
 
-    # Apply weights to the masked tensor
-    # Ensure weights are correctly broadcasted to match the dimensions of masked_tensor
-    weighted_masked_tensor = masked_tensor * weights.expand_as(masked_tensor)
+        # Multiply by the mask (broadcasted to match tensor's dimensions) and sum
+        sum_partial = (masked_tensor_partial * mask_bool_partial).sum(dim=1)
+        count_partial = mask_bool_partial.sum(dim=1)
+        mean_partial = sum_partial / count_partial.clamp(min=1)
+    else:
+        mean_partial = None
+        
+    # Concatenate the means
+    if mean_full is None:
+        reduced_tensor = mean_partial
+    elif mean_partial is None:
+        reduced_tensor = mean_full
+    else:
+        reduced_tensor = torch.cat([mean_full, mean_partial], dim=0)
+    return reduced_tensor
 
-    # Sum the weighted masked tensor across sequences (dim=1)
-    sum_per_sequence = torch.sum(weighted_masked_tensor, dim=1)
-
-    # Calculate the weighted mean
-    # Sum weights across sequences (dim=1) for normalization
-    total_weights = torch.sum(weights, dim=1)
-    mean_per_sequence = sum_per_sequence / torch.clamp(total_weights, min=1)
-
-    return mean_per_sequence
 def calculate_value_loss(estimated_value, expected_value, mask=None):
     loss = (estimated_value - expected_value).square()
     if mask is not None:
-        loss = seq_weighted_masked_tensor_mean(loss, mask)
+        loss = adaptive_sequence_reduction(loss, mask)
     else:
         loss = loss.mean(dim = 0)
     return loss

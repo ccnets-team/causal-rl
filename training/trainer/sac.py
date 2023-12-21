@@ -13,7 +13,7 @@ from nn.roles.critic import DualInputCritic as Critic
 from nn.roles.actor import SingleInputActor as PolicyNetwork
 from nn.roles.critic import SingleInputCritic as ValueNetwork
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, seq_weighted_masked_tensor_mean, calculate_value_loss
+from training.trainer_utils import create_padding_mask_before_dones, adaptive_sequence_reduction, calculate_value_loss
 
 class SAC(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -133,7 +133,7 @@ class SAC(BaseTrainer):
 
             # Calculate the minimum of the masked tensors
             min_qf_pi  = torch.min(masked_qf1, masked_qf2)            
-        policy_loss = seq_weighted_masked_tensor_mean(self.alpha * log_pi - min_qf_pi, mask)
+        policy_loss = adaptive_sequence_reduction(self.alpha * log_pi - min_qf_pi, mask)
         
         return policy_loss, log_pi
 
@@ -145,7 +145,7 @@ class SAC(BaseTrainer):
         log_pi (torch.Tensor): The log_pi tensor obtained from the policy network.
         """
 
-        alpha_loss = -seq_weighted_masked_tensor_mean(self.log_alpha * (log_pi + self.target_entropy).detach(), mask)
+        alpha_loss = -adaptive_sequence_reduction(self.log_alpha * (log_pi + self.target_entropy).detach(), mask)
         
         self.alpha_optimizer.zero_grad()
         alpha_loss.backward()
