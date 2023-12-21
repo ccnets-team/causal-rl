@@ -54,6 +54,18 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
 
+    def normalize_advantages(self, advantages):
+        """
+        Normalize the advantages using the class-specific normalization settings.
+
+        :param advantages: Tensor of advantage values to be normalized.
+        :return: Normalized advantages.
+        """
+        return scale_advantage(advantages, 
+                               norm_type=self.advantage_normalizer, 
+                               min_threshold=self.min_threshold, 
+                               max_threshold=self.max_threshold)
+
     def scale_seq_rewards(self, rewards):
         # Compute the scaling factors for each trajectory
         scaling_factors = 1.0 / self.sum_discounted_gammas
@@ -82,7 +94,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, gamma, lambd)
                 
         advantage = (expected_value - estimated_value)
-        advantage = scale_advantage(advantage, self.advantage_normalizer, self.min_threshold, self.max_threshold)
+        advantage = self.normalize_advantages(advantage)
         return expected_value, advantage
 
     def reset_actor_noise(self, reset_noise):
