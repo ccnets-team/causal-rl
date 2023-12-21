@@ -56,15 +56,28 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def normalize_advantages(self, advantages):
         """
-        Normalize the advantages using the class-specific normalization settings.
+        Normalize the advantages based on the class-specific normalization settings.
 
         :param advantages: Tensor of advantage values to be normalized.
         :return: Normalized advantages.
+
+        If self.advantage_normalizer is None, the advantages are scaled up by the batch size.
+        This scaling compensates for the averaging effect in batch processing and maintains the 
+        scale of gradients similar to individual batch processing.
+
+        If self.advantage_normalizer is not None, it uses the scale_advantage function to 
+        apply a specific normalization technique to the advantages, potentially with thresholding.
         """
-        return scale_advantage(advantages, 
-                               norm_type=self.advantage_normalizer, 
-                               min_threshold=self.min_threshold, 
-                               max_threshold=self.max_threshold)
+        if self.advantage_normalizer is None:
+            # Multiply by the batch size to scale the advantages
+            return advantages.size(0) * advantages
+        else:
+            # Apply specific normalization to the advantages
+            return scale_advantage(advantages, 
+                                norm_type=self.advantage_normalizer, 
+                                min_threshold=self.min_threshold, 
+                                max_threshold=self.max_threshold)
+
 
     def scale_seq_rewards(self, rewards):
         # Compute the scaling factors for each trajectory
@@ -93,8 +106,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             else:
                 expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, gamma, lambd)
                 
-        advantage = (expected_value - estimated_value)
-        advantage = self.normalize_advantages(advantage)
+            advantage = (expected_value - estimated_value)
+            advantage = self.normalize_advantages(advantage)
         return expected_value, advantage
 
     def reset_actor_noise(self, reset_noise):
