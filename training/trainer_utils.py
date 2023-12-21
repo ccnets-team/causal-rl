@@ -18,10 +18,38 @@ def masked_tensor_mean(tensor, mask, dim=0, keepdim=False):
     mean_per_sequence = sum_per_sequence / count_per_sequence
     return mean_per_sequence
 
+def seq_weighted_masked_tensor_mean(tensor, mask):
+    # Ensure mask is a boolean tensor
+    mask_bool = mask.bool()
+
+    # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
+    masked_tensor = tensor * mask_bool
+
+    # Count the number of True entries in the mask per sequence for normalization
+    count_per_sequence = torch.sum(mask_bool, dim=1, keepdim=True)
+
+    # Compute weights proportional to the inverse of the sequence length
+    # Shorter sequences get higher weight. If a sequence is fully masked (length 0), set its weight to 0.
+    weights = torch.reciprocal(torch.clamp(count_per_sequence, min=1).float())
+    weights[count_per_sequence == 0] = 0
+
+    # Apply weights to the masked tensor
+    # Ensure weights are correctly broadcasted to match the dimensions of masked_tensor
+    weighted_masked_tensor = masked_tensor * weights.expand_as(masked_tensor)
+
+    # Sum the weighted masked tensor across sequences (dim=1)
+    sum_per_sequence = torch.sum(weighted_masked_tensor, dim=1)
+
+    # Calculate the weighted mean
+    # Sum weights across sequences (dim=1) for normalization
+    total_weights = torch.sum(weights, dim=1)
+    mean_per_sequence = sum_per_sequence / torch.clamp(total_weights, min=1)
+
+    return mean_per_sequence
 def calculate_value_loss(estimated_value, expected_value, mask=None):
     loss = (estimated_value - expected_value).square()
     if mask is not None:
-        loss = masked_tensor_mean(loss, mask)
+        loss = seq_weighted_masked_tensor_mean(loss, mask)
     else:
         loss = loss.mean(dim = 0)
     return loss

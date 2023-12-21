@@ -12,7 +12,7 @@ from utils.structure.trajectories  import BatchTrajectory
 from nn.roles.critic import SingleInputCritic
 from nn.roles.actor import SingleInputActor
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
+from training.trainer_utils import create_padding_mask_before_dones, seq_weighted_masked_tensor_mean, calculate_value_loss
 
 class A2C(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -89,7 +89,7 @@ class A2C(BaseTrainer):
         # Compute actor loss
         log_prob = self.actor.log_prob(states, actions)
         
-        actor_loss = -masked_tensor_mean(log_prob * advantage.detach(), mask)
+        actor_loss = -seq_weighted_masked_tensor_mean(log_prob * advantage.detach(), mask)
         
         actor_optimizer.zero_grad()
         actor_loss.backward()

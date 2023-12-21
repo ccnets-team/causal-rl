@@ -17,6 +17,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_exploration_utils()
         self._init_trainer_specific_params()
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
+        self.sum_discounted_gammas = torch.sum(self.discount_factors)
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -53,21 +54,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
 
-    def scale_seq_rewards(self, rewards, mask):
+    def scale_seq_rewards(self, rewards):
         # Compute the scaling factors for each trajectory
-        # Here we use a broadcasting approach
-        # Expand self.discount_factors to have the same batch dimension
-        expanded_discount_factors = self.discount_factors.expand_as(mask)
+        scaling_factors = 1.0 / self.sum_discounted_gammas
 
-        # Calculate the sum of discounted gammas for each trajectory
-        # Utilize the mask for correct summation
-        sum_discounted_gamma_traj = torch.sum(expanded_discount_factors * mask, dim=1, keepdim=True)
-                                                                                                                
-        # Compute the scaling factors for each trajectory
-        scaling_factors = 1.0 / sum_discounted_gamma_traj
-
-        # Scale the vcalues using the scaling factors
-        # Since scaling_factors has a reduced dimension (batch_size, 1), we use broadcasting
         scaled_rewards = scaling_factors * rewards 
 
         return scaled_rewards
@@ -76,7 +66,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory
 
-        scaled_rewards = self.scale_seq_rewards(rewards, mask)
+        scaled_rewards = self.scale_seq_rewards(rewards)
         
         gamma = self.discount_factor
         lambd = self.advantage_lambda
