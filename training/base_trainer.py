@@ -68,8 +68,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         If self.advantage_normalizer is not None, it uses the scale_advantage function to 
         apply a specific normalization technique to the advantages, potentially with thresholding.
         """
-            # Multiply by the batch size to scale the advantages
-        advantages = advantages.size(0) * advantages
         # Apply specific normalization to the advantages
         return scale_advantage(advantages, 
                             norm_type=self.advantage_normalizer, 
