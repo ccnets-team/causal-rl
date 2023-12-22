@@ -1,7 +1,7 @@
 import torch.optim as optim
 from torch.optim.lr_scheduler import _LRScheduler
 
-LEARNING_RATE_DECAY_RATE = 0.01
+LEARNING_RATE_DECAY_RATE = 0.001
 
 class LinearDecayLR(_LRScheduler):
     def __init__(self, optimizer, total_steps, last_epoch=-1):
