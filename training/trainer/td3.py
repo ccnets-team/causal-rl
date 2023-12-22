@@ -12,7 +12,7 @@ from training.base_trainer import BaseTrainer
 from nn.roles.actor import SingleInputActor
 from nn.roles.critic import DualInputCritic
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
+from training.trainer_utils import create_padding_mask_before_dones, adaptive_masked_tensor_reduction
 
 class TD3(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -90,8 +90,8 @@ class TD3(BaseTrainer):
 
         current_Q1 = self.critic1(state, action, mask)
         current_Q2 = self.critic2(state, action, mask)
-        critic1_loss = calculate_value_loss(current_Q1, target_value, mask)
-        critic2_loss = calculate_value_loss(current_Q2, target_value, mask)
+        critic1_loss = self.calculate_value_loss(current_Q1, target_value, mask)
+        critic2_loss = self.calculate_value_loss(current_Q2, target_value, mask)
 
         critic1_optimizer.zero_grad()
         critic1_loss.backward()
@@ -103,7 +103,7 @@ class TD3(BaseTrainer):
 
         # Actor Training
         if self.total_steps % self.policy_update == 0:
-            self.actor_loss = -masked_tensor_mean(self.critic1(state, self.actor(state)), mask)
+            self.actor_loss = -adaptive_masked_tensor_reduction(self.critic1(state, self.actor(state)), mask)
             actor_optimizer.zero_grad()
             self.actor_loss.backward()
             actor_optimizer.step()

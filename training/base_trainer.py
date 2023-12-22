@@ -7,7 +7,7 @@ from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
-from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value, scale_advantage
+from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value, scale_advantage, adaptive_masked_tensor_reduction, masked_tensor_reduction
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -68,7 +68,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         If self.advantage_normalizer is not None, it uses the scale_advantage function to 
         apply a specific normalization technique to the advantages, potentially with thresholding.
         """
-        # Multiply by the batch size to scale the advantages
+            # Multiply by the batch size to scale the advantages
         advantages = advantages.size(0) * advantages
         # Apply specific normalization to the advantages
         return scale_advantage(advantages, 
@@ -85,6 +85,32 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         return scaled_rewards
     
+    def select_tensor_reduction(self, tensor, mask=None, reduction_type='adaptive', length_weight_exponent=2):
+        """
+        Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
+        based on the specified reduction type.
+
+        :param tensor: The input tensor to be reduced.
+        :param mask: The mask tensor indicating the elements to consider in the reduction.
+        :param reduction_type: Type of reduction to apply ('adaptive', 'batch', 'seq', or 'all').
+        :param length_weight_exponent: The exponent used in adaptive reduction.
+        :return: The reduced tensor.
+        """
+        if mask is not None:
+            if reduction_type == 'adaptive':
+                return adaptive_masked_tensor_reduction(tensor, mask, length_weight_exponent)
+            elif reduction_type in ['batch', 'seq', 'all']:
+                return masked_tensor_reduction(tensor, mask, reduction=reduction_type)
+            else:
+                raise ValueError("Invalid reduction type. Choose 'adaptive', 'batch', 'seq', or 'all'.")
+        else:
+            return tensor.mean()
+
+    def calculate_value_loss(self, estimated_value, expected_value, mask=None):
+        squared_error = (estimated_value - expected_value).square()
+        reduced_loss = self.select_tensor_reduction(squared_error, mask)
+        return reduced_loss
+    
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, mask: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory
@@ -94,9 +120,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         gamma = self.discount_factor
         lambd = self.advantage_lambda
         with torch.no_grad():
-            trajectory_states = torch.cat([states, next_states[:,-1:]], dim = 1)
-            trajectory_mask = torch.cat([mask, mask[:,-1:]], dim = 1)
-            trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask, use_target=self.use_target_network)
+            future_values = self.trainer_calculate_future_value(next_states, mask, use_target=self.use_target_network)
+            trajectory_values = torch.cat([torch.zeros_like(estimated_value[:,:1]), future_values], dim = 1)
             
             if self.use_gae_advantage:
                 _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, gamma, lambd)

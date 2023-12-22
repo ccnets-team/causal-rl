@@ -12,7 +12,7 @@ from nn.roles.actor import SingleInputActor as QNetwork
 import copy
 import torch as Tensor
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, calculate_value_loss
+from training.trainer_utils import create_padding_mask_before_dones
         
 class DQN(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -92,7 +92,7 @@ class DQN(BaseTrainer):
         
         q_value_for_action = predicted_q_value.gather(-1, discrete_actions)      
 
-        loss = calculate_value_loss(q_value_for_action, expected_value, mask = mask)
+        loss = self.calculate_value_loss(q_value_for_action, expected_value, mask = mask)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()

@@ -2,15 +2,27 @@
 import torch
 import torch.nn.functional as F
 
-def masked_tensor_mean(tensor, mask, dim=0, keepdim=False):
+def masked_tensor_reduction(tensor, mask, reduction="batch"):
+    # Dictionary mapping for reduction type to dimension
+    reduction_to_dim = {"batch": 0, "seq": 1}
+
+    # Handle the 'all' reduction case separately
+    if reduction == "all":
+        return tensor[mask > 0].flatten().mean()
+
+    # Get the dimension for reduction from the dictionary
+    dim = reduction_to_dim.get(reduction)
+    if dim is None:
+        raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
+
     # Ensure mask is a boolean tensor
     mask_bool = mask.bool()
     # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
     masked_tensor = tensor * mask_bool
     # Sum the masked tensor across the batch dimension (dim=0)
-    sum_per_sequence = torch.sum(masked_tensor, dim=dim, keepdim=keepdim)
+    sum_per_sequence = torch.sum(masked_tensor, dim=dim)
     # Count the number of True entries in the mask per sequence for normalization
-    count_per_sequence = torch.sum(mask_bool, dim=dim, keepdim=keepdim)
+    count_per_sequence = torch.sum(mask_bool, dim=dim)
     # Handle potential division by zero in case some sequences are fully masked
     # If count_per_sequence is 0, replace it with 1 to prevent division by zero
     count_per_sequence = torch.clamp(count_per_sequence, min=1)
@@ -18,47 +30,26 @@ def masked_tensor_mean(tensor, mask, dim=0, keepdim=False):
     mean_per_sequence = sum_per_sequence / count_per_sequence
     return mean_per_sequence
 
-def adaptive_sequence_reduction(tensor, mask):
+def adaptive_masked_tensor_reduction(tensor, mask, length_weight_exponent = 2):
     # Ensure mask is a boolean tensor and compatible with tensor dimensions
-    mask_bool = mask.bool()  # Remove the last dimension to match tensor's [B, S] shape
+    mask_bool = mask.bool()
+    steps_count = mask_bool.sum(dim=1).unsqueeze(-1)
+    total_steps = mask_bool.size(1)
+    steps_proportion = pow(steps_count.float() / total_steps, length_weight_exponent)
 
-    # Check if each sequence in the batch is fully masked
-    mask_bool_all_seq = mask_bool.all(dim=1).squeeze(-1)
+    count_per_sequence = torch.sum(mask_bool, dim=0)
+    count_per_batch = torch.sum(mask_bool, dim=1)   
 
-    if mask_bool_all_seq.any():
-        mean_full = tensor[mask_bool_all_seq].mean(dim=0)
-    else:
-        mean_full = None
+    # Apply mask to tensor and calculate the mean for sequences where some steps are masked
+    masked_tensor = tensor * mask_bool.float()
+    mean_full = (masked_tensor * steps_proportion).sum(dim=0) / count_per_sequence.clamp(min=1)
 
-    # Calculate mean for partially masked sequences
-    mask_bool_partial = ~mask_bool_all_seq
-    if mask_bool_partial.any():
-        masked_tensor_partial = tensor[mask_bool_partial]
-        mask_bool_partial = mask_bool[mask_bool_partial]
+    # Calculate mean for sequences where steps are not masked (inverse mask)
+    mean_partial = (masked_tensor * (1 - steps_proportion)).sum(dim=1) / count_per_batch.clamp(min=1)
 
-        # Multiply by the mask (broadcasted to match tensor's dimensions) and sum
-        sum_partial = (masked_tensor_partial * mask_bool_partial).sum(dim=1)
-        count_partial = mask_bool_partial.sum(dim=1)
-        mean_partial = sum_partial / count_partial.clamp(min=1)
-    else:
-        mean_partial = None
-        
-    # Concatenate the means
-    if mean_full is None:
-        reduced_tensor = mean_partial
-    elif mean_partial is None:
-        reduced_tensor = mean_full
-    else:
-        reduced_tensor = torch.cat([mean_full, mean_partial], dim=0)
+    # Concatenate the means along a new dimension
+    reduced_tensor = torch.cat([mean_full, mean_partial], dim=0)
     return reduced_tensor
-
-def calculate_value_loss(estimated_value, expected_value, mask=None):
-    loss = (estimated_value - expected_value).square()
-    if mask is not None:
-        loss = masked_tensor_mean(loss, mask)
-    else:
-        loss = loss.mean(dim = 0)
-    return loss
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """

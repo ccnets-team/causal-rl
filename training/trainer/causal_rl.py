@@ -15,7 +15,7 @@ from nn.roles.actor import DualInputActor
 from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectories  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
+from training.trainer_utils import create_padding_mask_before_dones, adaptive_masked_tensor_reduction
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -94,16 +94,16 @@ class CausalRL(BaseTrainer):
         expected_value, advantage = self.compute_values(trajectory, estimated_value, mask)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = calculate_value_loss(estimated_value, expected_value, mask)   
+        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss = masked_tensor_mean(coop_critic_error, mask)
-
+        critic_loss = adaptive_masked_tensor_reduction(coop_critic_error, mask)
+        
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss =  masked_tensor_mean(advantage * coop_actor_error, mask)       
+        actor_loss =  adaptive_masked_tensor_reduction(advantage * coop_actor_error, mask)       
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss = masked_tensor_mean(coop_revEnv_error, mask)
+        revEnv_loss = adaptive_masked_tensor_reduction(coop_revEnv_error, mask)
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
