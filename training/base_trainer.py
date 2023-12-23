@@ -18,6 +18,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_trainer_specific_params()
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
         self.sum_discounted_gammas = torch.sum(self.discount_factors)
+        self.reduction_type = 'adaptive'
+        self.length_weight_exponent = 2
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -83,22 +85,22 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         return scaled_rewards
     
-    def select_tensor_reduction(self, tensor, mask=None, reduction_type='adaptive', length_weight_exponent=2):
+    def select_tensor_reduction(self, tensor, mask=None):
         """
         Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
         based on the specified reduction type.
 
         :param tensor: The input tensor to be reduced.
         :param mask: The mask tensor indicating the elements to consider in the reduction.
-        :param reduction_type: Type of reduction to apply ('adaptive', 'batch', 'seq', or 'all').
-        :param length_weight_exponent: The exponent used in adaptive reduction.
+        :reduction_type: Type of reduction to apply ('adaptive', 'batch', 'seq', or 'all').
+        :length_weight_exponent: The exponent used in adaptive reduction.
         :return: The reduced tensor.
         """
         if mask is not None:
-            if reduction_type == 'adaptive':
-                return adaptive_masked_tensor_reduction(tensor, mask, length_weight_exponent)
-            elif reduction_type in ['batch', 'seq', 'all']:
-                return masked_tensor_reduction(tensor, mask, reduction=reduction_type)
+            if self.reduction_type == 'adaptive':
+                return adaptive_masked_tensor_reduction(tensor, mask, length_weight_exponent = self.length_weight_exponent)
+            elif self.reduction_type in ['batch', 'seq', 'all']:
+                return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
             else:
                 raise ValueError("Invalid reduction type. Choose 'adaptive', 'batch', 'seq', or 'all'.")
         else:

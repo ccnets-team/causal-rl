@@ -97,13 +97,13 @@ class CausalRL(BaseTrainer):
         value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss = adaptive_masked_tensor_reduction(coop_critic_error, mask)
+        critic_loss = self.select_tensor_reduction(coop_critic_error, mask)
         
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss =  adaptive_masked_tensor_reduction(advantage * coop_actor_error, mask)       
+        actor_loss = self.select_tensor_reduction(advantage * coop_actor_error, mask)       
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss = adaptive_masked_tensor_reduction(coop_revEnv_error, mask)
+        revEnv_loss = self.select_tensor_reduction(coop_revEnv_error, mask)
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
@@ -162,7 +162,7 @@ class CausalRL(BaseTrainer):
         :param target: Tensor representing a single target cost value.
         :return: Balanced error tensor.
         """
-        error = (predict - target.detach()).abs()
+        error = (predict - target.detach()).abs()/2.0
         return error
 
     def backwards(self, networks, network_errors):
