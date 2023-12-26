@@ -64,7 +64,7 @@ def set_parameters(rl_params, batch_size, num_td_steps, train_frequency, noise_t
     rl_params.exploration.noise_type = noise_type
     rl_params.network.critic_network = network_type
     rl_params.network.actor_network = network_type
-    rl_params.network.reverse_env_network = network_type
+    rl_params.network.rev_env_network = network_type
     rl_params.training.replay_ratio = replay_ratio
 
 def convert_to_dict(rl_params):

@@ -46,8 +46,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
         self.advantage_normalizer = self.normalization_params.advantage_normalizer
-        self.min_threshold = self.normalization_params.min_threshold 
-        self.max_threshold = self.normalization_params.max_threshold 
 
     def _compute_training_start_step(self):
         training_start_step = self.training_params.early_training_start_step
@@ -71,10 +69,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         apply a specific normalization technique to the advantages, potentially with thresholding.
         """
         # Apply specific normalization to the advantages
-        return scale_advantage(advantages, 
-                            norm_type=self.advantage_normalizer, 
-                            min_threshold=self.min_threshold, 
-                            max_threshold=self.max_threshold)
+        return scale_advantage(advantages, norm_type=self.advantage_normalizer)
 
     def scale_seq_rewards(self, rewards):
         # Compute the scaling factors for each trajectory

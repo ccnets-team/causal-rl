@@ -163,14 +163,12 @@ def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
 
     return advantages
 
-def scale_advantage(advantages, norm_type=None, min_threshold=None, max_threshold=None):
+def scale_advantage(advantages, norm_type=None):
     """
     Scales the advantages based on the L1 norm and specified thresholds.
 
     :param advantages: Tensor of advantage values to be scaled.
     :param norm_type: Type of norm to be used for scaling, e.g., 'L1_norm'.
-    :param min_threshold: The minimum threshold value for scaling. If the mean is less than this, scaling is applied.
-    :param max_threshold: The maximum threshold value for scaling. If the mean is greater than this, scaling is applied.
     :return: Scaled advantages.
     """
     if norm_type != 'L1_norm':
@@ -180,12 +178,4 @@ def scale_advantage(advantages, norm_type=None, min_threshold=None, max_threshol
     if abs_mean_advantage == 0:
         return advantages
 
-    # Apply scaling if the mean exceeds the max_threshold or is below the min_threshold
-    if (min_threshold is not None) and (max_threshold is not None) and (min_threshold == max_threshold):
-        return (advantages * min_threshold) / abs_mean_advantage
-    elif min_threshold is not None and abs_mean_advantage < min_threshold:
-        return (advantages * min_threshold) / abs_mean_advantage
-    elif max_threshold is not None and abs_mean_advantage > max_threshold:
-        return (advantages * max_threshold) / abs_mean_advantage
-
-    return advantages
+    return advantages / abs_mean_advantage
