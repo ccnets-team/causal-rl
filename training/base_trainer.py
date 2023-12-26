@@ -18,7 +18,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_trainer_specific_params()
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
         self.sum_discounted_gammas = torch.sum(self.discount_factors)
-        self.reduction_type = 'adaptive'
+        self.reduction_type = 'cross'
         self.length_weight_exponent = 2
 
     def _unpack_rl_params(self, rl_params):
@@ -41,7 +41,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def _init_trainer_specific_params(self):
         self.use_gae_advantage = self.algorithm_params.use_gae_advantage
-        self.num_td_steps = self.algorithm_params.num_td_steps
+        self.num_td_steps = self.algorithm_params.num_td_steps 
         self.use_target_network = self.network_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
@@ -76,11 +76,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                             min_threshold=self.min_threshold, 
                             max_threshold=self.max_threshold)
 
-
     def scale_seq_rewards(self, rewards):
         # Compute the scaling factors for each trajectory
-        scaling_factors = 1.0 / self.sum_discounted_gammas
-
+        if self.discount_factor == 0:
+            return rewards
+        scaling_factors = 1 / self.sum_discounted_gammas
         scaled_rewards = scaling_factors * rewards 
 
         return scaled_rewards
@@ -92,7 +92,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         :param tensor: The input tensor to be reduced.
         :param mask: The mask tensor indicating the elements to consider in the reduction.
-        :reduction_type: Type of reduction to apply ('adaptive', 'batch', 'seq', or 'all').
+        :reduction_type: Type of reduction to apply ('adaptive', 'batch', 'seq', 'all', or 'cross').
         :length_weight_exponent: The exponent used in adaptive reduction.
         :return: The reduced tensor.
         """
@@ -101,8 +101,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 return adaptive_masked_tensor_reduction(tensor, mask, length_weight_exponent = self.length_weight_exponent)
             elif self.reduction_type in ['batch', 'seq', 'all']:
                 return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
+            elif self.reduction_type == 'cross':
+                batch_dim_reduction = masked_tensor_reduction(tensor, mask, reduction="batch")/2
+                seq_dim_reduction = masked_tensor_reduction(tensor, mask, reduction="seq")/2
+                return torch.concat([batch_dim_reduction, seq_dim_reduction], dim=0)
             else:
-                raise ValueError("Invalid reduction type. Choose 'adaptive', 'batch', 'seq', or 'all'.")
+                raise ValueError("Invalid reduction type. Choose 'adaptive', 'batch', 'seq', 'all', or 'cross'.")
         else:
             return tensor.mean()
 
