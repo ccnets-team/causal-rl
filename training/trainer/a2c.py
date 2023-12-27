@@ -79,7 +79,7 @@ class A2C(BaseTrainer):
         estimated_value = self.critic(states, mask)
         
         # Compute the advantage and expected value
-        expected_value, advantage = self.compute_values(trajectory, estimated_value, dones)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value)
 
         # Compute critic loss
         value_loss = self.self.calculate_value_loss(estimated_value, expected_value, mask)

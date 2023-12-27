@@ -10,8 +10,8 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps=16, model_seq_length = 16, discount_factor=0.999, advantage_lambda = 0.99, use_gae_advantage=False):
-        self.num_td_steps = num_td_steps  # Number of TD steps for multi-step returns
+    def __init__(self, num_td_steps=24, model_seq_length = 16, discount_factor=0.999, advantage_lambda = 0.99, use_gae_advantage=False):
+        self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weight    ing n-step returns.
@@ -31,14 +31,14 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=2e-5, lr_decay_ratio=1e-1, clip_grad_range=5):
+    def __init__(self, lr=2e-5, lr_decay_ratio=1e-1, clip_grad_range=None):
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training.
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
 
 class ExplorationParameters:
     # Initialize exploration parameters
-    def __init__(self, noise_type='none', 
+    def __init__(self, noise_type=None, 
                  initial_exploration=0.0, min_exploration=0.0, decay_percentage=0.0, decay_mode=None,
                  max_steps=100000):
         self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent.
@@ -50,8 +50,9 @@ class ExplorationParameters:
 
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_type='priority', buffer_size=256000):
+    def __init__(self, buffer_type='priority', priority_alpha = 0.6, buffer_size=256000):
         self.buffer_type = buffer_type  # Determines the type of memory buffer used for storing experiences.
+        self.priority_alpha = priority_alpha  # Alpha parameter for adjusting the prioritization in the memory buffer.
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
 
 class NormalizationParameters:

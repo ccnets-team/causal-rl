@@ -205,3 +205,8 @@ def select_model_seq_length(trajectory, model_seq_length):
     sel_dones = apply_selection(dones, dones, model_seq_length)
 
     return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones
+
+def convert_trajectory_data(states, next_states, mask):
+    trajectory_states = torch.cat([states, next_states[:, -1:]], dim=1)
+    trajectory_mask = torch.cat([mask, mask[:, -1:]], dim=1)
+    return trajectory_states, trajectory_mask

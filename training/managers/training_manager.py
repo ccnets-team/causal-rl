@@ -26,9 +26,7 @@ class TrainingManager:
                 continue
             opt = optim.Adam(network.parameters(), lr=lr, betas=(0.9, 0.999))
             self._optimizers.append(opt)
-            
             self._schedulers.append(optim.lr_scheduler.StepLR(opt, step_size=1, gamma=gamma))
-            # self._schedulers.append(LinearDecayLR(opt, total_steps=total_iterations))
         self._target_networks = target_networks 
         self._networks = networks 
         self._tau = tau
@@ -57,6 +55,8 @@ class TrainingManager:
         return (self._optimizers[0]).param_groups[0]['lr']
 
     def update_target_networks(self):
+        if self._target_networks is None:
+            return
         for target_network, local_network in zip(self._target_networks, self._networks):
             if target_network is None:
                 continue
