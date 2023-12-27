@@ -179,3 +179,29 @@ def scale_advantage(advantages, norm_type=None):
         return advantages
 
     return advantages / abs_mean_advantage
+
+def apply_selection(trajectory_component, dones, model_seq_length):
+    """
+    Applies selection logic to a component of the trajectory based on the done flag.
+
+    :param trajectory_component: A component of the trajectory (e.g., states, actions, values).
+    :param dones: Boolean tensor indicating the 'done' flag for each state.
+    :param model_seq_length: The model sequence length to use for selection.
+    :return: The selected portion of the trajectory component.
+    """
+    done_flag_last_state = dones[:, -1:, :].bool()
+    return torch.where(done_flag_last_state, 
+                       trajectory_component[:, -model_seq_length:, :], 
+                       trajectory_component[:, :model_seq_length, :])
+
+def select_model_seq_length(trajectory, model_seq_length):
+    states, actions, rewards, next_states, dones = trajectory
+
+    # Apply the selection logic to each component of the trajectory
+    sel_states = apply_selection(states, dones, model_seq_length)
+    sel_actions = apply_selection(actions, dones, model_seq_length)
+    sel_rewards = apply_selection(rewards, dones, model_seq_length)
+    sel_next_states = apply_selection(next_states, dones, model_seq_length)
+    sel_dones = apply_selection(dones, dones, model_seq_length)
+
+    return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones

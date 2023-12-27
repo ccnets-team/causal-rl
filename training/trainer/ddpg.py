@@ -63,7 +63,8 @@ class DDPG(BaseTrainer):
                 action = self.actor.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
                 action = self.actor.select_action(state, mask=mask)
-        return action
+            value = None
+        return action, value
     
     def train_model(self, trajectory: BatchTrajectory):
         """

@@ -10,14 +10,15 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps=16, discount_factor=0.999, advantage_lambda = 0.99, use_gae_advantage=False):
+    def __init__(self, num_td_steps=16, model_seq_length = 16, discount_factor=0.999, advantage_lambda = 0.99, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step returns
+        self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weight    ing n-step returns.
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
+    def __init__(self, num_layers=5, d_model=256, dropout=0.02, 
                  tau=1e-1, use_target_network=True):
         self.critic_network = GPT  # GPT-based network used for the critic.
         self.actor_network = GPT  # GPT-based network used for the actor.
@@ -30,7 +31,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=2e-5, lr_decay_ratio=5e-2, clip_grad_range=None):
+    def __init__(self, lr=2e-5, lr_decay_ratio=1e-1, clip_grad_range=5):
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training.
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
@@ -49,17 +50,14 @@ class ExplorationParameters:
 
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_type='standard', buffer_size=256000):
+    def __init__(self, buffer_type='priority', buffer_size=256000):
         self.buffer_type = buffer_type  # Determines the type of memory buffer used for storing experiences.
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
 
 class NormalizationParameters:
-    def __init__(self, reward_scale=1, 
-                 reward_normalizer='running_mean_std', state_normalizer='running_mean_std', advantage_normalizer=None):
-        self.reward_scale = reward_scale  # Scaling factor for rewards, used to adjust the magnitude of rewards appplies after reward normalization.
+    def __init__(self, reward_normalizer='running_mean_std', state_normalizer='running_mean_std'):
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
-        self.advantage_normalizer = advantage_normalizer  # Determines the normalization technique for advantage values, for example, 'L1_norm'.
 
 class RLParameters:
     def __init__(self,

@@ -6,7 +6,7 @@ from utils.printer import print_step, print_metrics, print_scores
 from utils.logger import log_data
 from utils.wandb_logger import wandb_log_data, wandb_init
 from utils.structure.trajectories  import MultiEnvTrajectories
-from memory.replay_buffer import ExperienceMemory
+from memory.experience_memory import ExperienceMemory
 from utils.loader import save_trainer, load_trainer
 from training.managers.record_manager import RecordManager
 import logging
@@ -123,7 +123,8 @@ class RLTuneHelper:
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
-            self.parent.memory = ExperienceMemory(self.env_config, self.rl_params.training, self.rl_params.algorithm, self.rl_params.memory, self.parent.device)
+            reward_normalizer = self.parent.trainer.get_reward_normalizer()
+            self.parent.memory = ExperienceMemory(self.env_config, self.rl_params.training, self.rl_params.algorithm, self.rl_params.memory, reward_normalizer, self.parent.device)
 
     def _save_rl_model_conditional(self, step: int):
         if step % self.save_interval == 0:

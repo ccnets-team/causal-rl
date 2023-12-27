@@ -15,7 +15,7 @@ from nn.roles.actor import DualInputActor
 from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectories  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, adaptive_masked_tensor_reduction
+from training.trainer_utils import create_padding_mask_before_dones, select_model_seq_length
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -43,12 +43,12 @@ class CausalRL(BaseTrainer):
     def get_action(self, state, mask = None, training: bool = False):
         exploration_rate = self.get_exploration_rate()
         with torch.no_grad():
-            estimated_value = self.critic(state, mask = mask)
+            value = self.critic(state, mask = mask)
             if training:
-                action = self.actor.sample_action(state, estimated_value, mask=mask, exploration_rate=exploration_rate)
+                action = self.actor.sample_action(state, value, mask=mask, exploration_rate=exploration_rate)
             else:
-                action = self.actor.select_action(state, estimated_value, mask)
-        return action
+                action = self.actor.select_action(state, value, mask)
+        return action, value
 
     # This is the core training method of our Causal RL approach.
     # The model employs a cooperative setup among a Critic, an Actor, and a Reverse-environment to learn from the environment's transitions.
@@ -62,7 +62,7 @@ class CausalRL(BaseTrainer):
         self.set_train(training=True)
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
-        states, actions, rewards, next_states, dones = trajectory
+        states, actions, rewards, next_states, dones = select_model_seq_length(trajectory, self.model_seq_length)
         mask = create_padding_mask_before_dones(dones)
 
         # Get the estimated value of the current state from the critic network.

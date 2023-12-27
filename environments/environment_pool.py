@@ -5,21 +5,21 @@ from utils.structure.trajectories  import MultiEnvTrajectories
 import torch
 
 class EnvironmentPool: 
-    def __init__(self, env_config, num_td_steps, device, test_env, use_graphics):
+    def __init__(self, env_config, seq_length, device, test_env, use_graphics):
         super(EnvironmentPool, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
         w_id = 0 if test_env else 1
         w_id += 100
         self.device = device
-        self.num_td_steps = num_td_steps
+        self.seq_length = seq_length
          
         if env_config.env_type == "gym":
-            self.env_list = [GymEnvWrapper(env_config, num_td_steps, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
+            self.env_list = [GymEnvWrapper(env_config, seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
         elif env_config.env_type == "mlagents":
-            self.env_list = [MLAgentsEnvWrapper(env_config, num_td_steps, test_env, use_graphics = use_graphics, \
+            self.env_list = [MLAgentsEnvWrapper(env_config, seq_length, test_env, use_graphics = use_graphics, \
                 worker_id = int(w_id + i), seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
@@ -35,21 +35,13 @@ class EnvironmentPool:
         combined_transition = MultiEnvTrajectories()
 
         for env_idx, env in enumerate(self.env_list):
-            agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated = env.output_transitions()
-            combined_transition.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated)
+            agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, values = env.output_transitions()
+            combined_transition.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, values)
         return combined_transition
 
     def step_env(self):
         for env in self.env_list:
             env.step_environment()
-
-    def sample_explore_td_steps(self, exploration_rate):
-        # Sample from a normal distribution with mean=self.num_td_steps and std=exploration_rate
-        sampled_td_steps = int(round(np.random.normal(loc=1, scale=exploration_rate)*self.num_td_steps))
-
-        # Ensure that the sampled value is within valid bounds (1 to max_td_steps)
-        selected_td_steps = min(max(sampled_td_steps, 1), self.num_td_steps)
-        return selected_td_steps
         
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
@@ -62,7 +54,7 @@ class EnvironmentPool:
         mask_tensor = torch.from_numpy(np_mask).to(self.device)
         
         state_tensor = trainer.normalize_state(state_tensor)
-        action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
+        action_tensor, value_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
         if training:
             trainer.reset_actor_noise(reset_noise=reset_tensor)
 
@@ -70,20 +62,23 @@ class EnvironmentPool:
             env.agent_reset.fill(False)
             
         np_action = action_tensor.cpu().numpy()
+        np_value = value_tensor.cpu().numpy()
         start_idx = 0
         for env in self.env_list:
             end_idx = start_idx + len(env.agent_dec)
             valid_action = np_action[start_idx:end_idx][env.agent_dec]
+            valid_value = np_value[start_idx:end_idx][env.agent_dec]
 
             select_valid_action = valid_action[:,-1,:]
-            env.update(select_valid_action)
+            select_valid_value = valid_value[:,-1,:]
+            env.update(select_valid_action, select_valid_value)
             start_idx = end_idx
 
     @staticmethod
-    def create_train_environments(env_config, num_td_steps, device):
-        return EnvironmentPool(env_config, num_td_steps, device, test_env=False, use_graphics = False)
+    def create_train_environments(env_config, seq_length, device):
+        return EnvironmentPool(env_config, seq_length, device, test_env=False, use_graphics = False)
     
     @staticmethod
-    def create_test_environments(env_config, num_td_steps, device, use_graphics):
-        return EnvironmentPool(env_config, num_td_steps, device, test_env=True, use_graphics = use_graphics)
+    def create_test_environments(env_config, seq_length, device, use_graphics):
+        return EnvironmentPool(env_config, seq_length, device, test_env=True, use_graphics = use_graphics)
 

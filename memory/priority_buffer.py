@@ -4,12 +4,31 @@
         PARK, JunHo
 '''
 from .base_buffer import BaseBuffer
+import numpy as np
 
-class StandardBuffer(BaseBuffer):
-    def __init__(self, capacity, state_size, action_size, num_td_steps):
-        super().__init__("standard", capacity, state_size, action_size, num_td_steps)
+class PriorityBuffer(BaseBuffer):
+    def __init__(self, capacity, state_size, action_size, num_td_steps, gamma):
+        super().__init__("standard", capacity, state_size, action_size, num_td_steps, gamma)
+        self.values = np.empty(self.capacity)  # Store TD errors for each transition
+        self.td_errors = np.empty(self.capacity)  # Store TD errors for each transition
 
-    def add_transition(self, state, action, reward, next_state, terminated, truncated, td_error=None):
+    def _update_td_errors(self, values, normalized_rewards):
+        """
+        Updates the TD errors for the current and previous transitions.
+
+        :param values: The estimated values for the current state.
+        :param normalized_rewards: Normalized rewards for the current state.
+        """
+        self.values[self.index] = values
+        self.td_errors[self.index] = 1e-6  # Initialize the current TD error with a small value
+
+        if self.size > 0:
+            previous_idx = (self.index - 1 + self.capacity) % self.capacity
+            if not self.terminated[previous_idx] and not self.truncated[previous_idx]:
+                prev_td_error = self.gamma * values + normalized_rewards - self.values[previous_idx]
+                self.td_errors[previous_idx] = abs(prev_td_error)
+                
+    def add_transition(self, state, action, reward, next_state, terminated, truncated, values=None, normalized_rewards=None):
         # Remove the current index from valid_indices if it's present
         self._exclude_from_sampling(self.index)
 
@@ -20,6 +39,8 @@ class StandardBuffer(BaseBuffer):
         self.next_states[self.index] = next_state
         self.terminated[self.index] = terminated
         self.truncated[self.index] = truncated
+        if values is not None:
+            self._update_td_errors(values, normalized_rewards)
 
         # Check if adding this data creates a valid trajectory
         self._include_for_sampling(self.index, terminated, truncated)

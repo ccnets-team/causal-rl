@@ -58,7 +58,9 @@ class DQN(BaseTrainer):
                 action = self.q_network.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
                 action = self.q_network.select_action(state, mask=mask)
-        return action
+            value = None
+        return action, value
+
     
 
     def train_model(self, trajectory: BatchTrajectory):
