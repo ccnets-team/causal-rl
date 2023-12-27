@@ -26,6 +26,8 @@ class BaseBuffer:
         self.next_states = np.empty((self.capacity, self.state_size))
         self.terminated = np.empty(self.capacity)       
         self.truncated = np.empty(self.capacity)       
+        self.values = np.empty(self.capacity)  # Store TD errors for each transition
+        self.td_errors = np.empty(self.capacity)  # Store TD errors for each transition
         self.valid_indices.fill(False)  # Reset all indices to invalid
         self.valid_set.clear() 
 

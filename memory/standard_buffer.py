@@ -6,10 +6,10 @@
 from .base_buffer import BaseBuffer
 
 class StandardBuffer(BaseBuffer):
-    def __init__(self, capacity, state_size, action_size, num_td_steps):
-        super().__init__("standard", capacity, state_size, action_size, num_td_steps)
+    def __init__(self, capacity, state_size, action_size, num_td_steps, gamma = None):
+        super().__init__("standard", capacity, state_size, action_size, num_td_steps, gamma)
 
-    def add_transition(self, state, action, reward, next_state, terminated, truncated, td_error=None):
+    def add_transition(self, state, action, reward, next_state, terminated, truncated, values=None, normalized_rewards=None):
         # Remove the current index from valid_indices if it's present
         self._exclude_from_sampling(self.index)
 

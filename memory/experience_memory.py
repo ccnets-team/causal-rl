@@ -141,13 +141,9 @@ class ExperienceMemory:
 
         return samples
 
-    def _calculate_sampling_probabilities(self, alpha = 0.6):
-        td_errors = []
-        for env in self.multi_buffers:
-            for buf in env:
-                td_errors.extend(buf.td_errors[buf.valid_indices])
-
-        td_errors = np.array(td_errors)
+    def _calculate_sampling_probabilities(self, alpha=1):
+        # Accumulate TD errors using NumPy arrays for memory efficiency
+        td_errors = np.concatenate([buf.td_errors[buf.valid_indices] for env in self.multi_buffers for buf in env])
 
         # Adjust TD errors by alpha
         if alpha != 0:
