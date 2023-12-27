@@ -55,8 +55,6 @@ class TrainingManager:
         return (self._optimizers[0]).param_groups[0]['lr']
 
     def update_target_networks(self):
-        if self._target_networks is None:
-            return
         for target_network, local_network in zip(self._target_networks, self._networks):
             if target_network is None:
                 continue

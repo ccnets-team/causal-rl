@@ -106,7 +106,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         scaled_rewards = self.scale_seq_rewards(rewards)
         
         with torch.no_grad():
-            trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask, use_target=self.use_target_network)
+            trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask)
             if self.use_gae_advantage:
                 _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, gamma, lambd)
                 _expected_value = (_advantage + estimated_value)

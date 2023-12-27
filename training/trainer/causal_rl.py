@@ -135,9 +135,9 @@ class CausalRL(BaseTrainer):
         self.update_target_networks()
         self.update_schedulers()
 
-    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         with torch.no_grad():
-            if use_target:  
+            if self.use_target_network:  
                 future_value = self.target_critic(next_state, mask=mask)
             else:
                 future_value = self.critic(next_state, mask=mask)

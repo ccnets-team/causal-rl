@@ -129,7 +129,7 @@ class TD3(BaseTrainer):
         self.total_steps += 1
         self.policy_noise = self.get_exploration_rate()
 
-    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         """
         Calculates the future value of the next state using target actor and critics.
         
@@ -142,7 +142,7 @@ class TD3(BaseTrainer):
         torch.Tensor: The calculated future value tensor.
         """
         with torch.no_grad():
-            if use_target:
+            if self.use_target_network:
                 next_action = self.target_actor(next_state, mask)
                 noise = torch.normal(torch.zeros_like(next_action), self.policy_noise)
                 new_next_action = noise + noise
