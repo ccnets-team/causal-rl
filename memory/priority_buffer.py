@@ -80,20 +80,21 @@ class PriorityBuffer(BaseBuffer):
 
         return samples
 
-    def update_td_errors_for_sampled(self, indices, normalized_rewards, values):
+    def update_td_errors_for_sampled(self, indices, normalized_rewards, values, mask):
         """
         Updates the TD errors for sampled experiences.
 
-        :param indices: Indices of the sampled experiences.
-        :param normalized_rewards: Normalized rewards for the sampled experiences.
-        :param values: Estimated values for the sampled experiences.
+        :param indices: Indices of the last element of the sampled experiences.
+        :param normalized_rewards: Normalized rewards for the sampled experiences, shape [m, n].
+        :param values: Estimated values for the sampled experiences, shape [m, n].
+        :param mask: Mask array indicating which steps to update, shape [m].
         """
-        for idx, norm_reward, val in zip(indices, normalized_rewards, values):
-            # Calculate previous and current indices in the buffer
-            previous_idx = (idx - 1 + self.capacity) % self.capacity
-            current_idx = idx
-
-            # Update TD errors for previous and current indices
-            self._update_td_errors(previous_idx, norm_reward[0], val[0])
-            self._update_td_errors(current_idx, norm_reward[1], val[1])
-            
+        for last_idx, norm_rewards, vals, m in zip(indices, normalized_rewards, values, mask):
+            # Iterate in reverse order as specified by the mask
+            seq_len = len(m)
+            for i in reversed(range(seq_len)):
+                if m[i] == 0:
+                    continue  # Skip masked-out steps
+                # Calculate the current index in the buffer based on the last index of the trajectory
+                current_idx = (last_idx - seq_len + 1 + i) % self.capacity
+                self._update_td_errors(current_idx, norm_rewards[i], vals[i])

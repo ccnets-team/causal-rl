@@ -115,14 +115,15 @@ class ExperienceMemory:
         if self.use_priority:
             mask = create_padding_mask_before_dones(dones)
             # Recompute normalized rewards and values
-            normalized_rewards = self.reward_normalizer.normalize(rewards).cpu().numpy()[-2:, :]
-            values = self.value_function(states, mask = mask).detach().cpu().numpy()[-2:, :]
+            normalized_rewards = self.reward_normalizer.normalize(rewards).cpu().numpy()
+            values = self.value_function(states, mask = mask).detach().cpu().numpy()
+            mask = mask.cpu().numpy()
             # Update TD errors for sampled trajectories
-            self.update_td_errors(buffer_indices, cumulative_sizes, normalized_rewards, values)
+            self.update_td_errors(buffer_indices, cumulative_sizes, normalized_rewards, values, mask)
         
         return batch_trajectory
 
-    def update_td_errors(self, buffer_indices, cumulative_sizes, normalized_rewards, values):
+    def update_td_errors(self, buffer_indices, cumulative_sizes, normalized_rewards, values, mask):
         # Iterate over buffers and update TD errors
         for buffer_id, _ in buffer_indices.items():
             # Map buffer_id back to env_id and agent_id
@@ -137,12 +138,13 @@ class ExperienceMemory:
             # Extract corresponding local normalized rewards and values
             local_normalized_rewards = normalized_rewards[start_index:end_index]
             local_values = values[start_index:end_index]
+            local_mask = mask[start_index:end_index]
 
             # Determine the local indices within the buffer
             local_indices = list(range(start_index, end_index))
 
             # Update TD errors for the buffer
-            buffer.update_td_errors_for_sampled(local_indices, local_normalized_rewards, local_values)
+            buffer.update_td_errors_for_sampled(local_indices, local_normalized_rewards, local_values, local_mask)
 
     def sample_trajectory_data(self, use_sampling_normalizer_update = True):
         sample_sz = self.batch_size
