@@ -58,11 +58,10 @@ class ExperienceMemory:
         states, actions, rewards, next_states, dones = map(lambda x: torch.FloatTensor(x).to(self.device), components)
         return states, actions, rewards, next_states, dones
 
-    def _get_env_agent_ids(self, global_index):
+    def _get_env_agent_ids(self, buffer_id):
         # Retrieve environment and agent IDs from the global index
-        env_agent_id = global_index // self.capacity_per_agent
-        env_id = env_agent_id // self.num_agents
-        agent_id = env_agent_id % self.num_agents
+        env_id = buffer_id // self.num_agents
+        agent_id = buffer_id % self.num_agents
         return env_id, agent_id
 
     def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories):
@@ -90,12 +89,13 @@ class ExperienceMemory:
             np_indices = np.array(indices)
             valid_indices_mask = buffer.valid_indices[np_indices]
             selected_indices = np_indices[valid_indices_mask]
+            
+            buffer_indices[buffer_id] = selected_indices
 
             if len(selected_indices) == 0:
                 continue
 
             trajectory = buffer._fetch_trajectory_slices(selected_indices, self.num_td_steps)
-            buffer_indices[buffer_id].extend(selected_indices)
             samples.extend(trajectory)
         
         if samples is None or len(samples) == 0:
