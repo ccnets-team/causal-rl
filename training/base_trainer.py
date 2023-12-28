@@ -8,7 +8,7 @@ from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
 from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value 
-from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction, apply_selection
+from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction, apply_seq_mask
 from .trainer_utils import create_padding_mask_before_dones, convert_trajectory_data
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
@@ -94,15 +94,15 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
     
-    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
+    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, model_seq_mask: torch.Tensor):
         """Compute the advantage and expected value."""
         gamma = self.discount_factor
         lambd = self.advantage_lambda
         
         states, actions, rewards, next_states, dones = trajectory 
 
-        mask = create_padding_mask_before_dones(dones)
-        trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, mask)
+        padding_mask = create_padding_mask_before_dones(dones)
+        trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, padding_mask)
         scaled_rewards = self.scale_seq_rewards(rewards)
         
         with torch.no_grad():
@@ -112,8 +112,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 _expected_value = (_advantage + estimated_value)
             else:
                 _expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, gamma, lambd)
-                
-            expected_value = apply_selection(_expected_value, dones, self.model_seq_length)
+            
+            expected_value = apply_seq_mask(_expected_value, model_seq_mask, self.model_seq_length)
             advantage = (expected_value - estimated_value)
         return expected_value, advantage
 

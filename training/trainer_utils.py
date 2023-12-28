@@ -180,33 +180,57 @@ def scale_advantage(advantages, norm_type=None):
 
     return advantages / abs_mean_advantage
 
-def apply_selection(trajectory_component, dones, model_seq_length):
-    """
-    Applies selection logic to a component of the trajectory based on the done flag.
-
-    :param trajectory_component: A component of the trajectory (e.g., states, actions, values).
-    :param dones: Boolean tensor indicating the 'done' flag for each state.
-    :param model_seq_length: The model sequence length to use for selection.
-    :return: The selected portion of the trajectory component.
-    """
-    done_flag_last_state = dones[:, -1:, :].bool()
-    return torch.where(done_flag_last_state, 
-                       trajectory_component[:, -model_seq_length:, :], 
-                       trajectory_component[:, :model_seq_length, :])
-
-def select_model_seq_length(trajectory, model_seq_length):
-    states, actions, rewards, next_states, dones = trajectory
-
-    # Apply the selection logic to each component of the trajectory
-    sel_states = apply_selection(states, dones, model_seq_length)
-    sel_actions = apply_selection(actions, dones, model_seq_length)
-    sel_rewards = apply_selection(rewards, dones, model_seq_length)
-    sel_next_states = apply_selection(next_states, dones, model_seq_length)
-    sel_dones = apply_selection(dones, dones, model_seq_length)
-
-    return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones
-
 def convert_trajectory_data(states, next_states, mask):
     trajectory_states = torch.cat([states, next_states[:, -1:]], dim=1)
     trajectory_mask = torch.cat([mask, mask[:, -1:]], dim=1)
     return trajectory_states, trajectory_mask
+
+def create_model_seq_mask(padding_mask, model_seq_length):
+    """
+    Creates a selection mask for trajectories.
+
+    :param padding_mask: Mask tensor from create_padding_mask_before_dones, shape [B, S, 1].
+    :param model_seq_length: Length of the model sequence to select.
+    :return: Selection mask tensor, shape [B, model_seq_length, 1].
+    """
+    batch_size, seq_len, _ = padding_mask.shape
+
+    # Find the index of the first non-padding point after 'done'
+    first_non_padding_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
+    end_non_padding_idx = first_non_padding_idx + model_seq_length
+    end_select_idx = torch.clamp(end_non_padding_idx, max=seq_len)
+    first_select_idx = end_select_idx - model_seq_length
+
+    # Create a range tensor of shape [S]
+    range_tensor = torch.arange(seq_len, device=padding_mask.device).unsqueeze(0).unsqueeze(-1)
+
+    # Broadcast to shape [B, S, 1] and compare
+    select_mask = (range_tensor >= first_select_idx) & (range_tensor < end_select_idx)
+    
+    return select_mask
+
+# Function to apply selection mask to a trajectory component
+def apply_seq_mask(component, model_seq_mask, model_seq_length):
+    batch_size, seq_len, feature_size = component.shape
+    reshaped_mask = model_seq_mask.expand(-1, -1, feature_size).reshape(batch_size, -1)
+    selected = component.reshape(batch_size, -1)[reshaped_mask].view(batch_size, model_seq_length, feature_size)
+    return selected
+
+def select_model_seq_length(trajectory, model_seq_length):
+    states, actions, rewards, next_states, dones = trajectory
+    
+    padding_mask = create_padding_mask_before_dones(dones)
+    model_seq_mask = create_model_seq_mask(padding_mask, model_seq_length)
+
+    # Apply the mask to each trajectory component
+    sel_states = apply_seq_mask(states, model_seq_mask, model_seq_length)
+    sel_actions = apply_seq_mask(actions, model_seq_mask, model_seq_length)
+    sel_rewards = apply_seq_mask(rewards, model_seq_mask, model_seq_length)
+    sel_next_states = apply_seq_mask(next_states, model_seq_mask, model_seq_length)
+    sel_dones = apply_seq_mask(dones, model_seq_mask, model_seq_length)
+
+    return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, model_seq_mask
+
+
+
+

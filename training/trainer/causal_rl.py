@@ -62,19 +62,19 @@ class CausalRL(BaseTrainer):
         self.set_train(training=True)
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
-        states, actions, rewards, next_states, dones = select_model_seq_length(trajectory, self.model_seq_length)
-        mask = create_padding_mask_before_dones(dones)
+        states, actions, rewards, next_states, dones, model_seq_mask = select_model_seq_length(trajectory, self.model_seq_length)
+        padding_mask = create_padding_mask_before_dones(dones)
 
         # Get the estimated value of the current state from the critic network.
-        estimated_value = self.critic(states, mask)
+        estimated_value = self.critic(states, padding_mask)
             
         # Predict the action that the actor would take for the current state and its estimated value.
-        inferred_action = self.actor(states, estimated_value, mask)
+        inferred_action = self.actor(states, estimated_value, padding_mask)
         
         # Calculate the reversed state using the original action.
-        reversed_state = self.revEnv(next_states, actions, estimated_value, mask)
+        reversed_state = self.revEnv(next_states, actions, estimated_value, padding_mask)
         # Calculate the recurred state using the inferred action.
-        recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach(), mask)
+        recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach(), padding_mask)
         
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state)
@@ -91,19 +91,19 @@ class CausalRL(BaseTrainer):
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, estimated_value)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value, model_seq_mask)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)   
+        value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss = self.select_tensor_reduction(coop_critic_error, mask)
+        critic_loss = self.select_tensor_reduction(coop_critic_error, padding_mask)
         
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss = self.select_tensor_reduction(advantage * coop_actor_error, mask)       
+        actor_loss = self.select_tensor_reduction(advantage * coop_actor_error, padding_mask)       
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss = self.select_tensor_reduction(coop_revEnv_error, mask)
+        revEnv_loss = self.select_tensor_reduction(coop_revEnv_error, padding_mask)
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
