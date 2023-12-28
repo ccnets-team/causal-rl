@@ -21,6 +21,7 @@ class ExperienceMemory:
         self.gamma = algorithm_params.discount_factor
         self.compute_td_errors = compute_td_errors
         self.use_priority = False
+        self.td_error_update_counter = 0
 
         # Capacity calculation now in a separate method for clarity
         self.capacity_per_agent = self._calculate_capacity_per_agent(memory_params.buffer_size)
@@ -78,7 +79,10 @@ class ExperienceMemory:
             buffer_id = int(env_id * self.num_agents + agent_id)
             buffer_candidates[buffer_id].append(buffer.index)
             buffer.add_transition(*data[2:])
-
+        
+        self.td_error_update_counter += 1
+        if self.td_error_update_counter % self.num_td_steps != 0:
+            return
         buffer_indices = defaultdict(list)
         samples = []
         for buffer_id, indices in buffer_candidates.items():
