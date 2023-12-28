@@ -25,7 +25,7 @@ class RLTuneHelper:
             wandb_init(trainer_name, env_config, rl_params)
         self.use_wandb = use_wandb
         
-        self.use_normalizer = (rl_params.normalization.reward_normalizer) != 'none' or (rl_params.normalization.state_normalizer != 'none')
+        self.use_normalizer = (rl_params.normalization.reward_normalizer) is not None or (rl_params.normalization.state_normalizer is not None) or (rl_params.normalization.advantage_normalizer is not None) 
         
         self.print_interval = DEFAULT_PRINT_INTERVAL
         self.save_interval = DEFAULT_SAVE_INTERVAL

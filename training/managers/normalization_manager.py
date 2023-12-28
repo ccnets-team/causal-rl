@@ -22,14 +22,21 @@ class NormalizerBase:
             self.normalizer = RunningAbsMean(vector_size, device)
             
         self.device = device
-            
+                    
     def _update_normalizer(self, data):
         if self.normalizer is not None:
-            data = torch.FloatTensor(data).to(self.device)
+            # Convert to a PyTorch tensor if it's a NumPy array
+            if not isinstance(data, torch.Tensor):
+                data = torch.FloatTensor(data).to(self.device)
+            elif data.device != self.device:
+                data = data.to(self.device)
+
+            # Reshape the data for the normalizer update
             first_seq_data = data.view(-1, *data.shape[2:])
+
             # Update the normalizer
             self.normalizer.update(first_seq_data)
-
+            
     def normalize_data(self, data):
         if self.normalizer is not None:
             clip = self.clip_norm_range
@@ -38,9 +45,10 @@ class NormalizerBase:
         return data
     
 class NormalizationUtils:
-    def __init__(self, env_config, normalization, device):
-        self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization, device=device)
-        self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization, device=device)
+    def __init__(self, env_config, normalization_params, model_seq_length, device):
+        self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization_params, device=device)
+        self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization_params, device=device)
+        self.advantage_manager = NormalizerBase(model_seq_length, 'advantage_normalizer', normalization_params, device=device)
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
@@ -49,6 +57,11 @@ class NormalizationUtils:
 
     def normalize_reward(self, reward):
         return self.reward_manager.normalize_data(reward)
+
+    def normalize_advantage(self, advantage):
+        normalized_advantage = self.advantage_manager.normalize_data(advantage)
+        self.advantage_manager._update_normalizer(advantage.squeeze(-1).unsqueeze(0))
+        return normalized_advantage
     
     def get_state_normalizer(self):
         return self.state_manager.normalizer
@@ -56,12 +69,15 @@ class NormalizationUtils:
     def get_reward_normalizer(self):
         return self.reward_manager.normalizer
 
+    def get_advantage_normalizer(self):
+        return self.advantage_manager.normalizer
+
     def transform_transition(self, trans: BatchTrajectory):
         trans.state = self.normalize_state(trans.state)
         trans.next_state = self.normalize_state(trans.next_state)
         trans.reward = self.normalize_reward(trans.reward)
         return trans
-    
+
     def update_normalizer(self, samples):
         for index in self.state_indices:
             data = np.stack([sample[index] for sample in samples], axis=0)

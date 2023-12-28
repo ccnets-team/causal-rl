@@ -14,10 +14,10 @@ from .trainer_utils import create_padding_mask_before_dones, convert_trajectory_
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
         self._unpack_rl_params(rl_params)
+        self._init_trainer_specific_params()
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
-        self._init_trainer_specific_params()
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
         self.sum_discounted_gammas = torch.sum(self.discount_factors)
         self.reduction_type = 'cross'
@@ -35,7 +35,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
-        NormalizationUtils.__init__(self, env_config, self.normalization_params, device)
+        NormalizationUtils.__init__(self, env_config, self.normalization_params, self.model_seq_length, device)
 
     def _init_exploration_utils(self):
         ExplorationUtils.__init__(self, self.exploration_params)
@@ -115,6 +115,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             
             expected_value = apply_seq_mask(_expected_value, model_seq_mask, self.model_seq_length)
             advantage = (expected_value - estimated_value)
+            advantage = self.normalize_advantage(advantage)
         return expected_value, advantage
 
     def reset_actor_noise(self, reset_noise):

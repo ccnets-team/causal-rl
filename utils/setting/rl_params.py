@@ -10,7 +10,7 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps=24, model_seq_length = 16, discount_factor=0.999, advantage_lambda = 0.99, use_gae_advantage=False):
+    def __init__(self, num_td_steps=16, model_seq_length = 16, discount_factor=0.999, advantage_lambda = 0.99, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
@@ -18,7 +18,7 @@ class AlgorithmParameters:
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.02, 
+    def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
                  tau=1e-1, use_target_network=True):
         self.critic_network = GPT  # GPT-based network used for the critic.
         self.actor_network = GPT  # GPT-based network used for the actor.
@@ -50,15 +50,16 @@ class ExplorationParameters:
 
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_type='priority', priority_alpha = 0.6, buffer_size=256000):
+    def __init__(self, buffer_type='priority', priority_alpha = 1, buffer_size=256000):
         self.buffer_type = buffer_type  # Determines the type of memory buffer used for storing experiences.
         self.priority_alpha = priority_alpha  # Alpha parameter for adjusting the prioritization in the memory buffer.
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
 
 class NormalizationParameters:
-    def __init__(self, reward_normalizer='running_mean_std', state_normalizer='running_mean_std'):
-        self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer='running_mean_std'):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
+        self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
+        self.advantage_normalizer = advantage_normalizer
 
 class RLParameters:
     def __init__(self,
