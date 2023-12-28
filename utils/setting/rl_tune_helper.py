@@ -123,9 +123,8 @@ class RLTuneHelper:
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
-            reward_normalizer = self.parent.trainer.get_reward_normalizer()
-            value_function = self.parent.trainer.trainer_calculate_future_value
-            self.parent.memory = ExperienceMemory(self.env_config, self.rl_params.training, self.rl_params.algorithm, self.rl_params.memory, reward_normalizer, value_function, self.parent.device)
+            compute_td_errors = self.parent.trainer.compute_td_errors
+            self.parent.memory = ExperienceMemory(self.env_config, self.rl_params.training, self.rl_params.algorithm, self.rl_params.memory, compute_td_errors, self.parent.device)
 
     def _save_rl_model_conditional(self, step: int):
         if step % self.save_interval == 0:

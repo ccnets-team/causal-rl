@@ -58,8 +58,8 @@ class DQN(BaseTrainer):
                 action = self.q_network.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
                 action = self.q_network.select_action(state, mask=mask)
-            value = None
-        return action, value
+
+        return action
 
     
 

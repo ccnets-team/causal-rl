@@ -57,8 +57,8 @@ class A2C(BaseTrainer):
                 action = self.actor.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
                 action = self.actor.select_action(state, mask=mask)
-            value = None
-        return action, value
+
+        return action
 
     def train_model(self, trajectory: BatchTrajectory):
         """

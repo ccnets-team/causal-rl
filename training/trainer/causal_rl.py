@@ -43,12 +43,13 @@ class CausalRL(BaseTrainer):
     def get_action(self, state, mask = None, training: bool = False):
         exploration_rate = self.get_exploration_rate()
         with torch.no_grad():
-            value = self.critic(state, mask = mask)
+            estimated_value = self.critic(state, mask = mask)
             if training:
-                action = self.actor.sample_action(state, value, mask=mask, exploration_rate=exploration_rate)
+                action = self.actor.sample_action(state, estimated_value, mask=mask, exploration_rate=exploration_rate)
             else:
-                action = self.actor.select_action(state, value, mask)
-        return action, value
+                action = self.actor.select_action(state, estimated_value, mask)
+                
+        return action
 
     # This is the core training method of our Causal RL approach.
     # The model employs a cooperative setup among a Critic, an Actor, and a Reverse-environment to learn from the environment's transitions.
@@ -138,6 +139,11 @@ class CausalRL(BaseTrainer):
         self.update_optimizers()
         self.update_target_networks()
         self.update_schedulers()
+
+    def trainer_calculate_value_estimate(self, states, mask = None):
+        with torch.no_grad():
+            estimated_value = self.critic(states, mask=mask)
+        return estimated_value    
 
     def trainer_calculate_future_value(self, next_state, mask = None):
         with torch.no_grad():

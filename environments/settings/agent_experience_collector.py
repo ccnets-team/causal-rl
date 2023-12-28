@@ -13,7 +13,6 @@ class AgentExperienceCollector:
         self.agent_next_obs = [[] for i in range(self.num_agents)]
         self.agent_done_terminated = [[] for i in range(self.num_agents)]
         self.agent_done_truncated = [[] for i in range(self.num_agents)]
-        self.agent_values = [[] for i in range(self.num_agents)]
 
     def reset_agents(self):
         for i in range(self.num_agents):
@@ -23,7 +22,6 @@ class AgentExperienceCollector:
             self.agent_next_obs[i].clear()
             self.agent_done_terminated[i].clear()  
             self.agent_done_truncated[i].clear()  
-            self.agent_values[i].clear()  
         self.agent_num.fill(int(0))
         
     def init_observation(self, observations):
@@ -61,43 +59,38 @@ class AgentExperienceCollector:
         agent_ids_ls = agent_ids.tolist()
         return [agent_ids_ls.index(selected_id) for selected_id in selected_next_agent_ids]
 
-    def select_data(self, agent_ids, selected_agent_indices, obs, action, reward, value, term):
+    def select_data(self, agent_ids, selected_agent_indices, obs, action, reward, term):
         selected_agent_ids = agent_ids[selected_agent_indices]
         selected_obs = obs[selected_agent_indices]
         action = action[selected_agent_indices]
-        if value is not None:
-            value = value[selected_agent_indices]
         done = np.ones_like(reward, dtype=np.bool8) if term else np.zeros_like(reward, dtype=np.bool8)
 
-        return selected_agent_ids, selected_obs, action, reward, value, done
+        return selected_agent_ids, selected_obs, action, reward, done
 
-    def append_agent_transition(self, agent_id, obs, action, reward, next_obs, done_terminated, done_truncated, values):
+    def append_agent_transition(self, agent_id, obs, action, reward, next_obs, done_terminated, done_truncated):
         self.agent_obs[agent_id].append(obs)
         self.agent_action[agent_id].append(action)
         self.agent_reward[agent_id].append(reward)
         self.agent_next_obs[agent_id].append(next_obs)
         self.agent_done_terminated[agent_id].append(done_terminated)
         self.agent_done_truncated[agent_id].append(done_truncated)
-        self.agent_values[agent_id].append(values)
         self.agent_num[agent_id] += 1
 
-    def update_agent_data(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated=None, values=None):
+    def update_agent_data(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated=None):
         if done_truncated is None:
             done_truncated = [False] * len(agent_ids)
-        if values is None:
-            values = [0.0] * len(agent_ids)
         for agent_idx, agent_id in enumerate(agent_ids):
             self.append_agent_transition(agent_id, obs[agent_idx], action[agent_idx], reward[agent_idx], next_obs[agent_idx], 
-                                        done_terminated[agent_idx], done_truncated[agent_idx], values[agent_idx])
+                                        done_terminated[agent_idx], done_truncated[agent_idx])
             
-    def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, term=False, values = None):
+    def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, term=False):
         if len(next_agent_ids) == 0: return
         
         selected_next_agent_ids, reward, next_obs = self.filter_agents(agent_ids, next_agent_ids, reward, next_obs)
         
         selected_agent_indices = self.find_indices(agent_ids, selected_next_agent_ids)
-        selected_agent_ids, obs, action, reward, values, done = self.select_data(agent_ids, selected_agent_indices, obs, action, reward, values, term)
-        self.update_agent_data(selected_agent_ids, obs, action, reward, next_obs, done_terminated = done, values = values)
+        selected_agent_ids, obs, action, reward, done = self.select_data(agent_ids, selected_agent_indices, obs, action, reward, term)
+        self.update_agent_data(selected_agent_ids, obs, action, reward, next_obs, done_terminated = done)
 
     def output_transitions(self):
         np_obs = [item for sublist in self.agent_obs[:self.num_agents] for item in sublist]
@@ -106,8 +99,7 @@ class AgentExperienceCollector:
         np_next_obs = [item for sublist in self.agent_next_obs[:self.num_agents] for item in sublist]
         np_done_terminated = [item for sublist in self.agent_done_terminated[:self.num_agents] for item in sublist]
         np_done_truncated = [item for sublist in self.agent_done_truncated[:self.num_agents] for item in sublist]
-        np_values = [item for sublist in self.agent_values[:self.num_agents] for item in sublist]
         np_agent_id = [i for i in range(self.num_agents) for _ in range(len(self.agent_obs[i]))]
     
         self.reset_agents()
-        return np_agent_id, np_obs, np_action, np_reward, np_next_obs, np_done_terminated, np_done_truncated, np_values
+        return np_agent_id, np_obs, np_action, np_reward, np_next_obs, np_done_terminated, np_done_truncated

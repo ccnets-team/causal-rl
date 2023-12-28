@@ -60,8 +60,8 @@ class SAC(BaseTrainer):
         with torch.no_grad():
             actor = self.policy  # Simplifying by using the policy directly
             action = actor.select_action(state, mask=mask)
-            value = None
-        return action, value
+
+        return action
 
     
     def update_model_network(self, state, next_state, mask = None):
