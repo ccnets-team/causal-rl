@@ -15,6 +15,7 @@ class ExperienceMemory:
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
         self.num_td_steps = algorithm_params.num_td_steps
+        self.model_seq_length = algorithm_params.model_seq_length
         self.batch_size = training_params.batch_size
         self.buffer_type = memory_params.buffer_type
         self.priority_alpha = memory_params.priority_alpha
@@ -81,7 +82,7 @@ class ExperienceMemory:
             buffer.add_transition(*data[2:])
         
         self.td_error_update_counter += 1
-        if self.td_error_update_counter % self.num_td_steps != 0:
+        if self.td_error_update_counter % self.model_seq_length != 0:
             return
         buffer_indices = defaultdict(list)
         samples = []
@@ -99,7 +100,7 @@ class ExperienceMemory:
             if len(selected_indices) == 0:
                 continue
 
-            trajectory = buffer._fetch_trajectory_slices(selected_indices, self.num_td_steps)
+            trajectory = buffer._fetch_trajectory_slices(selected_indices, self.model_seq_length)
             samples.extend(trajectory)
         
         if samples is None or len(samples) == 0:

@@ -4,8 +4,10 @@
         PARK, JunHo
 '''
 from .base_buffer import BaseBuffer
+import numpy as np
 
-MIN_TD_ERROR = 1e-6
+NORMAL_DIST_ABS_MEAN = 0.7979
+MIN_TD_ERROR = NORMAL_DIST_ABS_MEAN
 
 class PriorityBuffer(BaseBuffer):
     def __init__(self, capacity, state_size, action_size, num_td_steps):
@@ -80,13 +82,18 @@ class PriorityBuffer(BaseBuffer):
                 raise ValueError("Not enough valid samples in the buffer to draw the requested sample size.")
 
             # Map the requested indices to actual indices in the valid set
-            actual_indices = [ordered_valid_set[idx] for idx in indices]
-        
-        for last_idx, td_error, m in zip(actual_indices, td_errors, mask):
-            seq_len = len(m)
-            for i in range(seq_len):
-                if m[i] == 0:
-                    continue  # Skip masked-out steps
-                # Calculate the current index in the buffer based on the last index of the trajectory
-                current_idx = (last_idx - seq_len + 1 + i) % self.capacity
-                self.td_errors[current_idx] = td_error[i]
+            actual_indices = np.array([ordered_valid_set[idx] for idx in indices])
+
+        # Calculate the range of indices for each trajectory
+        seq_len = mask.shape[1]
+        range_indices = np.arange(seq_len)
+        all_indices = (self.capacity + actual_indices.reshape(-1, 1) - range_indices) % self.capacity
+
+        # Flatten the mask and indices array for advanced indexing
+        update_mask = mask.ravel().astype(bool)
+        all_indices_flat = all_indices.ravel()
+        td_errors_flat = td_errors.ravel()
+
+        # Perform the update using advanced indexing
+        self.td_errors[all_indices_flat[update_mask]] = td_errors_flat[update_mask]
+

@@ -98,12 +98,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         states, actions, rewards, next_states, dones = trajectory 
         
         padding_mask = create_padding_mask_before_dones(dones)
+        trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, mask=padding_mask)
         scaled_rewards = self.scale_seq_rewards(rewards)
         
         with torch.no_grad():
             estimated_value = self.trainer_calculate_value_estimate(states, mask=padding_mask)
-            future_value = self.trainer_calculate_future_value(next_states, padding_mask)
-            trajectory_values = torch.cat([torch.zeros_like(estimated_value[:,:1,:]), future_value], dim=1)
+            trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask)
             
             if self.use_gae_advantage:
                 _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
@@ -111,8 +111,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             else:
                 expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
                 
-            td_errors = (expected_value - estimated_value).abs()
-
+            _advantage = (expected_value - estimated_value)
+            advantage = self.normalize_advantage(_advantage)
+            td_errors = advantage.abs()
+            
         trajectory.push_td_errors(td_errors, padding_mask)
 
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, model_seq_mask: torch.Tensor):
@@ -120,11 +122,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         states, actions, rewards, next_states, dones = trajectory 
 
         padding_mask = create_padding_mask_before_dones(dones)
+        trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, mask=padding_mask)
         scaled_rewards = self.scale_seq_rewards(rewards)
         
         with torch.no_grad():
-            future_value = self.trainer_calculate_future_value(next_states, padding_mask)
-            trajectory_values = torch.cat([torch.zeros_like(estimated_value[:,:1,:]), future_value], dim=1)
+            trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask)
             
             if self.use_gae_advantage:
                 _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
@@ -133,9 +135,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 _expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
             
             expected_value = apply_seq_mask(_expected_value, model_seq_mask, self.model_seq_length)
-            advantage = (expected_value - estimated_value)
+            _advantage = (expected_value - estimated_value)
             
-            advantage = self.normalize_advantage(advantage)
+            advantage = self.normalize_advantage(_advantage)
+            self.update_advantage(_advantage)
+            
         return expected_value, advantage
 
     def reset_actor_noise(self, reset_noise):

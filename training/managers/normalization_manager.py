@@ -69,10 +69,10 @@ class NormalizationUtils:
         return self.reward_manager.normalize_data(reward)
 
     def normalize_advantage(self, advantage):
-        advantage.squeeze_(-1)
-        normalized_advantage = self.advantage_manager.normalize_data(advantage).unsqueeze(-1)
-        self.advantage_manager._update_normalizer(advantage)
-        return normalized_advantage
+        return self.advantage_manager.normalize_data(advantage.squeeze(-1)).unsqueeze(-1)
+
+    def update_advantage(self, advantage):
+        self.advantage_manager._update_normalizer(advantage.squeeze(-1))
     
     def get_state_normalizer(self):
         return self.state_manager.normalizer
