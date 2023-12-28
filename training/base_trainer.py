@@ -101,8 +101,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         states, actions, rewards, next_states, dones = trajectory 
 
-        padding_mask = create_padding_mask_before_dones(dones)
-        trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, padding_mask)
+        full_padding_mask = create_padding_mask_before_dones(dones)
+        trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, full_padding_mask)
         scaled_rewards = self.scale_seq_rewards(rewards)
         
         with torch.no_grad():
@@ -115,6 +115,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             
             expected_value = apply_seq_mask(_expected_value, model_seq_mask, self.model_seq_length)
             advantage = (expected_value - estimated_value)
+            
             advantage = self.normalize_advantage(advantage)
         return expected_value, advantage
 

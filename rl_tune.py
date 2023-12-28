@@ -126,6 +126,7 @@ class RLTune:
         if samples is not None:
             self.trainer.transform_transition(samples)
             train_data = self.trainer.train_model(samples)
+            self.memory.update_td_errors(samples)
             self.helper.add_train_metrics(train_data)
 
     # Environment Interaction

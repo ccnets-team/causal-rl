@@ -33,7 +33,7 @@ class PriorityBuffer(BaseBuffer):
             else:
                 # Set TD error to minimum for non-terminal, non-truncated states
                 self.td_errors[idx] = MIN_TD_ERROR
-            
+
     def add_transition(self, state, action, reward, next_state, terminated, truncated, value, normalized_reward):
         # Remove the current index from valid_indices if it's present
         self._exclude_from_sampling(self.index)
@@ -80,7 +80,7 @@ class PriorityBuffer(BaseBuffer):
 
         return samples
 
-    def update_td_errors_for_sampled(self, indices, normalized_rewards, values, mask):
+    def update_td_errors_for_sampled(self, indices, td_erors, mask):
         """
         Updates the TD errors for sampled experiences.
 
@@ -89,12 +89,12 @@ class PriorityBuffer(BaseBuffer):
         :param values: Estimated values for the sampled experiences, shape [m, n].
         :param mask: Mask array indicating which steps to update, shape [m].
         """
-        for last_idx, norm_rewards, vals, m in zip(indices, normalized_rewards, values, mask):
+        for last_idx, td_error, m in zip(indices, td_erors, mask):
             # Iterate in reverse order as specified by the mask
             seq_len = len(m)
-            for i in reversed(range(seq_len)):
+            for i in range(seq_len):
                 if m[i] == 0:
                     continue  # Skip masked-out steps
                 # Calculate the current index in the buffer based on the last index of the trajectory
                 current_idx = (last_idx - seq_len + 1 + i) % self.capacity
-                self._update_td_errors(current_idx, norm_rewards[i], vals[i])
+                self.td_errors[current_idx] = td_error[i]

@@ -25,23 +25,33 @@ class NormalizerBase:
                     
     def _update_normalizer(self, data):
         if self.normalizer is not None:
-            # Convert to a PyTorch tensor if it's a NumPy array
+            # Convert to a PyTorch tensor if it's a NumPy array and move to the specified device
             if not isinstance(data, torch.Tensor):
                 data = torch.FloatTensor(data).to(self.device)
             elif data.device != self.device:
                 data = data.to(self.device)
 
-            # Reshape the data for the normalizer update
-            first_seq_data = data.view(-1, *data.shape[2:])
+            # Reshape the data: Merge all dimensions except the last into the first dimension
+            # This matches the reshaping logic used in normalize_data
+            reshaped_data = data.view(-1, data.shape[-1])
 
-            # Update the normalizer
-            self.normalizer.update(first_seq_data)
-            
+            # Update the normalizer with the reshaped data
+            self.normalizer.update(reshaped_data)
+                
     def normalize_data(self, data):
         if self.normalizer is not None:
+            # Reshape data: Merge all dimensions except the last into the first dimension
+            original_shape = data.shape
+            data = data.view(-1, original_shape[-1])
+
+            # Normalize and clamp data
             clip = self.clip_norm_range
             data = self.normalizer.normalize(data)
             data.clamp_(-clip, clip)
+
+            # Reshape data back to its original shape
+            data = data.view(*original_shape)
+
         return data
     
 class NormalizationUtils:
@@ -59,8 +69,9 @@ class NormalizationUtils:
         return self.reward_manager.normalize_data(reward)
 
     def normalize_advantage(self, advantage):
-        normalized_advantage = self.advantage_manager.normalize_data(advantage)
-        self.advantage_manager._update_normalizer(advantage.squeeze(-1).unsqueeze(0))
+        advantage.squeeze_(-1)
+        normalized_advantage = self.advantage_manager.normalize_data(advantage).unsqueeze(-1)
+        self.advantage_manager._update_normalizer(advantage)
         return normalized_advantage
     
     def get_state_normalizer(self):

@@ -104,6 +104,7 @@ class CausalRL(BaseTrainer):
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
         revEnv_loss = self.select_tensor_reduction(coop_revEnv_error, padding_mask)
+        
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
@@ -111,7 +112,10 @@ class CausalRL(BaseTrainer):
 
         # Update the network parameters.
         self.update_step()
-
+        
+        td_errors = (expected_value - estimated_value).detach().abs()
+        trajectory.push_td_errors(td_errors, padding_mask)
+        
         metrics = create_training_metrics(
             estimated_value=estimated_value,
             expected_value=expected_value,

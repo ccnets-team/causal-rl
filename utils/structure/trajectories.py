@@ -1,12 +1,20 @@
 import numpy as np
 
 class BatchTrajectory:
-    def __init__(self, state, action, reward, next_state, done):
+    def __init__(self, state, action, reward, next_state, done, buffer_indices = None, cumulative_sizes = None):
         self.state = state
         self.action = action
         self.reward = reward
         self.next_state = next_state
         self.done = done
+        self.buffer_indices = buffer_indices
+        self.cumulative_sizes = cumulative_sizes
+        self.td_errors = None
+        self.padding_mask = None
+    
+    def push_td_errors(self, td_errors, padding_mask):
+        self.td_errors = td_errors
+        self.padding_mask = padding_mask
 
     def __iter__(self):
         yield self.state
