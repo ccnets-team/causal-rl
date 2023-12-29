@@ -87,7 +87,6 @@ class PriorityBuffer(BaseBuffer):
         # Calculate the range of indices for each trajectory
         seq_len = mask.shape[1]
         range_indices = seq_len - 1 - np.arange(seq_len)
-        print("actual_indices", actual_indices)
         all_indices = (self.capacity + actual_indices.reshape(-1, 1) - range_indices) % self.capacity
 
         # Flatten the mask and indices array for advanced indexing

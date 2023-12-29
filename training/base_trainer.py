@@ -19,7 +19,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
-        self.sum_discounted_gammas = torch.sum(self.discount_factors)
+        self.td_steps_sum_discounted_gammas = torch.sum(self.discount_factors)
+        self.model_seq_discount_factors = compute_discounted_future_value(self.discount_factor, self.model_seq_length).to(self.device)
+        self.mode_seq_sum_discounted_gammas = torch.sum(self.model_seq_discount_factors)
         self.reduction_type = 'cross'
 
     def _unpack_rl_params(self, rl_params):
@@ -55,15 +57,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
 
-    def scale_seq_rewards(self, rewards):
-        # Compute the scaling factors for each trajectory
-        if self.discount_factor == 0:
-            return rewards
-        scaling_factors = 1 / self.sum_discounted_gammas
-        scaled_rewards = scaling_factors * rewards 
-
-        return scaled_rewards
-    
     def select_tensor_reduction(self, tensor, mask=None):
         """
         Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
@@ -99,7 +92,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         padding_mask = create_padding_mask_before_dones(dones)
         trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, mask=padding_mask)
-        scaled_rewards = self.scale_seq_rewards(rewards)
+        scaled_rewards = rewards/self.mode_seq_sum_discounted_gammas
         
         with torch.no_grad():
             estimated_value = self.trainer_calculate_value_estimate(states, mask=padding_mask)
@@ -123,7 +116,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         padding_mask = create_padding_mask_before_dones(dones)
         trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, mask=padding_mask)
-        scaled_rewards = self.scale_seq_rewards(rewards)
+        scaled_rewards = rewards/self.td_steps_sum_discounted_gammas
         
         with torch.no_grad():
             trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask)
