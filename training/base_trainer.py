@@ -91,12 +91,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         states, actions, rewards, next_states, dones = trajectory 
         
         padding_mask = create_padding_mask_before_dones(dones)
-        trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, mask=padding_mask)
         scaled_rewards = rewards/self.mode_seq_sum_discounted_gammas
         
         with torch.no_grad():
             estimated_value = self.trainer_calculate_value_estimate(states, mask=padding_mask)
-            trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask)
+            future_values = self.trainer_calculate_future_value(next_states, padding_mask)
+            trajectory_values = torch.cat([torch.zeros_like(future_values[:,:1,]), future_values], dim = 1)
             
             if self.use_gae_advantage:
                 _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
@@ -115,11 +115,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         states, actions, rewards, next_states, dones = trajectory 
 
         padding_mask = create_padding_mask_before_dones(dones)
-        trajectory_states, trajectory_mask = convert_trajectory_data(states, next_states, mask=padding_mask)
         scaled_rewards = rewards/self.td_steps_sum_discounted_gammas
         
         with torch.no_grad():
-            trajectory_values = self.trainer_calculate_future_value(trajectory_states, trajectory_mask)
+            future_values = self.trainer_calculate_future_value(next_states, padding_mask)
+            trajectory_values = torch.cat([torch.zeros_like(future_values[:,:1,]), future_values], dim = 1)
             
             if self.use_gae_advantage:
                 _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
