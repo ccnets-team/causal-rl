@@ -2,11 +2,11 @@ from nn.gpt import GPT, GPTParams
 
 class TrainingParameters:
     # Initialize training parameters
-    def __init__(self, batch_size=64, replay_ratio=1, train_intervel = 1):
+    def __init__(self, batch_size=64, replay_ratio=1, train_interval = 1):
         self.batch_size = batch_size  # Batch size for training
         self.replay_ratio = replay_ratio  # How often past experiences are reused in training (batch size / samples per step)
-        self.train_intervel  = train_intervel  # Determines how frequently training updates occur based on the number of explorations before each update
-        self.early_training_start_step = None  # Training starts when the replay buffer is full. Set to a specific step count to start training earlier.
+        self.train_interval  = train_interval  # Determines how frequently training updates occur based on the number of explorations before each update
+        self.early_training_start_step = 200  # Training starts when the replay buffer is full. Set to a specific step count to start training earlier.
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters

@@ -76,7 +76,7 @@ class RLTuneHelper:
 
     def should_update_strategy(self, step: int) -> bool:
         """Checks if the strategy should be updated."""
-        return (step % self.train_intervel == 0) and self.use_normalizer
+        return (step % self.train_interval == 0) and self.use_normalizer
     
     def should_reset_memory(self) -> bool:
         """Checks if the memory should be reset."""
@@ -84,7 +84,7 @@ class RLTuneHelper:
 
     def should_train_step(self, step: int) -> bool:
         """Checks if the model should be trained on the current step."""
-        return (step % self.train_intervel == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
+        return (step % self.train_interval == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
 
     # Private Helpers
     def _initialize_training_parameters(self):
@@ -98,11 +98,11 @@ class RLTuneHelper:
         self.buffer_size = memory_params.buffer_size
         self.batch_size = training_params.batch_size
         self.replay_ratio = training_params.replay_ratio
-        self.train_intervel = training_params.train_intervel
+        self.train_interval = training_params.train_interval
 
         self.samples_per_step = training_params.batch_size//training_params.replay_ratio
         self.training_start_step = self.buffer_size//int(self.batch_size/training_params.replay_ratio) if training_params.early_training_start_step is None else training_params.early_training_start_step
-        self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_intervel*self.batch_size))
+        self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_interval*self.batch_size))
 
     def _setup_training(self):
         """Configures the environment and other parameters for training."""
