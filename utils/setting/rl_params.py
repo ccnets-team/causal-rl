@@ -8,7 +8,7 @@ class TrainingParameters:
         self.batch_size = batch_size  # Batch size for training
         self.replay_ratio = replay_ratio  # How often past experiences are reused in training (batch size / samples per step)
         self.train_interval  = train_interval  # Determines how frequently training updates occur based on the number of explorations before each update
-        self.early_training_start_step = 200  # Training starts when the replay buffer is full. Set to a specific step count to start training earlier.
+        self.early_training_start_step = None  # Training starts when the replay buffer is full. Set to a specific step count to start training earlier.
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
@@ -21,10 +21,10 @@ class AlgorithmParameters:
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=128, dropout=0.01, 
-                 tau=1e-1, use_target_network=True):
-        self.critic_network = SuperNet  # Selected model-based network used for the critic.
-        self.actor_network = SuperNet  # Selected model-based network used for the actor.
-        self.rev_env_network = SuperNet  # Selected model-based network for reverse environment modeling.
+                 tau=1e-1, use_target_network=True, network_type=SuperNet):
+        self.critic_network = network_type  # Selected model-based network used for the critic.
+        self.actor_network = network_type  # Selected model-based network used for the actor.
+        self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
         self.critic_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the critic network.
         self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
         self.rev_env_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the reverse environment network.
