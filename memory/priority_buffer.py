@@ -6,8 +6,7 @@
 from .base_buffer import BaseBuffer
 import numpy as np
 
-NORMAL_DIST_ABS_MEAN = 0.7979
-MIN_TD_ERROR = NORMAL_DIST_ABS_MEAN
+MIN_TD_ERROR = 1e-4
 
 class PriorityBuffer(BaseBuffer):
     def __init__(self, capacity, state_size, action_size, num_td_steps):

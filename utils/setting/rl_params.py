@@ -6,11 +6,11 @@ class TrainingParameters:
         self.batch_size = batch_size  # Batch size for training
         self.replay_ratio = replay_ratio  # How often past experiences are reused in training (batch size / samples per step)
         self.train_interval  = train_interval  # Determines how frequently training updates occur based on the number of explorations before each update
-        self.early_training_start_step = 200  # Training starts when the replay buffer is full. Set to a specific step count to start training earlier.
+        self.early_training_start_step = None  # Training starts when the replay buffer is full. Set to a specific step count to start training earlier.
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps=16, model_seq_length = 16, discount_factor=0.999, advantage_lambda = 0.99, use_gae_advantage=False):
+    def __init__(self, num_td_steps = 16, model_seq_length = 12, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
@@ -50,13 +50,13 @@ class ExplorationParameters:
 
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_type='priority', priority_alpha = 1, buffer_size=256000):
+    def __init__(self, buffer_type='standard', priority_alpha = 0, buffer_size=256000):
         self.buffer_type = buffer_type  # Determines the type of memory buffer used for storing experiences.
         self.priority_alpha = priority_alpha  # Alpha parameter for adjusting the prioritization in the memory buffer.
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer='running_mean_std'):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
         self.advantage_normalizer = advantage_normalizer
