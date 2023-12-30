@@ -15,7 +15,7 @@ from nn.roles.actor import DualInputActor
 from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectories  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
+from training.trainer_utils import create_padding_mask_before_dones, select_model_seq_length
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -25,11 +25,11 @@ class CausalRL(BaseTrainer):
         network_params, exploration_params = rl_params.network, rl_params.exploration
         critic_network = network_params.critic_network
         actor_network = network_params.actor_network
-        reverse_env_network = network_params.reverse_env_network
+        rev_env_network = network_params.rev_env_network
         
         self.critic = SingleInputCritic(critic_network, env_config, network_params.critic_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, network_params.actor_params, exploration_params).to(device)
-        self.revEnv = RevEnv(reverse_env_network, env_config, network_params.rev_env_params).to(device)
+        self.revEnv = RevEnv(rev_env_network, env_config, network_params.rev_env_params).to(device)
         self.target_critic = copy.deepcopy(self.critic) if network_params.use_target_network else None
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 
@@ -48,6 +48,7 @@ class CausalRL(BaseTrainer):
                 action = self.actor.sample_action(state, estimated_value, mask=mask, exploration_rate=exploration_rate)
             else:
                 action = self.actor.select_action(state, estimated_value, mask)
+                
         return action
 
     # This is the core training method of our Causal RL approach.
@@ -62,19 +63,19 @@ class CausalRL(BaseTrainer):
         self.set_train(training=True)
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
-        states, actions, rewards, next_states, dones = trajectory
-        mask = create_padding_mask_before_dones(dones)
+        states, actions, rewards, next_states, dones, model_seq_mask = select_model_seq_length(trajectory, self.model_seq_length)
+        padding_mask = create_padding_mask_before_dones(dones)
 
         # Get the estimated value of the current state from the critic network.
-        estimated_value = self.critic(states, mask)
+        estimated_value = self.critic(states, padding_mask)
             
         # Predict the action that the actor would take for the current state and its estimated value.
-        inferred_action = self.actor(states, estimated_value, mask)
+        inferred_action = self.actor(states, estimated_value, padding_mask)
         
         # Calculate the reversed state using the original action.
-        reversed_state = self.revEnv(next_states, actions, estimated_value, mask)
+        reversed_state = self.revEnv(next_states, actions, estimated_value, padding_mask)
         # Calculate the recurred state using the inferred action.
-        recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach(), mask)
+        recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach(), padding_mask)
         
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state)
@@ -91,19 +92,20 @@ class CausalRL(BaseTrainer):
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, estimated_value, dones, intrinsic_value=coop_revEnv_error)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value, model_seq_mask)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = calculate_value_loss(estimated_value, expected_value, mask)   
+        value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss = masked_tensor_mean(coop_critic_error, mask)
-
+        critic_loss = self.select_tensor_reduction(coop_critic_error, padding_mask)
+        
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss =  masked_tensor_mean(advantage * coop_actor_error, mask)       
+        actor_loss = self.select_tensor_reduction(advantage * coop_actor_error, padding_mask)       
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss = masked_tensor_mean(coop_revEnv_error, mask)
+        revEnv_loss = self.select_tensor_reduction(coop_revEnv_error, padding_mask)
+        
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
@@ -111,7 +113,10 @@ class CausalRL(BaseTrainer):
 
         # Update the network parameters.
         self.update_step()
-
+        
+        td_errors = (expected_value - estimated_value).detach().abs()
+        trajectory.push_td_errors(td_errors, padding_mask)
+        
         metrics = create_training_metrics(
             estimated_value=estimated_value,
             expected_value=expected_value,
@@ -135,9 +140,14 @@ class CausalRL(BaseTrainer):
         self.update_target_networks()
         self.update_schedulers()
 
-    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
+    def trainer_calculate_value_estimate(self, states, mask = None):
         with torch.no_grad():
-            if use_target:
+            estimated_value = self.critic(states, mask=mask)
+        return estimated_value    
+
+    def trainer_calculate_future_value(self, next_state, mask = None):
+        with torch.no_grad():
+            if self.use_target_network:  
                 future_value = self.target_critic(next_state, mask=mask)
             else:
                 future_value = self.critic(next_state, mask=mask)
@@ -162,7 +172,7 @@ class CausalRL(BaseTrainer):
         :param target: Tensor representing a single target cost value.
         :return: Balanced error tensor.
         """
-        error = (predict - target.detach()).abs() / 2
+        error = (predict - target.detach()).abs()/2.0
         return error
 
     def backwards(self, networks, network_errors):

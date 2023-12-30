@@ -81,13 +81,23 @@ def print_env_specs(env_config: EnvConfig):
     print(f"num_environments: {env_config.num_environments}, num_agents: {env_config.num_agents}, samples_per_step: {env_config.samples_per_step}")
     print(f"state_size: {env_config.state_size}, action_size: {env_config.action_size}")
     print(f"use_discrete: {env_config.use_discrete}\n")
-    
+
 def print_params(obj: object, title: str):
     print(f"{title}:")
     for attr, value in obj.__dict__.items():
-        print(f"{attr}: {value}", end=', ')
+        if hasattr(value, '__dict__'):
+            # Print the attribute name and type of the object instead of the memory address
+            print(f"{attr} (type: {type(value).__name__}): ", end='')
+            for attr2, value2 in value.__dict__.items():
+                # Filter out unnecessary attributes
+                if attr2 not in ['__module__', '__init__', 'forward', '__doc__']:
+                    print(f"{attr2}: {value2}", end=', ')
+        else:
+            # Filter out unnecessary attributes for the main object as well
+            if attr not in ['__module__', '__init__', 'forward', '__doc__']:
+                print(f"{attr}: {value}", end=', ')
     print("\n")  # to print a newline at the end
-            
+
 def print_rl_params(trainer_name, rl_params: RLParameters):
     print("Trainer Name:", trainer_name)
     print_params(rl_params.training, "Training Parameters")
@@ -99,19 +109,31 @@ def print_rl_params(trainer_name, rl_params: RLParameters):
     print_params(rl_params.normalization, "Normalization Parameters")
     print("\n")  # to print a newline at the end
 
-def save_params_to_file(param_object, file: TextIO):
-    # This is just a dummy example, replace it with the actual logic to print
-    # each attribute of param_object to the file.
-    for attr, value in param_object.__dict__.items():
-        print(f"{attr}: {value}", file=file)
+def save_params_to_file(obj: object, file, is_nested=False):
+    items = []
+    for attr, value in obj.__dict__.items():
+        if hasattr(value, '__dict__'):
+            # Filter out unnecessary attributes for nested objects
+            if attr not in ['__module__', '__init__', 'forward', '__doc__']:
+                nested_items = save_params_to_file(value, file, is_nested=True)
+                items.append(f"{attr} (type: {type(value).__name__}): {nested_items}")
+        else:
+            # Filter out unnecessary attributes for the main object
+            if attr not in ['__init__', 'forward', '__doc__']:
+                if attr is '__module__':
+                    items.append(f"{value}")
+                else:
+                    items.append(f"{attr}: {value}")
+    return ', '.join(items) if is_nested else file.write(', '.join(items) + '\n')
 
 def save_training_parameters_to_file(log_dir_path: str, trainer_name: str, rl_params: RLParameters):
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     filename = f"{log_dir_path}/parameters_{current_time}.txt"
     
     with open(filename, 'w') as file:
-        print(f"Trainer Name: {trainer_name}\n", file=file)  # prints the trainer name at the beginning of the file
-        for param_object in rl_params:
-            print(type(param_object).__name__, file=file)  # prints the class name of the param_object
-            save_params_to_file(param_object, file)  # prints each attribute of param_object to the file
-            print("\n", file=file)  # prints a newline character between different param_objects
+        file.write(f"Trainer Name: {trainer_name}\n\n")  # prints the trainer name at the beginning of the file
+        # Iterate over the attributes of rl_params and save them to file
+        for attr, value in rl_params.__dict__.items():
+            file.write(f"{attr} (type: {type(value).__name__}): ")
+            save_params_to_file(value, file)
+            file.write("\n")  # prints a newline character between different param_objects

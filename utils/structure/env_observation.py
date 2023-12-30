@@ -1,19 +1,19 @@
 import numpy as np
 
 class EnvObservation:
-    def __init__(self, obs_shapes, obs_types, num_agents, num_td_steps):
+    def __init__(self, obs_shapes, obs_types, num_agents, model_seq_length):
         assert len(obs_shapes) == len(obs_types), "The length of obs_shapes and obs_types must be the same."
         self.obs_shapes = obs_shapes
         self.obs_types = obs_types
         self.num_agents = num_agents
-        self.num_td_steps = num_td_steps
+        self.model_seq_length = model_seq_length
         self.data = self._create_empty_data()
-        self.mask = np.zeros((self.num_agents, self.num_td_steps), dtype=np.float32)
+        self.mask = np.zeros((self.num_agents, self.model_seq_length), dtype=np.float32)
 
     def _create_empty_data(self):
         observations = {}
         for obs_type, shape in zip(self.obs_types, self.obs_shapes):
-            observations[obs_type] = np.zeros((self.num_agents, self.num_td_steps, *shape), dtype=np.float32)
+            observations[obs_type] = np.zeros((self.num_agents, self.model_seq_length, *shape), dtype=np.float32)
         return observations
 
     def __getitem__(self, key):
@@ -37,20 +37,20 @@ class EnvObservation:
 
         new_td_indices = None
         if td_indices is None:
-            new_td_indices = np.arange(self.num_td_steps)
+            new_td_indices = np.arange(self.model_seq_length)
         elif isinstance(td_indices, int):
             new_td_indices = np.array([td_indices])
         elif isinstance(td_indices, slice):
-            new_td_indices = np.arange(self.num_td_steps)[td_indices]
+            new_td_indices = np.arange(self.model_seq_length)[td_indices]
         elif isinstance(td_indices, list) or isinstance(td_indices, np.ndarray):
             new_td_indices = np.array(td_indices)
         else:
             raise TypeError("Invalid type for td_indices. Must be int, slice, list, numpy array, or None.")
 
         new_num_agents = len(new_agent_indices)
-        new_num_td_steps = len(new_td_indices)
+        new_model_seq_length = len(new_td_indices)
 
-        new_observation = EnvObservation(self.obs_shapes, self.obs_types, num_agents=new_num_agents, num_td_steps=new_num_td_steps)
+        new_observation = EnvObservation(self.obs_shapes, self.obs_types, num_agents=new_num_agents, model_seq_length=new_model_seq_length)
         for obs_type in self.obs_types:
             new_observation.data[obs_type] = self.data[obs_type][new_agent_indices, new_td_indices]
         new_observation.mask = self.mask[new_agent_indices, new_td_indices]

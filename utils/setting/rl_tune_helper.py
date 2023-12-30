@@ -6,7 +6,7 @@ from utils.printer import print_step, print_metrics, print_scores
 from utils.logger import log_data
 from utils.wandb_logger import wandb_log_data, wandb_init
 from utils.structure.trajectories  import MultiEnvTrajectories
-from memory.replay_buffer import ExperienceMemory
+from memory.experience_memory import ExperienceMemory
 from utils.loader import save_trainer, load_trainer
 from training.managers.record_manager import RecordManager
 import logging
@@ -22,10 +22,10 @@ class RLTuneHelper:
         self.use_graphics, self.use_print = use_graphics, use_print
         self.env_config, self.rl_params = env_config, rl_params
         if use_wandb:
-            wandb_logger.wandb_init(trainer_name, env_config, rl_params)
+            wandb_init(trainer_name, env_config, rl_params)
         self.use_wandb = use_wandb
         
-        self.use_normalizer = (rl_params.normalization.reward_normalizer) != 'none' or (rl_params.normalization.state_normalizer != 'none')
+        self.use_normalizer = (rl_params.normalization.reward_normalizer) is not None or (rl_params.normalization.state_normalizer is not None) or (rl_params.normalization.advantage_normalizer is not None) 
         
         self.print_interval = DEFAULT_PRINT_INTERVAL
         self.save_interval = DEFAULT_SAVE_INTERVAL
@@ -76,7 +76,7 @@ class RLTuneHelper:
 
     def should_update_strategy(self, step: int) -> bool:
         """Checks if the strategy should be updated."""
-        return (step % self.train_intervel == 0) and (len(self.parent.memory) >= self.batch_size and self.use_normalizer)
+        return (step % self.train_interval == 0) and self.use_normalizer
     
     def should_reset_memory(self) -> bool:
         """Checks if the memory should be reset."""
@@ -84,7 +84,7 @@ class RLTuneHelper:
 
     def should_train_step(self, step: int) -> bool:
         """Checks if the model should be trained on the current step."""
-        return (step % self.train_intervel == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
+        return (step % self.train_interval == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
 
     # Private Helpers
     def _initialize_training_parameters(self):
@@ -93,17 +93,16 @@ class RLTuneHelper:
         memory_params = self.rl_params.memory
 
         self.num_td_steps = self.rl_params.algorithm.num_td_steps
-        self.use_dynamic_td_steps = self.rl_params.algorithm.use_dynamic_td_steps
         
         self.max_steps = exploration_params.max_steps
         self.buffer_size = memory_params.buffer_size
         self.batch_size = training_params.batch_size
         self.replay_ratio = training_params.replay_ratio
-        self.train_intervel = training_params.train_intervel
+        self.train_interval = training_params.train_interval
 
         self.samples_per_step = training_params.batch_size//training_params.replay_ratio
-        self.training_start_step = self.buffer_size//int(self.batch_size/training_params.replay_ratio) if training_params.early_training_start_step == "none" else training_params.early_training_start_step
-        self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_intervel*self.batch_size))
+        self.training_start_step = self.buffer_size//int(self.batch_size/training_params.replay_ratio) if training_params.early_training_start_step is None else training_params.early_training_start_step
+        self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_interval*self.batch_size))
 
     def _setup_training(self):
         """Configures the environment and other parameters for training."""
@@ -117,14 +116,15 @@ class RLTuneHelper:
 
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
-            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.num_td_steps, self.use_dynamic_td_steps, self.parent.device)
+            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.num_td_steps,self.parent.device)
     def _ensure_test_environment_exists(self):
         if not self.parent.test_env:
-            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.num_td_steps, self.use_dynamic_td_steps, self.parent.device, self.use_graphics)
+            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.num_td_steps,self.parent.device, self.use_graphics)
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
-            self.parent.memory = ExperienceMemory(self.env_config, self.rl_params.training, self.rl_params.algorithm, self.rl_params.memory, self.parent.device)
+            compute_td_errors = self.parent.trainer.compute_td_errors
+            self.parent.memory = ExperienceMemory(self.env_config, self.rl_params.training, self.rl_params.algorithm, self.rl_params.memory, compute_td_errors, self.parent.device)
 
     def _save_rl_model_conditional(self, step: int):
         if step % self.save_interval == 0:

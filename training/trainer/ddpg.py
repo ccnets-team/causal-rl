@@ -14,7 +14,7 @@ from nn.roles.critic import DualInputCritic
 from nn.roles.actor import SingleInputActor
 import copy
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
+from training.trainer_utils import create_padding_mask_before_dones, adaptive_masked_tensor_reduction
 
 class DDPG(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -63,6 +63,7 @@ class DDPG(BaseTrainer):
                 action = self.actor.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
                 action = self.actor.select_action(state, mask=mask)
+
         return action
     
     def train_model(self, trajectory: BatchTrajectory):
@@ -93,7 +94,7 @@ class DDPG(BaseTrainer):
         current_Q = self.critic(states, actions, mask = mask)
 
         # Compute critic loss
-        critic_loss = calculate_value_loss(current_Q, target_Q, mask = mask)
+        critic_loss = self.calculate_value_loss(current_Q, target_Q, mask = mask)
 
         # Optimize the critic
         critic_optimizer.zero_grad()
@@ -101,7 +102,7 @@ class DDPG(BaseTrainer):
         critic_optimizer.step()
 
         # Compute actor loss
-        actor_loss = -masked_tensor_mean(self.critic(states, self.actor(states), mask = mask), mask)
+        actor_loss = -adaptive_masked_tensor_reduction(self.critic(states, self.actor(states), mask = mask), mask)
 
         # Optimize the actor
         actor_optimizer.zero_grad()
@@ -118,7 +119,7 @@ class DDPG(BaseTrainer):
         )        
         return metrics
 
-    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         """
         Calculate the future value of the next state using the target networks.
         
@@ -132,7 +133,7 @@ class DDPG(BaseTrainer):
         This method calculates the future value by using the target actor to predict the next action and the target critic to estimate the Q-value of the next state-action pair.
         """
         with torch.no_grad():
-            if use_target:
+            if self.use_target_network:
                 next_action = self.target_actor(next_state, mask)
                 # Add discounted future value element-wise for each item in the batch
                 future_value = self.target_critic(next_state, next_action, mask)

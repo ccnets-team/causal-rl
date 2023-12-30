@@ -76,11 +76,13 @@ class AgentExperienceCollector:
         self.agent_done_truncated[agent_id].append(done_truncated)
         self.agent_num[agent_id] += 1
 
-    def update_agent_data(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated = None):
+    def update_agent_data(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated=None):
+        if done_truncated is None:
+            done_truncated = [False] * len(agent_ids)
         for agent_idx, agent_id in enumerate(agent_ids):
-            truncated = False  if done_truncated is None else done_truncated[agent_idx]
-            self.append_agent_transition(agent_id, obs[agent_idx], action[agent_idx], reward[agent_idx], next_obs[agent_idx], done_terminated[agent_idx], truncated)
-
+            self.append_agent_transition(agent_id, obs[agent_idx], action[agent_idx], reward[agent_idx], next_obs[agent_idx], 
+                                        done_terminated[agent_idx], done_truncated[agent_idx])
+            
     def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, term=False):
         if len(next_agent_ids) == 0: return
         
@@ -88,7 +90,7 @@ class AgentExperienceCollector:
         
         selected_agent_indices = self.find_indices(agent_ids, selected_next_agent_ids)
         selected_agent_ids, obs, action, reward, done = self.select_data(agent_ids, selected_agent_indices, obs, action, reward, term)
-        self.update_agent_data(selected_agent_ids, obs, action, reward, next_obs, done)
+        self.update_agent_data(selected_agent_ids, obs, action, reward, next_obs, done_terminated = done)
 
     def output_transitions(self):
         np_obs = [item for sublist in self.agent_obs[:self.num_agents] for item in sublist]

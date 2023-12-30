@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 
 from torch.distributions import Normal
-from ..utils.network_init import init_weights, create_layer
+from ..utils.network_init import init_weights, init_log_std, create_layer
 from nn.utils.noise_adder import EpsilonGreedy, OrnsteinUhlenbeck, BoltzmannExploration
 
 from ..utils.embedding_layer import ContinuousFeatureEmbeddingLayer
@@ -31,27 +31,26 @@ class _BaseActor(nn.Module):
         self.net = net(self.num_layers, self.d_model, dropout = network_params.dropout) 
         self.value_size = 1
         
+        self.noise_strategy = None
+        self.use_noise_before_activation = False
+        self.use_deterministic = False
         # Exploration strategy initialization
-        self.noise_strategy, self.use_noise_before_activation, = self._initialize_noise_strategy(
-            exploration_params
-        )
+        self._initialize_noise_strategy(exploration_params)
         self.noise_type = exploration_params.noise_type 
         
     def _initialize_noise_strategy(self, exploration_params):
-        noise_strategy = None
-        use_noise_before_activation = False
-
         if exploration_params.noise_type == "epsilon_greedy":
-            noise_strategy = EpsilonGreedy(self.use_discrete)
-            use_noise_before_activation = not self.use_discrete
+            self.noise_strategy = EpsilonGreedy(self.use_discrete)
+            self.use_noise_before_activation = not self.use_discrete
         elif exploration_params.noise_type == "ou" and not self.use_discrete:
-            noise_strategy = OrnsteinUhlenbeck(self.use_discrete)
-            use_noise_before_activation = True
+            self.noise_strategy = OrnsteinUhlenbeck(self.use_discrete)
+            self.use_noise_before_activation = True
         elif exploration_params.noise_type == "boltzmann" and self.use_discrete:
-            noise_strategy = BoltzmannExploration(self.use_discrete)
-            use_noise_before_activation = True
-
-        return noise_strategy, use_noise_before_activation
+            self.noise_strategy = BoltzmannExploration(self.use_discrete)
+            self.use_noise_before_activation = True
+        elif exploration_params.noise_type == "deterministic":
+            self.use_deterministic = True
+        return 
         
     def apply_noise(self, y, exploration_rate = None):
         if self.noise_strategy is None:
@@ -135,7 +134,7 @@ class _BaseActor(nn.Module):
         return log_prob
 
     def _sample_action(self, mean, std, mask = None, exploration_rate=None):
-        if exploration_rate is None or exploration_rate == 0:
+        if self.use_deterministic:
             return self._select_action(mean)
 
         if self.use_discrete:
@@ -183,7 +182,7 @@ class SingleInputActor(_BaseActor):
     def forward(self, state, mask = None):
         z = self.embedding_layer(state)
         mean, std = self._compute_forward_pass(z, mask)
-        return Normal(mean, std).rsample()
+        return mean if self.use_deterministic else Normal(mean, std).rsample()
 
     def _forward(self, state, mask = None):
         z = self.embedding_layer(state)
@@ -229,7 +228,7 @@ class DualInputActor(_BaseActor):
     def forward(self, state, value, mask = None):
         z = self.embedding_layer(torch.cat([state, value], dim =-1))
         mean, std = self._compute_forward_pass(z, mask)
-        return Normal(mean, std).rsample()
+        return mean if self.use_deterministic else Normal(mean, std).rsample()
 
     def _forward(self, state, value, mask = None):
         z = self.embedding_layer(torch.cat([state, value], dim =-1))

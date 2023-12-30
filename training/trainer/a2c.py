@@ -12,7 +12,7 @@ from utils.structure.trajectories  import BatchTrajectory
 from nn.roles.critic import SingleInputCritic
 from nn.roles.actor import SingleInputActor
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, masked_tensor_mean, calculate_value_loss
+from training.trainer_utils import create_padding_mask_before_dones, adaptive_masked_tensor_reduction
 
 class A2C(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -57,6 +57,7 @@ class A2C(BaseTrainer):
                 action = self.actor.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
                 action = self.actor.select_action(state, mask=mask)
+
         return action
 
     def train_model(self, trajectory: BatchTrajectory):
@@ -78,10 +79,10 @@ class A2C(BaseTrainer):
         estimated_value = self.critic(states, mask)
         
         # Compute the advantage and expected value
-        expected_value, advantage = self.compute_values(trajectory, estimated_value, dones)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value)
 
         # Compute critic loss
-        value_loss = calculate_value_loss(estimated_value, expected_value, mask)
+        value_loss = self.self.calculate_value_loss(estimated_value, expected_value, mask)
         critic_optimizer.zero_grad()
         value_loss.backward()
         critic_optimizer.step()
@@ -89,7 +90,7 @@ class A2C(BaseTrainer):
         # Compute actor loss
         log_prob = self.actor.log_prob(states, actions)
         
-        actor_loss = -masked_tensor_mean(log_prob * advantage.detach(), mask)
+        actor_loss = -adaptive_masked_tensor_reduction(log_prob * advantage.detach(), mask)
         
         actor_optimizer.zero_grad()
         actor_loss.backward()
@@ -113,7 +114,7 @@ class A2C(BaseTrainer):
         self.update_target_networks()
         self.update_schedulers()
 
-    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         """
         Calculates the future value for a given next_state with discount factor gamma and end_step.
         
@@ -124,7 +125,7 @@ class A2C(BaseTrainer):
         - future_value (Tensor): The calculated future value.
         """
         with torch.no_grad():
-            if use_target:
+            if self.use_target_network:
                 future_value = self.target_critic(next_state, mask=mask)
             else:
                 future_value = self.critic(next_state, mask=mask)

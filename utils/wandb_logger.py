@@ -38,19 +38,32 @@ def wandb_init(trainer_name, env_config, rl_params):
     wandb.login()
     
     env_config_dict = convert_to_dict(env_config)
+    rl_params_net_actor, rl_params_net_critic, rl_params_net_rev = convert_to_dict(rl_params.network.actor_params),convert_to_dict(rl_params.network.critic_params),convert_to_dict(rl_params.network.rev_env_params)
     rl_params_dict = convert_to_dict(rl_params)
+    rl_params_dict['network']['actor_params'] = rl_params_net_actor
+    rl_params_dict['network']['critic_params'] = rl_params_net_critic
+    rl_params_dict['network']['rev_env_params'] = rl_params_net_rev
+    
     env_config_dict = {k: v for k, v in env_config_dict.items() if isinstance(v, (int, float, str, bool))}
     env_config_dict = dict(sorted(env_config_dict.items(), key=sort_key))
     env_config_dict = {'env_config':env_config_dict}
+    
     merged_config_dict = {**env_config_dict, **rl_params_dict}
     
+    
+    
     wandb.init(
-        project=env_config.env_name,
+        project='rl-tune-gym',
         name= f'{trainer_name}-{env_config.env_name} : {formatted_date}',
         save_code = True,
         monitor_gym = False, 
         config= merged_config_dict
     )
+    
+    artifact = wandb.Artifact(f'{trainer_name}-{env_config.env_name}', type='model')
+    artifact.add_dir(f'./saved/{env_config.env_name}/{trainer_name}', name="saved/")
+    wandb.log_artifact(artifact)
+
     
 def wandb_end():
     if wandb is None:

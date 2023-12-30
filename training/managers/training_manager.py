@@ -1,4 +1,15 @@
 import torch.optim as optim
+from torch.optim.lr_scheduler import _LRScheduler
+
+LEARNING_RATE_DECAY_RATE = 0.001
+
+class LinearDecayLR(_LRScheduler):
+    def __init__(self, optimizer, total_steps, last_epoch=-1):
+        self.total_steps = total_steps
+        super(LinearDecayLR, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        return [base_lr * (1 - self.last_epoch / self.total_steps) for base_lr in self.base_lrs]
 
 def _apply_gradient_clipping(network, clip_range):
     for param in network.parameters():
@@ -6,20 +17,21 @@ def _apply_gradient_clipping(network, clip_range):
             param.grad.data = param.grad.data.clamp(-clip_range, clip_range)
 
 class TrainingManager:
-    def __init__(self, optimization_params, networks, target_networks):
+    def __init__(self, networks, target_networks, lr, lr_decay_ratio, clip_grad_range, tau, total_iterations):
         self._optimizers = []
         self._schedulers = []
+        gamma = pow(lr_decay_ratio, 1.0 / total_iterations)
         for network in networks:
             if network is None:
                 continue
-            opt = optim.Adam(network.parameters(), lr=optimization_params.lr, betas=(0.9, 0.999))
+            opt = optim.Adam(network.parameters(), lr=lr, betas=(0.9, 0.999))
             self._optimizers.append(opt)
-            self._schedulers.append(optim.lr_scheduler.StepLR(opt, step_size=optimization_params.step_size, gamma=optimization_params.lr_gamma))
+            self._schedulers.append(optim.lr_scheduler.StepLR(opt, step_size=1, gamma=gamma))
         self._target_networks = target_networks 
         self._networks = networks 
-        self._tau = optimization_params.tau
-        self.clip_grad_range = optimization_params.clip_grad_range
-        
+        self._tau = tau
+        self._clip_grad_range = clip_grad_range
+
     def get_optimizers(self):
         return self._optimizers
 
@@ -27,9 +39,9 @@ class TrainingManager:
         return self._schedulers
 
     def clip_gradients(self):
-        clip_grad_range = self.clip_grad_range 
-        for net in self._networks:
-            _apply_gradient_clipping(net, clip_grad_range)
+        if self._clip_grad_range is not None:  
+            for net in self._networks:
+                _apply_gradient_clipping(net, self._clip_grad_range)
 
     def update_optimizers(self):
         for opt in self._optimizers:

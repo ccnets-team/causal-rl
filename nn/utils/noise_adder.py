@@ -8,15 +8,21 @@ class NoiseStrategy:
     def __init__(self, use_discrete):
         self.use_discrete = use_discrete
 
-    def apply(self, action, exploration_epsilon):
+    def reset(self, reset_agents = None):
+        raise NotImplementedError
+
+    def apply(self, action, exploration_rate):
         raise NotImplementedError
 
 class EpsilonGreedy(NoiseStrategy):
     def __init__(self, use_discrete):
         super(EpsilonGreedy, self).__init__(use_discrete)
 
-    def apply(self, y, exploration_epsilon):
-        if exploration_epsilon is None or exploration_epsilon == 0:
+    def reset(self, reset_agents = None):
+        raise 
+
+    def apply(self, y, exploration_rate):
+        if exploration_rate is None or exploration_rate == 0:
             return y
         if self.use_discrete:
             batch_size = y.shape[0]
@@ -29,7 +35,7 @@ class EpsilonGreedy(NoiseStrategy):
             random_actions = torch.randint(0, num_actions, (batch_size,)).to(y.device)
 
             # Choose whether to use random actions based on epsilon
-            choose_random = (torch.rand(batch_size) < exploration_epsilon).to(y.device)
+            choose_random = (torch.rand(batch_size) < exploration_rate).to(y.device)
 
             # Depending on the choice, select either the random action or softmax action
             chosen_actions = torch.where(choose_random, random_actions, softmax_actions)
@@ -38,7 +44,7 @@ class EpsilonGreedy(NoiseStrategy):
             action = torch.zeros_like(y).scatter_(-1, chosen_actions.unsqueeze(-1), 1.0)
         else:            
             # Add Gaussian noise for exploration
-            noise = torch.normal(mean=0, std=exploration_epsilon, size=y.shape).to(y.device)
+            noise = torch.normal(mean=0, std=exploration_rate, size=y.shape).to(y.device)
             action = y + noise
             
         return action
@@ -55,7 +61,7 @@ class OrnsteinUhlenbeck(NoiseStrategy):
         if reset_agents is not None and self.ou_prev_state is not None:
             self.ou_prev_state[reset_agents] = torch.zeros_like(self.ou_prev_state[reset_agents]).to(self.ou_prev_state.device)
 
-    def apply(self, action, exploration_epsilon):
+    def apply(self, action, exploration_rate = None):
         if self.use_discrete:
             return action        
         """
@@ -87,10 +93,14 @@ class BoltzmannExploration(NoiseStrategy):
         self.min_temperature = 0.1
         # Adjusted decay rate as per the derived formula
         self.decay_rate = -math.log(0.1)
-        
+
+    def reset(self, reset_agents = None):
+        raise 
+            
     def apply(self, x, exploration_rate):
         # Computing temperature based on the adjusted decay rate
         temperature = max(self.tau * math.exp(-self.decay_rate * (1 - exploration_rate)), self.min_temperature)
         # Assuming x has some specific use and computation. Placeholder for actual computation with x.
         boltzmann_probs = x / temperature
         return boltzmann_probs
+

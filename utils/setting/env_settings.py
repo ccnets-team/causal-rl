@@ -46,9 +46,6 @@ def configure_parameters(env_name: str, is_unity: bool = False) -> Tuple[Optiona
         env_name, 'mlagents' if is_unity else 'gym', num_environments, num_agents,
         obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high)
 
-    noise_type = "boltzmann" if env_config.use_discrete else "none"
-
-    rl_params.exploration.noise_type = noise_type
     apply_configuration_to_parameters(env_specific_args, env_name, rl_params)
 
     return env_config, rl_params

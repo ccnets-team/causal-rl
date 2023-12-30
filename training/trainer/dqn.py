@@ -12,7 +12,7 @@ from nn.roles.actor import SingleInputActor as QNetwork
 import copy
 import torch as Tensor
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, calculate_value_loss
+from training.trainer_utils import create_padding_mask_before_dones
         
 class DQN(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
@@ -58,7 +58,9 @@ class DQN(BaseTrainer):
                 action = self.q_network.sample_action(state, mask=mask, exploration_rate=exploration_rate)
             else:
                 action = self.q_network.select_action(state, mask=mask)
+
         return action
+
     
 
     def train_model(self, trajectory: BatchTrajectory):
@@ -92,7 +94,7 @@ class DQN(BaseTrainer):
         
         q_value_for_action = predicted_q_value.gather(-1, discrete_actions)      
 
-        loss = calculate_value_loss(q_value_for_action, expected_value, mask = mask)
+        loss = self.calculate_value_loss(q_value_for_action, expected_value, mask = mask)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -107,7 +109,7 @@ class DQN(BaseTrainer):
         return metrics
 
 
-    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         """
         Calculates the discounted future value of the next state.
         
@@ -121,7 +123,7 @@ class DQN(BaseTrainer):
         This method calculates the future value of the next state by taking the maximum Q-value of the next state, discounted by the discount factor raised to the power of the end step.
         """
         with torch.no_grad():
-            if use_target:
+            if self.use_target_network:
                 next_q_values, _ = self.target_q_network(next_state, mask)
             else:
                 next_q_values, _ = self.q_network(next_state, mask)

@@ -34,8 +34,6 @@ class GymEnvWrapper(AgentExperienceCollector):
             self.action_low = env_config.action_low
             self.action_high = env_config.action_high
         
-        self.prev_value = np.zeros(self.num_agents)
-        
         if use_graphics:
             self.time_scale = 1.5
 
@@ -127,8 +125,19 @@ class GymEnvWrapper(AgentExperienceCollector):
         np_reward = np.array(_reward, np.float32)
 
         np_done = np.logical_or(np_terminated, np_truncated)
-        
-        next_observation = get_final_observations_from_info(_info, np_next_obs)
+    
+        next_observation = np_next_obs.copy()
+
+        dimensions = len(np_truncated.shape)
+        if dimensions == 0:
+            if np_truncated:
+                for idx in range(len(next_observation)):
+                    next_observation[idx] = _info["final_observation"][idx]
+        else:
+            for idx, trunc in enumerate(np_truncated):
+                if trunc:
+                    next_observation[idx] = _info["final_observation"][idx]
+
         if not self.test_env:
             self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated)
         else:
