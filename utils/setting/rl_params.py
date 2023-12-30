@@ -1,4 +1,6 @@
-from nn.gpt import GPT, GPTParams
+from nn.gpt import GPT
+from nn.super_net import SuperNet
+from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters
@@ -6,11 +8,11 @@ class TrainingParameters:
         self.batch_size = batch_size  # Batch size for training
         self.replay_ratio = replay_ratio  # How often past experiences are reused in training (batch size / samples per step)
         self.train_interval  = train_interval  # Determines how frequently training updates occur based on the number of explorations before each update
-        self.early_training_start_step = None  # Training starts when the replay buffer is full. Set to a specific step count to start training earlier.
+        self.early_training_start_step = 200  # Training starts when the replay buffer is full. Set to a specific step count to start training earlier.
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps = 16, model_seq_length = 12, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False):
+    def __init__(self, num_td_steps = 16, model_seq_length = 1, discount_factor=0.999, advantage_lambda = 0.99, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
@@ -18,14 +20,14 @@ class AlgorithmParameters:
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
+    def __init__(self, num_layers=5, d_model=128, dropout=0.01, 
                  tau=1e-1, use_target_network=True):
-        self.critic_network = GPT  # GPT-based network used for the critic.
-        self.actor_network = GPT  # GPT-based network used for the actor.
-        self.rev_env_network = GPT  # GPT-based network for reverse environment modeling.
-        self.critic_params = GPTParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the critic network.
-        self.actor_params = GPTParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
-        self.rev_env_params = GPTParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the reverse environment network.
+        self.critic_network = SuperNet  # Selected model-based network used for the critic.
+        self.actor_network = SuperNet  # Selected model-based network used for the actor.
+        self.rev_env_network = SuperNet  # Selected model-based network for reverse environment modeling.
+        self.critic_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the critic network.
+        self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
+        self.rev_env_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the reverse environment network.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
         self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
 
@@ -87,4 +89,4 @@ class RLParameters:
         yield self.optimization
         yield self.exploration
         yield self.memory
-        yield self.normalization
+        yield self.normalization	

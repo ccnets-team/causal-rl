@@ -1,20 +1,6 @@
 import torch.nn as nn
 from transformers import GPT2Model, GPT2Config
 
-class GPTParams:
-    def __init__(self, d_model, num_layers, dropout):
-        """
-        Initialize a GPT network.	
-        Args:
-        - d_model (int): Dimension of the model.
-        - num_layers (int): Number of layers in the network.
-        - dropout (float): Dropout rate.
-        """
-        self.d_model = d_model
-        self.num_layers = num_layers
-        self.dropout = dropout
-        # Initialize other GPT specific configurations here
-        
 class _GPTBase(nn.Module):
     def __init__(self, num_layer, d_model, num_heads, dropout):
         super(_GPTBase, self).__init__()   

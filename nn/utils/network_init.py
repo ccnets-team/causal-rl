@@ -1,7 +1,19 @@
 from torch import nn
 from collections.abc import Iterable
 
-
+class ModelParams:
+    def __init__(self, d_model, num_layers, dropout):
+        """
+        Initialize a GPT network.	
+        Args:
+        - d_model (int): Dimension of the model.
+        - num_layers (int): Number of layers in the network.
+        - dropout (float): Dropout rate.
+        """
+        self.d_model = d_model
+        self.num_layers = num_layers
+        self.dropout = dropout
+        
 # Mapping activation functions to their PyTorch counterparts
 ACTIVATION_FUNCTIONS = {
     "softmax": nn.Softmax(dim=-1),
