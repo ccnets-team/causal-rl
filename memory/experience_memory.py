@@ -16,6 +16,8 @@ class ExperienceMemory:
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
         self.num_td_steps = algorithm_params.num_td_steps
         self.model_seq_length = algorithm_params.model_seq_length
+        self.use_dynamic_seq_length = algorithm_params.use_dynamic_seq_length
+        
         self.batch_size = training_params.batch_size
         self.buffer_type = memory_params.buffer_type
         self.priority_alpha = memory_params.priority_alpha
@@ -65,8 +67,20 @@ class ExperienceMemory:
         env_id = buffer_id // self.num_agents
         agent_id = buffer_id % self.num_agents
         return env_id, agent_id
-
-    def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories):
+            
+    def select_model_seq_length_for_exploration(self, exploration_rate):
+        """
+        Adjusts the sequence length for state and action tensors based on the current exploration rate.
+        :param exploration_rate: The current exploration rate, ranging from 0 to 1.
+        :return: Adjusted sequence length based on the exploration rate.
+        """
+        if not self.use_dynamic_seq_length:
+            return self.model_seq_length
+        else:
+            seq_length = min(max(int((1 - exploration_rate) * self.model_seq_length), 1), self.model_seq_length)
+            return seq_length
+    
+    def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories, exploration_rate):
         if multi_env_trajectories.env_ids is None:
             return
 
@@ -82,7 +96,10 @@ class ExperienceMemory:
             buffer.add_transition(*data[2:])
         
         self.td_error_update_counter += 1
-        if self.td_error_update_counter % self.model_seq_length != 0:
+        
+        model_seq_length = self.select_model_seq_length_for_exploration(exploration_rate)
+
+        if self.td_error_update_counter % model_seq_length != 0:
             return
         buffer_indices = defaultdict(list)
         samples = []
@@ -100,7 +117,7 @@ class ExperienceMemory:
             if len(selected_indices) == 0:
                 continue
 
-            trajectory = buffer._fetch_trajectory_slices(selected_indices, self.model_seq_length)
+            trajectory = buffer._fetch_trajectory_slices(selected_indices, model_seq_length)
             samples.extend(trajectory)
         
         if samples is None or len(samples) == 0:

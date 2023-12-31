@@ -216,20 +216,6 @@ def apply_seq_mask(component, model_seq_mask, model_seq_length):
     selected = component.reshape(batch_size, -1)[reshaped_mask].view(batch_size, model_seq_length, feature_size)
     return selected
 
-def select_model_seq_length(trajectory, model_seq_length):
-    states, actions, rewards, next_states, dones = trajectory
-    
-    padding_mask = create_padding_mask_before_dones(dones)
-    model_seq_mask = create_model_seq_mask(padding_mask, model_seq_length)
-
-    # Apply the mask to each trajectory component
-    sel_states = apply_seq_mask(states, model_seq_mask, model_seq_length)
-    sel_actions = apply_seq_mask(actions, model_seq_mask, model_seq_length)
-    sel_rewards = apply_seq_mask(rewards, model_seq_mask, model_seq_length)
-    sel_next_states = apply_seq_mask(next_states, model_seq_mask, model_seq_length)
-    sel_dones = apply_seq_mask(dones, model_seq_mask, model_seq_length)
-
-    return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, model_seq_mask
 
 
 

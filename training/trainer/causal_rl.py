@@ -15,7 +15,7 @@ from nn.roles.actor import DualInputActor
 from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectories  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, select_model_seq_length
+from training.trainer_utils import create_padding_mask_before_dones
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -63,7 +63,7 @@ class CausalRL(BaseTrainer):
         self.set_train(training=True)
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
-        states, actions, rewards, next_states, dones, model_seq_mask = select_model_seq_length(trajectory, self.model_seq_length)
+        states, actions, rewards, next_states, dones, model_seq_mask = self.select_model_seq_length(trajectory)
         padding_mask = create_padding_mask_before_dones(dones)
 
         # Get the estimated value of the current state from the critic network.

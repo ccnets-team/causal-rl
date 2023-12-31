@@ -8,7 +8,7 @@ from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
 from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value 
-from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction, apply_seq_mask
+from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction, apply_seq_mask, create_model_seq_mask
 from .trainer_utils import create_padding_mask_before_dones, convert_trajectory_data
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
@@ -54,6 +54,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.use_gae_advantage = self.algorithm_params.use_gae_advantage
         self.num_td_steps = self.algorithm_params.num_td_steps 
         self.model_seq_length = self.algorithm_params.model_seq_length
+        self.use_dynamic_seq_length = self.algorithm_params.use_dynamic_seq_length
         self.use_target_network = self.network_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
@@ -64,6 +65,36 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
             training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
+
+    def select_model_seq_length_for_exploration(self):
+        """
+        Adjusts the sequence length for state and action tensors based on the current exploration rate.
+        :param exploration_rate: The current exploration rate, ranging from 0 to 1.
+        :return: Adjusted sequence length based on the exploration rate.
+        """
+        if not self.use_dynamic_seq_length:
+            return self.model_seq_length 
+        else:
+            exploration_rate = self.get_exploration_rate()  
+            seq_length = min(max(int((1 - exploration_rate) * self.model_seq_length), 1), self.model_seq_length)
+            return seq_length
+    
+    def select_model_seq_length(self, trajectory):
+        states, actions, rewards, next_states, dones = trajectory
+        
+        padding_mask = create_padding_mask_before_dones(dones)
+
+        model_seq_length = self.select_model_seq_length_for_exploration()
+        model_seq_mask = create_model_seq_mask(padding_mask, model_seq_length)
+
+        # Apply the mask to each trajectory component
+        sel_states = apply_seq_mask(states, model_seq_mask, model_seq_length)
+        sel_actions = apply_seq_mask(actions, model_seq_mask, model_seq_length)
+        sel_rewards = apply_seq_mask(rewards, model_seq_mask, model_seq_length)
+        sel_next_states = apply_seq_mask(next_states, model_seq_mask, model_seq_length)
+        sel_dones = apply_seq_mask(dones, model_seq_mask, model_seq_length)
+
+        return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, model_seq_mask
 
     def select_tensor_reduction(self, tensor, mask=None):
         """
@@ -135,7 +166,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             else:
                 _expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
             
-            expected_value = apply_seq_mask(_expected_value, model_seq_mask, self.model_seq_length)
+            model_seq_length = estimated_value.shape[1]
+            expected_value = apply_seq_mask(_expected_value, model_seq_mask, model_seq_length)
             _advantage = (expected_value - estimated_value)
             
             advantage = self.normalize_advantage(_advantage)
