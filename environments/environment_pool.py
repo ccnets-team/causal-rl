@@ -5,7 +5,7 @@ from utils.structure.trajectories  import MultiEnvTrajectories
 import torch
 
 class EnvironmentPool: 
-    def __init__(self, env_config, model_seq_length, use_dynamic_seq_length, device, test_env, use_graphics):
+    def __init__(self, env_config, model_seq_length, device, test_env, use_graphics):
         super(EnvironmentPool, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
@@ -13,7 +13,6 @@ class EnvironmentPool:
         w_id += 100
         self.device = device
         self.model_seq_length = model_seq_length
-        self.use_dynamic_seq_length = use_dynamic_seq_length
          
         if env_config.env_type == "gym":
             self.env_list = [GymEnvWrapper(env_config, model_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
@@ -43,15 +42,6 @@ class EnvironmentPool:
     def step_env(self):
         for env in self.env_list:
             env.step_environment()
-            
-    def select_model_seq_length_for_exploration(self, exploration_rate):
-        """
-        Adjusts the sequence length for state and action tensors based on the current exploration rate.
-        :param exploration_rate: The current exploration rate, ranging from 0 to 1.
-        :return: Adjusted sequence length based on the exploration rate.
-        """
-        seq_length = min(max(int((1 - exploration_rate) * self.model_seq_length), 1), self.model_seq_length)
-        return seq_length
         
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
@@ -68,12 +58,6 @@ class EnvironmentPool:
         if training:
             trainer.reset_actor_noise(reset_noise=reset_tensor)
             
-            if self.use_dynamic_seq_length:
-                exploration_rate = trainer.get_exploration_rate()
-                seq_length = self.select_model_seq_length_for_exploration(exploration_rate)
-                state_tensor = state_tensor[:, -seq_length:]
-                action_tensor = action_tensor[:, -seq_length:]
-
         for env in self.env_list:
             env.agent_reset.fill(False)
             
@@ -88,10 +72,10 @@ class EnvironmentPool:
             start_idx = end_idx
 
     @staticmethod
-    def create_train_environments(env_config, seq_length, use_dynamic_seq_length, device):
-        return EnvironmentPool(env_config, seq_length, use_dynamic_seq_length, device, test_env=False, use_graphics = False)
+    def create_train_environments(env_config, seq_length, device):
+        return EnvironmentPool(env_config, seq_length, device, test_env=False, use_graphics = False)
     
     @staticmethod
-    def create_test_environments(env_config, seq_length, use_dynamic_seq_length, device, use_graphics):
-        return EnvironmentPool(env_config, seq_length, use_dynamic_seq_length, device, test_env=True, use_graphics = use_graphics)
+    def create_test_environments(env_config, seq_length, device, use_graphics):
+        return EnvironmentPool(env_config, seq_length, device, test_env=True, use_graphics = use_graphics)
 

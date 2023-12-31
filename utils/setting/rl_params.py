@@ -12,16 +12,15 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps = 16, model_seq_length = 12, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False, use_dynamic_seq_length = True):
+    def __init__(self, num_td_steps = 16, model_seq_length = 12, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weight    ing n-step returns.
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
-        self.use_dynamic_seq_length = use_dynamic_seq_length # Enables dynamic adjustment of td steps and model sequence length
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.02, 
+    def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
                  tau=1e-1, use_target_network=True, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.

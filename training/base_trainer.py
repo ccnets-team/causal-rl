@@ -19,7 +19,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
-        self.reduction_type = 'cross'
+        self.reduction_type = 'batch'
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -43,7 +43,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.use_gae_advantage = self.algorithm_params.use_gae_advantage
         self.num_td_steps = self.algorithm_params.num_td_steps 
         self.model_seq_length = self.algorithm_params.model_seq_length
-        self.use_dynamic_seq_length = self.algorithm_params.use_dynamic_seq_length
         self.use_target_network = self.network_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
@@ -54,26 +53,13 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
             training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
-
-    def select_model_seq_length_for_exploration(self):
-        """
-        Adjusts the sequence length for state and action tensors based on the current exploration rate.
-        :param exploration_rate: The current exploration rate, ranging from 0 to 1.
-        :return: Adjusted sequence length based on the exploration rate.
-        """
-        if not self.use_dynamic_seq_length:
-            return self.model_seq_length 
-        else:
-            exploration_rate = self.get_exploration_rate()  
-            seq_length = min(max(int((1 - exploration_rate) * self.model_seq_length), 1), self.model_seq_length)
-            return seq_length
     
     def select_model_seq_length(self, trajectory):
         states, actions, rewards, next_states, dones = trajectory
         
         padding_mask = create_padding_mask_before_dones(dones)
 
-        model_seq_length = self.select_model_seq_length_for_exploration()
+        model_seq_length = self.model_seq_length 
         model_seq_mask = create_model_seq_mask(padding_mask, model_seq_length)
 
         # Apply the mask to each trajectory component
