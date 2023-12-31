@@ -19,7 +19,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
-        self.reduction_type = 'cross'
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -46,6 +45,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.use_target_network = self.network_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
+        self.reduction_type = self.algorithm_params.reduction_type
 
     def _compute_training_start_step(self):
         training_start_step = self.training_params.early_training_start_step
@@ -91,10 +91,15 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 batch_dim_reduction = masked_tensor_reduction(tensor, mask, reduction="batch")/2
                 seq_dim_reduction = masked_tensor_reduction(tensor, mask, reduction="seq")/2
                 return torch.concat([batch_dim_reduction, seq_dim_reduction], dim=0)
+            elif self.reduction_type == 'none':
+                return tensor[mask>0].flatten()
             else:
                 raise ValueError("Invalid reduction type. Choose 'adaptive', 'batch', 'seq', 'all', or 'cross'.")
         else:
-            return tensor.mean()
+            if self.reduction_type == 'none':
+                return tensor
+            else:
+                return tensor.mean()
 
     def calculate_value_loss(self, estimated_value, expected_value, mask=None):
         squared_error = (estimated_value - expected_value).square()

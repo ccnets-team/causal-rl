@@ -12,11 +12,12 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps = 16, model_seq_length = 12, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False):
+    def __init__(self, num_td_steps = 16, model_seq_length = 12, discount_factor=0.995, advantage_lambda = 0.99, reduction_type = 'none', use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
-        self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weight    ing n-step returns.
+        self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting n-step returns.
+        self.reduction_type = reduction_type # Specifies the loss reduction type for value, critic, actor, and reverse environment model losses, with options including 'none', 'batch', 'seq', 'cross', and 'all'.
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
 
 class NetworkParameters:
