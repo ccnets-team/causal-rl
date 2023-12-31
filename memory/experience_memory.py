@@ -68,16 +68,16 @@ class ExperienceMemory:
         agent_id = buffer_id % self.num_agents
         return env_id, agent_id
             
-    def select_model_seq_length_for_exploration(self, exploration_rate):
+    def select_model_seq_length_for_exploration(self, steps, exploration_rate):
         """
         Adjusts the sequence length for state and action tensors based on the current exploration rate.
         :param exploration_rate: The current exploration rate, ranging from 0 to 1.
         :return: Adjusted sequence length based on the exploration rate.
         """
         if not self.use_dynamic_seq_length:
-            return self.model_seq_length
+            return steps
         else:
-            seq_length = min(max(int((1 - exploration_rate) * self.model_seq_length), 1), self.model_seq_length)
+            seq_length = min(max(int((1 - exploration_rate) * steps), 1), steps)
             return seq_length
     
     def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories, exploration_rate):
@@ -97,7 +97,7 @@ class ExperienceMemory:
         
         self.td_error_update_counter += 1
         
-        model_seq_length = self.select_model_seq_length_for_exploration(exploration_rate)
+        model_seq_length = self.select_model_seq_length_for_exploration(self.model_seq_length, exploration_rate)
 
         if self.td_error_update_counter % model_seq_length != 0:
             return
@@ -127,8 +127,8 @@ class ExperienceMemory:
         self.compute_td_errors(batch_trajectory)
         self.update_td_errors(batch_trajectory, use_actual_indices = True)
 
-    def sample_batch_trajectory(self, use_sampling_normalizer_update=False):
-        samples, buffer_indices = self.sample_trajectory_data(use_sampling_normalizer_update)
+    def sample_batch_trajectory(self, exploration_rate, use_sampling_normalizer_update=False):
+        samples, buffer_indices = self.sample_trajectory_data(exploration_rate, use_sampling_normalizer_update)
         if samples is None:
             return None
 
@@ -159,9 +159,10 @@ class ExperienceMemory:
             
             start_index = end_index  # Update start_index for next iteration
 
-    def sample_trajectory_data(self, use_sampling_normalizer_update = True):
+    def sample_trajectory_data(self, exploration_rate, use_sampling_normalizer_update = True):
         sample_sz = self.batch_size
-        td_steps = self.num_td_steps 
+        td_steps = self.num_td_steps
+        td_steps = self.select_model_seq_length_for_exploration(self.num_td_steps, exploration_rate)
 
         # Cumulative size calculation now a separate method for clarity
         cumulative_sizes, total_buffer_size = self._calculate_cumulative_sizes()
