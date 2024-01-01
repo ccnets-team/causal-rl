@@ -46,6 +46,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
         self.reduction_type = self.algorithm_params.reduction_type
+        self.advantage_normalizer = self.normalization_params.advantage_normalizer
 
     def _compute_training_start_step(self):
         training_start_step = self.training_params.early_training_start_step
@@ -106,6 +107,18 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
 
+    def normalize_advantage(self, advantage):
+        """Normalize the advantage based on the specified normalizer type."""
+        normalizer_type = self.advantage_normalizer
+        if normalizer_type is not None:
+            if normalizer_type == 'L1_norm':
+                return advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
+            else:
+                normalized_advantage = self.advantage_normalizer.normalize(advantage)
+                self.update_advantage(advantage)
+                return normalized_advantage
+        return advantage
+
     def compute_td_errors(self, trajectory: BatchTrajectory):
         states, actions, rewards, next_states, dones = trajectory 
         
@@ -153,9 +166,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             expected_value = apply_seq_mask(_expected_value, model_seq_mask)
             _advantage = (expected_value - estimated_value)
             
+            # Use the separate function to normalize the advantage
             advantage = self.normalize_advantage(_advantage)
-            self.update_advantage(_advantage)
-            
+
         return expected_value, advantage
 
     def reset_actor_noise(self, reset_noise):
