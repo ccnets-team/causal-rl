@@ -12,7 +12,7 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps = 16, model_seq_length = 12, discount_factor=0.99, advantage_lambda = 0.99, reduction_type = 'none', use_gae_advantage=False):
+    def __init__(self, num_td_steps = 16, model_seq_length = 16, discount_factor=0.99, advantage_lambda = 0.99, reduction_type = 'none', use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards

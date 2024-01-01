@@ -205,10 +205,9 @@ def create_model_seq_mask(padding_mask, model_seq_length):
     return select_mask
 
 # Function to apply selection mask to a trajectory component
-def apply_seq_mask(component, model_seq_mask):
-    model_seq_mask_shape = model_seq_mask.shape
+def apply_seq_mask(component, model_seq_mask, model_seq_length):
     component_shape = component.shape
-    return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_mask_shape[1], component_shape[2])
+    return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
 
 
 

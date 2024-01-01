@@ -64,11 +64,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         model_seq_mask = create_model_seq_mask(padding_mask, model_seq_length)
 
         # Apply the mask to each trajectory component
-        sel_states = apply_seq_mask(states, model_seq_mask)
-        sel_actions = apply_seq_mask(actions, model_seq_mask)
-        sel_rewards = apply_seq_mask(rewards, model_seq_mask)
-        sel_next_states = apply_seq_mask(next_states, model_seq_mask)
-        sel_dones = apply_seq_mask(dones, model_seq_mask)
+        sel_states = apply_seq_mask(states, model_seq_mask, model_seq_length)
+        sel_actions = apply_seq_mask(actions, model_seq_mask, model_seq_length)
+        sel_rewards = apply_seq_mask(rewards, model_seq_mask, model_seq_length)
+        sel_next_states = apply_seq_mask(next_states, model_seq_mask, model_seq_length)
+        sel_dones = apply_seq_mask(dones, model_seq_mask, model_seq_length)
 
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, model_seq_mask
 
@@ -107,7 +107,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
 
-    def normalize_advantage(self, advantage):
+    def apply_normalize_advantage(self, advantage):
         """Normalize the advantage based on the specified normalizer type."""
         normalizer_type = self.advantage_normalizer
         if normalizer_type is not None:
@@ -163,11 +163,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             else:
                 _expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
             
-            expected_value = apply_seq_mask(_expected_value, model_seq_mask)
+            model_seq_length = estimated_value.shape[1]
+            expected_value = apply_seq_mask(_expected_value, model_seq_mask, model_seq_length)
             _advantage = (expected_value - estimated_value)
             
             # Use the separate function to normalize the advantage
-            advantage = self.normalize_advantage(_advantage)
+            advantage = self.apply_normalize_advantage(_advantage)
 
         return expected_value, advantage
 
