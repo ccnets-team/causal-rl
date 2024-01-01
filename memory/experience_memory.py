@@ -67,7 +67,7 @@ class ExperienceMemory:
         agent_id = buffer_id % self.num_agents
         return env_id, agent_id
             
-    def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories, exploration_rate):
+    def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories):
         if multi_env_trajectories.env_ids is None:
             return
 
@@ -114,8 +114,8 @@ class ExperienceMemory:
         self.compute_td_errors(batch_trajectory)
         self.update_td_errors(batch_trajectory, use_actual_indices = True)
 
-    def sample_batch_trajectory(self, exploration_rate, use_sampling_normalizer_update=False):
-        samples, buffer_indices = self.sample_trajectory_data(exploration_rate, use_sampling_normalizer_update)
+    def sample_batch_trajectory(self, use_sampling_normalizer_update=False):
+        samples, buffer_indices = self.sample_trajectory_data(use_sampling_normalizer_update)
         if samples is None:
             return None
 
@@ -146,9 +146,8 @@ class ExperienceMemory:
             
             start_index = end_index  # Update start_index for next iteration
 
-    def sample_trajectory_data(self, exploration_rate, use_sampling_normalizer_update = True):
+    def sample_trajectory_data(self, use_sampling_normalizer_update = True):
         sample_sz = self.batch_size
-        td_steps = self.num_td_steps
         td_steps = self.num_td_steps
 
         # Cumulative size calculation now a separate method for clarity

@@ -180,11 +180,6 @@ def scale_advantage(advantages, norm_type=None):
 
     return advantages / abs_mean_advantage
 
-def convert_trajectory_data(states, next_states, mask):
-    trajectory_states = torch.cat([states, next_states[:, -1:]], dim=1)
-    trajectory_mask = torch.cat([mask, mask[:, -1:]], dim=1)
-    return trajectory_states, trajectory_mask
-
 def create_model_seq_mask(padding_mask, model_seq_length):
     """
     Creates a selection mask for trajectories.
@@ -210,11 +205,10 @@ def create_model_seq_mask(padding_mask, model_seq_length):
     return select_mask
 
 # Function to apply selection mask to a trajectory component
-def apply_seq_mask(component, model_seq_mask, model_seq_length):
-    batch_size, seq_len, feature_size = component.shape
-    reshaped_mask = model_seq_mask.expand(-1, -1, feature_size).reshape(batch_size, -1)
-    selected = component.reshape(batch_size, -1)[reshaped_mask].view(batch_size, model_seq_length, feature_size)
-    return selected
+def apply_seq_mask(component, model_seq_mask):
+    model_seq_mask_shape = model_seq_mask.shape
+    component_shape = component.shape
+    return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_mask_shape[1], component_shape[2])
 
 
 

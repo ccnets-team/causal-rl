@@ -25,7 +25,7 @@ class RLTuneHelper:
             wandb_init(trainer_name, env_config, rl_params)
         self.use_wandb = use_wandb
         
-        self.use_normalizer = (rl_params.normalization.reward_normalizer) is not None or (rl_params.normalization.state_normalizer is not None) or (rl_params.normalization.advantage_normalizer is not None) 
+        self.use_normalizer = (rl_params.normalization.reward_normalizer) is not None or (rl_params.normalization.state_normalizer is not None) 
         
         self.print_interval = DEFAULT_PRINT_INTERVAL
         self.save_interval = DEFAULT_SAVE_INTERVAL
@@ -72,8 +72,7 @@ class RLTuneHelper:
 
     def push_trajectories(self, multi_env_trajectories: MultiEnvTrajectories):
         """Pushes trajectories to memory."""
-        exploration_rate = self.parent.trainer.get_exploration_rate()
-        self.parent.memory.push_trajectory_data(multi_env_trajectories, exploration_rate)
+        self.parent.memory.push_trajectory_data(multi_env_trajectories)
 
     def should_update_strategy(self, step: int) -> bool:
         """Checks if the strategy should be updated."""
