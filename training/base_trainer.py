@@ -45,8 +45,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.use_target_network = self.network_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
-        self.reduction_type = self.algorithm_params.reduction_type
         self.advantage_normalizer = self.normalization_params.advantage_normalizer
+        self.reduction_type = 'cross'
 
     def _compute_training_start_step(self):
         training_start_step = self.training_params.early_training_start_step
@@ -124,7 +124,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         padding_mask = create_padding_mask_before_dones(dones)
 
-        mode_seq_sum_discounted_gammas = sum(self.discount_factors[:,-rewards.shape[1]:])
+        mode_seq_sum_discounted_gammas = (self.discount_factors[:,-rewards.shape[1]:]).sum(dim=1, keepdim=True)
         scaled_rewards = rewards/mode_seq_sum_discounted_gammas
         
         with torch.no_grad():
@@ -150,8 +150,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         padding_mask = create_padding_mask_before_dones(dones)
 
-        td_steps_sum_discounted_gammas = sum(self.discount_factors[:,-rewards.shape[1]:])
+        td_steps_sum_discounted_gammas = (self.discount_factors[:,-rewards.shape[1]:]).sum(dim=1, keepdim=True)
         scaled_rewards = rewards/td_steps_sum_discounted_gammas
+        print("td_steps_sum_discounted_gammas", td_steps_sum_discounted_gammas)
         
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)

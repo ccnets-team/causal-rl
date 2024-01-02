@@ -12,12 +12,11 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps = 16, model_seq_length = 16, discount_factor=0.99, advantage_lambda = 0.99, reduction_type = 'none', use_gae_advantage=False):
+    def __init__(self, num_td_steps = 16, model_seq_length = 16, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting n-step returns.
-        self.reduction_type = reduction_type # Specifies the loss reduction type for value, critic, actor, and reverse environment model losses, with options including 'none', 'batch', 'seq', 'cross', and 'all'.
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
 
 class NetworkParameters:
@@ -42,7 +41,7 @@ class OptimizationParameters:
 class ExplorationParameters:
     # Initialize exploration parameters
     def __init__(self, noise_type=None, 
-                 initial_exploration=1.0, min_exploration=0.0, decay_percentage=0.8, decay_mode='linear',
+                 initial_exploration=0, min_exploration=0, decay_percentage=0, decay_mode=None,
                  max_steps=100000):
         self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent.
         self.initial_exploration = initial_exploration  # Initial rate of exploration, determining initial randomness in actions.
@@ -59,7 +58,7 @@ class MemoryParameters:
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer="L1_norm"):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
         self.advantage_normalizer = advantage_normalizer
