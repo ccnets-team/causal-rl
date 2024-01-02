@@ -152,7 +152,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         td_steps_sum_discounted_gammas = (self.discount_factors[:,-rewards.shape[1]:]).sum(dim=1, keepdim=True)
         scaled_rewards = rewards/td_steps_sum_discounted_gammas
-        print("td_steps_sum_discounted_gammas", td_steps_sum_discounted_gammas)
         
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
