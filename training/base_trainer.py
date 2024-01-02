@@ -114,7 +114,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             if normalizer_type == 'L1_norm':
                 return advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
             else:
-                normalized_advantage = self.advantage_normalizer.normalize(advantage)
+                normalized_advantage = self.normalize_advantage(advantage)
                 self.update_advantage(advantage)
                 return normalized_advantage
         return advantage
