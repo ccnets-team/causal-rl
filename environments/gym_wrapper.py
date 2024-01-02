@@ -1,7 +1,7 @@
 import gymnasium as gym
 import numpy as np
 from .settings.agent_experience_collector import AgentExperienceCollector
-from environments.settings.gym_utils import get_final_observations_from_info
+from environments.settings.gym_utils import get_final_observations_from_info, get_final_rewards_from_info
 from utils.structure.env_observation import EnvObservation
 
 class GymEnvWrapper(AgentExperienceCollector):
@@ -103,17 +103,26 @@ class GymEnvWrapper(AgentExperienceCollector):
             A boolean indicating whether the step was successful.
         """
         return False
-    
+        
     def update(self, action) -> bool:
         """
         Updates the environment state with the given action.
-        
+
         Parameters:
             action: The action to be taken in the environment.
-            
+
         Returns:
             Currently always returns False. Intended to return a boolean indicating whether the 
             update was successful.
+
+        The function performs several key operations:
+        - Processes the action and advances the environment state.
+        - Converts environment outputs to NumPy arrays for consistency.
+        - Adjusts rewards and obtains final observations from environment info.
+        - Updates agent data with new observations, actions, and rewards.
+        - Handles agent transitions based on termination and truncation flags.
+        - Resets the environment if necessary, particularly when graphics are enabled.
+        - Tracks the active status of agents, marking those that need resetting.
         """
         self.running_cnt += 1
         action_input = self._get_action_input(action)
@@ -126,19 +135,15 @@ class GymEnvWrapper(AgentExperienceCollector):
 
         np_done = np.logical_or(np_terminated, np_truncated)
     
-        next_observation = np_next_obs.copy()
-
-        dimensions = len(np_truncated.shape)
-        if dimensions == 0:
-            if np_truncated:
-                for idx in range(len(next_observation)):
-                    next_observation[idx] = _info["final_observation"][idx]
-        else:
-            for idx, trunc in enumerate(np_truncated):
-                if trunc:
-                    next_observation[idx] = _info["final_observation"][idx]
+        next_observation = get_final_observations_from_info(_info, np_next_obs)
 
         if not self.test_env:
+            # In non-testing environments, especially for the Ant environment in Gymnasium, 
+            # this function performs reward reshaping by adjusting survival rewards. It is important to note 
+            # that this reshaping is not applied during testing phases. This ensures that the test scores 
+            # are evaluated based on the original reward structure, providing an accurate assessment of the 
+            # agent's performance.
+            np_reward = get_final_rewards_from_info(_info, np_reward, np_terminated)
             self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated)
         else:
             if self.use_graphics:

@@ -83,11 +83,12 @@ class ExperienceMemory:
             buffer.add_transition(*data[2:])
         
         self.td_error_update_counter += 1
-        
-        model_seq_length = self.model_seq_length
 
-        if self.td_error_update_counter % model_seq_length != 0:
+        if not self.use_priority:
+            return 
+        if self.td_error_update_counter % self.model_seq_length != 0:
             return
+        
         buffer_indices = defaultdict(list)
         samples = []
         for buffer_id, indices in buffer_candidates.items():
@@ -104,7 +105,7 @@ class ExperienceMemory:
             if len(selected_indices) == 0:
                 continue
 
-            trajectory = buffer._fetch_trajectory_slices(selected_indices, model_seq_length)
+            trajectory = buffer._fetch_trajectory_slices(selected_indices, self.model_seq_length)
             samples.extend(trajectory)
         
         if samples is None or len(samples) == 0:
