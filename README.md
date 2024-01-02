@@ -1,6 +1,21 @@
-# Weights & Biases CausalRL Benchmarks: OpenAI Gym Performance Analysis with Various Configurations (64 Batch Size & 100K Steps)
-- https://wandb.ai/rl_tune/causal-rl-gym/
-- https://wandb.ai/ccnets/rl-tune-gym/
+# Weights & Biases CausalRL Benchmarks: OpenAI Gym Performance Analysis
+Explore the performance of CausalRL algorithms in various OpenAI Gym environments. Our benchmarks compare the results of different configurations, each with a batch size of 64 and running for 100K steps. Dive into the detailed performance metrics and analyses:
+
+- CausalRL Gym Benchmarks: W&B - https://wandb.ai/rl_tune/causal-rl-gym/
+- Additional Analyses and Insights: W&B - https://wandb.ai/ccnets/rl-tune-gym/
+- To provide a context for our results, here are the average benchmark scores for the A2C and PPO algorithms:
+- HalfCheetah:
+   - A2C: 2,616
+   - PPO: 5,287
+- Hopper:
+   - A2C: 2,586
+   - PPO: 1,006
+- Walker2d-v4:
+   - A2C: 3,141
+   - PPO: 709
+- Ant:
+   - A2C: 5,344
+   - PPO: 3,481
 
 # Table of Contents
 
