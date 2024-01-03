@@ -68,7 +68,7 @@ class ExperienceMemory:
         agent_id = buffer_id % self.num_agents
         return env_id, agent_id
             
-    def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories):
+    def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories, exploration_rate):
         if multi_env_trajectories.env_ids is None:
             return
 
@@ -87,7 +87,12 @@ class ExperienceMemory:
 
         if not self.use_priority:
             return 
-        if self.td_error_update_counter % self.model_seq_length != 0:
+        
+        if self.use_dynamic_steps:
+            model_seq_length = min(max(int((1.0 - exploration_rate)* self.model_seq_length), 1), self.model_seq_length)
+        else:
+            model_seq_length = self.model_seq_length
+        if self.td_error_update_counter % model_seq_length != 0:
             return
         
         buffer_indices = defaultdict(list)

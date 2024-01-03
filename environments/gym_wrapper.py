@@ -138,12 +138,6 @@ class GymEnvWrapper(AgentExperienceCollector):
         next_observation = get_final_observations_from_info(_info, np_next_obs)
 
         if not self.test_env:
-            # In non-testing environments, especially for the Ant environment in Gymnasium, 
-            # this function performs reward reshaping by adjusting survival rewards. It is important to note 
-            # that this reshaping is not applied during testing phases. This ensures that the test scores 
-            # are evaluated based on the original reward structure, providing an accurate assessment of the 
-            # agent's performance.
-            np_reward = get_final_rewards_from_info(_info, np_reward, np_terminated)
             self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated)
         else:
             if self.use_graphics:
