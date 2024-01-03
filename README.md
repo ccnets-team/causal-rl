@@ -2,7 +2,7 @@
 Discover the capabilities of CausalRL algorithms in various OpenAI Gym environments. Our benchmarks, adhering to optimized industrial requirements and running 100K steps with a 64 batch size, provide in-depth performance insights. Explore the detailed metrics:
 
 - CausalRL Gym Benchmarks: W&B - https://wandb.ai/rl_tune/causal-rl-gym/
-- CausalRL Reports and Insights: W&B - https://wandb.ai/ccnets/rl-tune-gym/
+- CausalRL Reports and Insights: W&B - https://api.wandb.ai/links/ccnets/1334iuol
 - Reference Benchmarks:
 
   - HalfCheetah:
