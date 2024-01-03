@@ -12,12 +12,13 @@ class TrainingParameters:
                 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps = 16, model_seq_length = 16, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False):
+    def __init__(self, num_td_steps = 16, model_seq_length = 16, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False, use_dynamic_steps = True):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting n-step returns.
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
+        self.use_dynamic_steps = use_dynamic_steps  
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
@@ -41,7 +42,7 @@ class OptimizationParameters:
 class ExplorationParameters:
     # Initialize exploration parameters
     def __init__(self, noise_type=None, 
-                 initial_exploration=0, min_exploration=0, decay_percentage=0, decay_mode=None,
+                 initial_exploration=1, min_exploration=0.01, decay_percentage=0.8, decay_mode='linear',
                  max_steps=100000):
         self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent.
         self.initial_exploration = initial_exploration  # Initial rate of exploration, determining initial randomness in actions.
