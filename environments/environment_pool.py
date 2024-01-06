@@ -43,7 +43,14 @@ class EnvironmentPool:
     def step_env(self):
         for env in self.env_list:
             env.step_environment()
-        
+
+    def adjust_sequence_length(self, trainer, state_tensor, mask_tensor):
+        exploration_rate = trainer.get_exploration_rate()
+        selected_seq_length = min(max(int((1.0 - exploration_rate) * self.model_seq_length), 1), self.model_seq_length)
+        adjusted_state_tensor = state_tensor[:, -selected_seq_length:]
+        adjusted_mask_tensor = mask_tensor[:, -selected_seq_length:]
+        return adjusted_state_tensor, adjusted_mask_tensor
+
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
@@ -55,17 +62,14 @@ class EnvironmentPool:
         mask_tensor = torch.from_numpy(np_mask).to(self.device)
         
         state_tensor = trainer.normalize_state(state_tensor)
+
+        if training and self.use_dynamic_steps:
+            state_tensor, mask_tensor = self.adjust_sequence_length(trainer, state_tensor, mask_tensor)
+        
         action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
         if training:
             trainer.reset_actor_noise(reset_noise=reset_tensor)
         
-        exploration_rate = trainer.get_exploration_rate()
-        
-        if training and self.use_dynamic_steps:
-            selected_seq_length = min(max(int((1.0 - exploration_rate)* self.model_seq_length), 1), self.model_seq_length)
-            state_tensor = state_tensor[:,-selected_seq_length:]
-            mask_tensor = mask_tensor[:,-selected_seq_length:]
-            
         for env in self.env_list:
             env.agent_reset.fill(False)
             
