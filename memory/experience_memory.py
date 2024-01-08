@@ -15,7 +15,6 @@ class ExperienceMemory:
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
         self.num_td_steps = algorithm_params.num_td_steps
-        self.use_dynamic_steps = algorithm_params.use_dynamic_steps
         self.model_seq_length = algorithm_params.model_seq_length
         
         self.batch_size = training_params.batch_size
@@ -88,11 +87,7 @@ class ExperienceMemory:
         if not self.use_priority:
             return 
         
-        if self.use_dynamic_steps:
-            model_seq_length = min(max(int((1.0 - exploration_rate)* self.model_seq_length), 1), self.model_seq_length)
-        else:
-            model_seq_length = self.model_seq_length
-        if self.td_error_update_counter % model_seq_length != 0:
+        if self.td_error_update_counter % self.model_seq_length != 0:
             return
         
         buffer_indices = defaultdict(list)
@@ -155,11 +150,7 @@ class ExperienceMemory:
 
     def sample_trajectory_data(self, exploration_rate, use_sampling_normalizer_update = True):
         sample_sz = self.batch_size
-        
-        if self.use_dynamic_steps:
-            td_steps = min(max(int((1.0 - exploration_rate)* self.model_seq_length), 1), self.model_seq_length)
-        else:
-            td_steps = self.num_td_steps
+        td_steps = self.num_td_steps
             
         # Cumulative size calculation now a separate method for clarity
         cumulative_sizes, total_buffer_size = self._calculate_cumulative_sizes()
@@ -171,7 +162,7 @@ class ExperienceMemory:
             samples, buffer_indices = self.priority_sample_trajectory_data(sample_sz, td_steps, cumulative_sizes, total_buffer_size)
         return samples, buffer_indices  
     
-    def balanced_sample_trajectory_data(self, sample_size, sample_td_step, cumulative_sizes, total_buffer_size):
+    def balanced_sample_trajectory_data(self, sample_size, td_step, cumulative_sizes, total_buffer_size):
         sampled_indices = random.sample(range(total_buffer_size), sample_size)
         buffer_indices = defaultdict(list)
         for idx in sampled_indices:
@@ -182,7 +173,7 @@ class ExperienceMemory:
 
             buffer_indices[buffer_id].append(local_idx)
         
-        samples = self._fetch_samples(buffer_indices, sample_td_step, use_actual_indices=False)
+        samples = self._fetch_samples(buffer_indices, td_step, use_actual_indices=False)
         return samples, buffer_indices
 
     def priority_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes, total_buffer_size):
