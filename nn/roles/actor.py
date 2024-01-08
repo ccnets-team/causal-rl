@@ -7,13 +7,9 @@ import torch
 import torch.nn as nn
 
 from torch.distributions import Normal
-from ..utils.network_init import init_weights, init_log_std, create_layer
+from ..utils.network_init import init_weights, create_layer
 from nn.utils.noise_adder import EpsilonGreedy, OrnsteinUhlenbeck, BoltzmannExploration
-
 from ..utils.embedding_layer import ContinuousFeatureEmbeddingLayer
-
-log_std_min = -20
-log_std_max = 2
 
 class _BaseActor(nn.Module):
     def __init__(self, net, env_config, network_params, exploration_params, input_size):
@@ -30,7 +26,8 @@ class _BaseActor(nn.Module):
         self.log_std_layer = create_layer(self.d_model, self.action_size, act_fn='none')
         self.net = net(self.num_layers, self.d_model, dropout = network_params.dropout) 
         self.value_size = 1
-        
+        self.softplus = nn.Softplus()
+        self.relu = nn.ReLU()
         self.noise_strategy = None
         self.use_noise_before_activation = False
         self.use_deterministic = False
@@ -65,10 +62,9 @@ class _BaseActor(nn.Module):
 
     def _compute_forward_pass(self, z, mask = None):
         y = self.net(z, mask = mask) 
-        mean, log_std = self.mean_layer(y), self.log_std_layer(y)
-        log_std = torch.clamp(log_std, log_std_min, log_std_max)
-        std = log_std.exp()
-        return mean, std
+        y = self.relu(y)
+        mu, sigma = self.mean_layer(y), self.softplus(self.log_std_layer(y))
+        return mu, sigma 
 
     def _evaluate_action(self, mean, std):
         """
