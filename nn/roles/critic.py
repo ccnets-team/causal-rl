@@ -14,12 +14,14 @@ class BaseCritic(nn.Module):
         self.d_model, self.num_layers = critic_params.d_model, critic_params.num_layers
         self.value_size = 1
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(input_size, self.d_model)
+        self.relu = nn.ReLU()
         self.final_layer = create_layer(self.d_model, self.value_size, act_fn = 'none') 
         self.use_discrete = env_config.use_discrete
         self.net = net(self.num_layers, self.d_model, dropout = critic_params.dropout)
 
     def _forward(self, _value, mask = None):
         value = self.net(_value, mask = mask) 
+        value = self.relu(value) 
         value = self.final_layer(value)
         return value
 
