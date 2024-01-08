@@ -71,12 +71,11 @@ class CausalRL(BaseTrainer):
             
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor(states, estimated_value, padding_mask)
-        
-        # Calculate the reversed state using the original action.
-        reversed_state = self.revEnv(next_states, actions, estimated_value, padding_mask)
-        # Calculate the recurred state using the inferred action.
-        recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach(), padding_mask)
-        
+
+        # Invoke the process_parallel_rev_env method to compute the reversed and recurred states in parallel.
+        # This step enhances computational efficiency by processing these states simultaneously.
+        reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
+                
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state)
         # Compute the reverse cost by checking the discrepancy between the reversed state and the original state.
@@ -133,7 +132,34 @@ class CausalRL(BaseTrainer):
             coop_revEnv_error=coop_revEnv_error
         )
         return metrics
-    
+
+    def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
+        """
+        Process the reverse-environment states in parallel.
+
+        :param next_states: Tensor of next states from the environment.
+        :param actions: Tensor of actions taken.
+        :param inferred_action: Tensor of inferred actions from the actor network.
+        :param estimated_value: Tensor of estimated values from the critic network.
+        :param padding_mask: Tensor for padding mask.
+        :return: A tuple of (reversed_state, recurred_state).
+        """
+        batch_size = len(next_states)
+        
+        # Concatenate inputs for reversed and recurred states
+        combined_next_states = torch.cat((next_states, next_states), dim=0)
+        combined_actions = torch.cat((actions, inferred_action), dim=0)
+        combined_estimated_values = torch.cat((estimated_value, estimated_value.detach()), dim=0)
+        combined_padding_masks = torch.cat((padding_mask, padding_mask), dim=0)
+
+        # Process the concatenated inputs through self.revEnv
+        combined_states = self.revEnv(combined_next_states, combined_actions, combined_estimated_values, combined_padding_masks)
+
+        # Split the results back into reversed_state and recurred_state
+        reversed_state, recurred_state = combined_states.split(batch_size, dim=0)
+
+        return reversed_state, recurred_state
+        
     def update_step(self):
         self.clip_gradients()
         self.update_optimizers()
