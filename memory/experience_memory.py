@@ -70,7 +70,7 @@ class ExperienceMemory:
         if multi_env_trajectories.env_ids is None:
             return
 
-        buffer_candidates = defaultdict(list)
+        buffer_indices = defaultdict(list)
         for data in zip(multi_env_trajectories.env_ids, multi_env_trajectories.agent_ids,
                         multi_env_trajectories.states, multi_env_trajectories.actions,
                         multi_env_trajectories.rewards, multi_env_trajectories.next_states,
@@ -78,7 +78,7 @@ class ExperienceMemory:
             env_id, agent_id = data[:2]
             buffer = self.multi_buffers[env_id][agent_id]
             buffer_id = int(env_id * self.num_agents + agent_id)
-            buffer_candidates[buffer_id].append(buffer.index)
+            buffer_indices[buffer_id].append(buffer.index)
             buffer.add_transition(*data[2:])
         
         self.td_error_update_counter += 1
@@ -89,9 +89,8 @@ class ExperienceMemory:
         if self.td_error_update_counter % self.model_seq_length != 0:
             return
         
-        buffer_indices = defaultdict(list)
         samples = []
-        for buffer_id, indices in buffer_candidates.items():
+        for buffer_id, indices in buffer_indices.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
             buffer = self.multi_buffers[env_id][agent_id]
             trajectory = buffer._fetch_trajectory_slices(indices, self.model_seq_length)
