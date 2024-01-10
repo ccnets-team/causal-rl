@@ -10,6 +10,9 @@ class StandardBuffer(BaseBuffer):
         super().__init__("standard", capacity, state_size, action_size, num_td_steps)
 
     def add_transition(self, state, action, reward, next_state, terminated, truncated):
+        # Remove the current index from valid_indices if it's present
+        self._exclude_from_sampling(self.index)
+
         # Update the buffer with the new transition data
         self.states[self.index] = state
         self.actions[self.index] = action
@@ -17,6 +20,9 @@ class StandardBuffer(BaseBuffer):
         self.next_states[self.index] = next_state
         self.terminated[self.index] = terminated
         self.truncated[self.index] = truncated
+
+        # Check if adding this data creates a valid trajectory
+        self._include_for_sampling(self.index)
 
         # Increment the buffer index and wrap around if necessary
         self.index = (self.index + 1) % self.capacity

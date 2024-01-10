@@ -73,7 +73,7 @@ class RLTuneHelper:
     def push_trajectories(self, multi_env_trajectories: MultiEnvTrajectories):
         """Pushes trajectories to memory."""
         exploratoin_rate = self.parent.trainer.get_exploration_rate()
-        self.parent.memory.push_trajectory_data(multi_env_trajectories, exploratoin_rate)
+        self.parent.memory.push_trajectory_data(multi_env_trajectories)
 
     def should_update_strategy(self, step: int) -> bool:
         """Checks if the strategy should be updated."""
