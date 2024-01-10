@@ -6,7 +6,6 @@ from utils.structure.trajectories import BatchTrajectory, MultiEnvTrajectories
 from memory.standard_buffer import StandardBuffer
 from memory.priority_buffer import PriorityBuffer
 from numpy.random import choice
-import copy
 
 class ExperienceMemory:
     def __init__(self, env_config, training_params, algorithm_params, memory_params, compute_td_errors, device):
@@ -53,8 +52,8 @@ class ExperienceMemory:
     def reset_memory(self):
         return [buf._reset_buffer() for env in self.multi_buffers for buf in env]
 
-    def sample_trajectory_from_buffer(self, env_id, agent_id, indices, td_steps, use_actual_indices):
-        return self.multi_buffers[env_id][agent_id].sample_trajectories(indices, td_steps, use_actual_indices)
+    def sample_trajectory_from_buffer(self, env_id, agent_id, indices, td_steps):
+        return self.multi_buffers[env_id][agent_id]._fetch_trajectory_slices(indices, td_steps)
 
     def _create_batch_trajectory_components(self, samples):
         components = [np.stack([b[i] for b in samples], axis=0) for i in range(5)]
@@ -95,18 +94,7 @@ class ExperienceMemory:
         for buffer_id, indices in buffer_candidates.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
             buffer = self.multi_buffers[env_id][agent_id]
-
-            # Convert indices to a numpy array for advanced indexing
-            np_indices = np.array(indices)
-            valid_indices_mask = buffer.valid_indices[np_indices]
-            selected_indices = np_indices[valid_indices_mask]
-            
-            buffer_indices[buffer_id] = selected_indices
-
-            if len(selected_indices) == 0:
-                continue
-
-            trajectory = buffer._fetch_trajectory_slices(selected_indices, self.model_seq_length)
+            trajectory = buffer._fetch_trajectory_slices(indices, self.model_seq_length)
             samples.extend(trajectory)
         
         if samples is None or len(samples) == 0:
@@ -114,17 +102,17 @@ class ExperienceMemory:
         states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
         batch_trajectory = BatchTrajectory(states, actions, rewards, next_states, dones, buffer_indices)
         self.compute_td_errors(batch_trajectory)
-        self.update_td_errors(batch_trajectory, use_actual_indices = True)
+        self.update_td_errors(batch_trajectory)
 
-    def sample_batch_trajectory(self, exploration_rate, use_sampling_normalizer_update=False):
-        samples, buffer_indices = self.sample_trajectory_data(exploration_rate, use_sampling_normalizer_update)
+    def sample_batch_trajectory(self, use_sampling_normalizer_update=False):
+        samples, buffer_indices = self.sample_trajectory_data(use_sampling_normalizer_update)
         if samples is None:
             return None
 
         states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
         return BatchTrajectory(states, actions, rewards, next_states, dones, buffer_indices)
     
-    def update_td_errors(self, trajectory: BatchTrajectory, use_actual_indices = False):
+    def update_td_errors(self, trajectory: BatchTrajectory):
         if not self.use_priority:
             return 
         
@@ -144,11 +132,11 @@ class ExperienceMemory:
             local_mask = mask[start_index:end_index]
 
             # Update TD errors for the buffer
-            buffer.update_td_errors_for_sampled(indices, local_td_errors, local_mask, use_actual_indices)
+            buffer.update_td_errors_for_sampled(indices, local_td_errors, local_mask)
             
             start_index = end_index  # Update start_index for next iteration
 
-    def sample_trajectory_data(self, exploration_rate, use_sampling_normalizer_update = True):
+    def sample_trajectory_data(self, use_sampling_normalizer_update = True):
         sample_sz = self.batch_size
         td_steps = self.num_td_steps
             
@@ -209,7 +197,8 @@ class ExperienceMemory:
         for buffer_id, local_indices in buffer_indices.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
             # Fetch the experience using local indices
-            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices, num_td_steps, use_actual_indices)
+            buffer = self.multi_buffers[env_id][agent_id]
+            batch = buffer._fetch_trajectory_slices(local_indices, num_td_steps)
             samples.extend(batch)
 
         return samples
@@ -217,7 +206,7 @@ class ExperienceMemory:
     def _calculate_sampling_probabilities(self):
         alpha=self.priority_alpha
         # Accumulate TD errors using NumPy arrays for memory efficiency
-        td_errors = np.concatenate([buf.td_errors[buf.valid_indices] for env in self.multi_buffers for buf in env])
+        td_errors = np.concatenate([buf.td_errors[:buf.size] for env in self.multi_buffers for buf in env])
 
         # Adjust TD errors by alpha
         if alpha != 0:
