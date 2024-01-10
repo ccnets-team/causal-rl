@@ -1,35 +1,39 @@
 
-
 # Table of Contents
 
-- [Overview](#overview)
+- [🎈 **Overview**](#overview)
    * [Introduction](#introduction)
    * [Key Points](#key-points)
-- [Dependencies](#dependencies)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Features](#features)
-- [Performance & Benchmarks](#performance--benchmarks)
-  * [Algorithm Feature Checklist](#algorithm-feature-checklist)
-- [API Documentation](#api-documentation)
-- [Contribution Guidelines 🌟](#contribution-guidelines-)
-- [Issue Reporting Policy 🐞](#issue-reporting-policy-)
-- [Support & Contact](#support--contact)
+- [❗️ **Dependencies**](#dependencies)
+- [📥 **Installation**](#installation)
+- [🏃 **Quick Start**](#quick-start)
+- [📖 **Features**](#features)
+    - [✔️ Algorithm Feature Checklist](#algorithm-feature-checklist)
+    - [📗 Algorithms Implementation](#algorithms-implementation)
+    - [📈 CausalRL Benchmarks](#causalrl-benchmarks)
+- [🔎 **API Documentation**](#api-documentation)
+- [🌟 **Contribution Guidelines**](#contribution-guidelines-)
+- [🐞 **Issue Reporting Policy**](#issue-reporting-policy-)
+- [✉️ **Support & Contact**](#support--contact)
 
 
-# Overview
+
+
+# 🎈 Overview
 
 ## **Introduction**
 
-RL-Tune is a customizable Reinforcement Learning framework designed to offer flexibility, modularity, and adaptability to various RL scenarios. Below are detailed descriptions of the key features of the framework to help users leverage its full potential.
+Causal RL is an innovative Reinforcement Learning framework that utilizes three networks: Actor, Critic, and Reverse Environment, to learn the causal relationships between states, actions, and values while maximizing cumulative rewards. This introduction provides detailed descriptions of the framework's key features to help users leverage the full potential of Causal RL.
 
 ## **Key Points**
 
-1. Tune RL Parameters for benchmarking, with a preset pipeline ready to execute reducing your effort in initial setups.
-2. Develop flexible custom algorithms based on RL principles using role-based network, uniformly integrated with the latest RL frameworks.
-3. Introduction of Causal RL integrating reverse-environment network into Actor-Critic framework learning the causal relationships between states, actions, and values, while maximizing accumulative rewards.
+1. **Causal Learning with Reverse Causal Mask**: Causal RL employs a reverse mask to better understand and utilize the causal relationships between states and actions, enhancing learning efficiency and strategy effectiveness.
 
-# ****Dependencies****
+2. Develop flexible custom algorithms based on RL principles using role-based network, uniformly integrated with the latest RL frameworks.
+
+3. **Efficient Parameter Tuning**: RLTune offers a preset pipeline for parameter tuning for benchmarking, reducing the effort required in initial setups.
+
+# ❗️ ****Dependencies****
 
 ```python
 conda create -name rl_tune python=3.9
@@ -37,11 +41,12 @@ conda activate rl_tune
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 pip install mlagents==0.30
 pip install protobuf==3.20
-pip install gymnasium
+pip install gymnasium==0.29.0
+pip install mujoco==3.1.0
 pip install jupyter
 pip install transformers==4.34.1
 ```
-# **Installation**
+# 📥 **Installation**
 
 - Steps to install the framework.
 - Note: Ensure you have the required dependencies installed as listed in the "Dependencies" section above.
@@ -61,25 +66,33 @@ pip install transformers==4.34.1
     pip install -r requirements.txt
     ```
 
-# **Quick Start**
+# 🏃 **Quick Start**
 
 - A basic example to help users get up and running immediately.
 
+### 1. Import Library
 ```python
-env_config, rl_params = analyze_env(env_name = "PushBlock")
+from __future__ import print_function
+from utils.setting.env_settings import analyze_env
+from utils.init import set_seed
+set_seed()
 
-trainer = RLTrainer(rl_params, trainer_name='crl')  
-
-rl_tune = RLTune(env_config, trainer, device, use_graphics = False, use_print = False)
-
-rl_tune.train(on_policy=False)
+import torch
+device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 ```
-![1](https://github.com/ccnets-team/rl-tune/assets/75417171/4007a1c4-89c4-4727-bddb-4b332fb12bda)
-![2](https://github.com/ccnets-team/rl-tune/assets/75417171/bfafafdd-b0f1-4210-866a-bcddfdb8953d)
-![3](https://github.com/ccnets-team/rl-tune/assets/75417171/17494f60-ab20-4d93-9ca7-8ea44d6d8fd7)
 
+### 2. Initializing and Running Causal RL Training Process
 
-# Features
+```python
+from training.rl_trainer import RLTrainer  
+from rl_tune import RLTune
+
+trainer = RLTrainer(rl_params, trainer_name='causal_rl')  
+with RLTune(env_config, trainer, device, use_graphics = False, use_print = True, use_wandb = False) as rl_tune:
+    rl_tune.train(on_policy=False, resume_training = False)
+```
+
+# 📖 **Features**
 
 **1. Manageable RL Parameters**
 
@@ -103,13 +116,14 @@ RL-Tune features comprehensive modules including memory, normalization, noise, e
 RL-Tune’s flexible architecture facilitates distinct role assignments to different networks, optimizing the processes of development and management for various network configurations.
 
 ```python
-from nn.roles.actor_network import SingleInputActor as QNetwork
-from nn.roles.critic_network import SingleInputCritic
-from nn.roles.reverse_env_network import RevEnv
+from nn.super_net import SuperNet
 
-q_network = QNetwork(network, env_config, network_params, exploration_params)
-critic = SingleInputCritic(network, env_config, network_params)
-reverse_env = RevEnv(network, env_config, network_params)
+class NetworkParameters:
+    def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
+                 tau=1e-1, use_target_network=True, network_type=SuperNet):
+        self.critic_network = network_type  # Selected model-based network used for the critic.
+        self.actor_network = network_type  # Selected model-based network used for the actor.
+        self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
 
 ```
 
@@ -147,20 +161,65 @@ Enhances policy optimization through the **`compute_gae_advantage`** method.
 - Curiosity RL Integration:
 Incorporates curiosity-driven RL components for enhanced exploration and learning in sparse reward environments.
 
-# **Performance & Benchmarks**
-![File (1)](https://github.com/ccnets-team/rl-tune/assets/75417171/e94d7922-1eba-4594-886b-428573bc19c4)
+**6. Enhancing CausalRL with GPT** 
 
-*HumanoidStandup-v4*
+```python
+class NetworkParameters:
+    def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
+                 tau=1e-1, use_target_network=True, network_type=GPT):
+        self.critic_network = network_type  
+        self.actor_network = network_type  
+        self.rev_env_network = network_type 
+        self.critic_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  
+        self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  
+        self.rev_env_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  
+```
+
+- Advanced Sequence Learning: GPT excels in processing sequence data, aiding agents in predicting future states and actions based on past events. This is particularly useful in strategy games like chess or Go.
+
+- Complex Pattern Recognition: GPT's deep neural network structure is adept at learning and recognizing complex patterns, enabling agents to make informed decisions in intricate environments.
+
+- Long-term Strategy Development: GPT's proficiency in learning long-term dependencies is crucial for strategic planning in fields like robotics or drones, focusing on goals like energy efficiency and safe navigation.
+
+- **Reverse Causal Masking Benefits**: While GPT's actor and critic networks use forward masking, the reverse_env network employs reverse masking. This approach enhances the understanding and prediction of current states from past data, beneficial in complex scenarios like robotics for optimal decision-making.
+
+<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/93ae2640-8dc7-4665-972c-6b2c90557faf" style="max-width: 100%; height: auto;">
 
 
-## Algorithm Feature Checklist
-![File (2)](https://github.com/ccnets-team/rl-tune/assets/75417171/41cd231e-b13c-45a9-b21e-cb4a3ae3ed15)
+## ✔️ Algorithm Feature Checklist
+<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/69c7e40f-0faa-4c46-a3e8-fedb2676a478" style="max-width: 90%; height: auto;">
 
-# **API Documentation**
+## 📗 Algorithms Implementation
+
+| Algorithm | Implemantation | Docs |
+|----------|----------|----------|
+| **CausalRL**    | [causal_rl.py](https://github.com/ccnets-team/rl-tune/blob/all-gpt-causal-rl/training/trainer/causal_rl.py) | [Patent](https://patents.google.com/patent/WO2023167576A2/)     |
+| **Advantage Actor-Critic (A2C)**    | [a2c.py](https://github.com/ccnets-team/rl-tune/blob/all-gpt-causal-rl/training/trainer/a2c.py) | [Docs](https://huggingface.co/blog/deep-rl-a2c)     |
+| **Deep Deterministic Policy Gradient (DDPG)**    | [ddpg.py](https://github.com/ccnets-team/rl-tune/blob/all-gpt-causal-rl/training/trainer/ddpg.py) | [Docs](https://spinningup.openai.com/en/latest/algorithms/ddpg.html)     |
+| **Deep Q-Network (DQN)**    | [dqn.py](https://github.com/ccnets-team/rl-tune/blob/all-gpt-causal-rl/training/trainer/dqn.py) | [Docs](https://huggingface.co/blog/deep-rl-a2c)     |
+| **Soft Actor-Critic (SAC)**    | [sac.py](https://github.com/ccnets-team/rl-tune/blob/all-gpt-causal-rl/training/trainer/sac.py) | [Docs](https://spinningup.openai.com/en/latest/algorithms/sac.html)     |
+| **Twin Delayed Deep Deterministic Policy Gradient (TD3)** | [td3.py](https://github.com/ccnets-team/rl-tune/blob/all-gpt-causal-rl/training/trainer/td3.py) | [Docs](https://spinningup.openai.com/en/latest/algorithms/td3.html)     |
+
+<br></br>
+
+# 📈 **CausalRL Benchmarks**
+Discover the capabilities of CausalRL algorithms in various OpenAI Gym environments. Our benchmarks, adhering to optimized industrial requirements and running 100K steps with a 64 batch size, provide in-depth performance insights. Explore the detailed metrics:
+
+- 📊 CausalRL Gym Benchmarks: W&B - https://wandb.ai/rl_tune/causal-rl-gym/
+- 📜 CausalRL Reports and Insights: W&B - https://api.wandb.ai/links/ccnets/1334iuol
+
+
+<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/a0d99dfe-3247-4b8d-9ada-0811f69ab366" style="max-width: 100%; height: auto;">
+
+
+<br></br>
+
+# 🔎 **API Documentation**
 
 - We're currently in the process of building our official documentation webpage to better assist you. In the meantime, if you have any specific questions or need clarifications, feel free to reach out through our other support channels. We appreciate your patience and understanding!
 
-# **Contribution Guidelines 🌟**
+
+# 🌟 **Contribution Guidelines**
 <details>
   <summary><strong> Click to see more </strong></summary>
 
@@ -184,7 +243,7 @@ When you submit a Pull Request (PR) to our project, here's the process it goes t
 Your contributions are invaluable to us. Please ensure you address feedback promptly to streamline the merge process.
 
 
-# **Issue Reporting Policy 🐞**
+# 🐞 **Issue Reporting Policy**
 
 Thank you for taking the time to report issues and provide feedback. This helps improve our project for everyone! To ensure that your issue is handled efficiently, please follow the guidelines below:
 
@@ -220,7 +279,7 @@ Thank you for helping improve our project! Your feedback and contributions are i
 </details>
 
 
-# **Support & Contact**
+# ✉️ **Support & Contact**
 
 Facing issues or have questions about our framework? We're here to help!
 
