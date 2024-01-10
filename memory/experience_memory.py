@@ -130,9 +130,10 @@ class ExperienceMemory:
             # Extract corresponding local normalized rewards and values
             local_td_errors = td_errors[start_index:end_index]
             local_mask = mask[start_index:end_index]
+            np_indices = np.array(indices, dtype=int)
 
             # Update TD errors for the buffer
-            buffer.update_td_errors_for_sampled(indices, local_td_errors, local_mask)
+            buffer.update_td_errors_for_sampled(np_indices, local_td_errors, local_mask)
             
             start_index = end_index  # Update start_index for next iteration
 
