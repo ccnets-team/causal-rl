@@ -44,7 +44,7 @@ def _print_metrics(label, **kwargs):
     
 
 def print_step(trainer, memory, episode, time_cost):
-    max_steps = trainer.max_steps
+    max_steps = trainer.exploration_params.max_steps
     if memory is not None:
         buffer_size = len(memory)
     else:
