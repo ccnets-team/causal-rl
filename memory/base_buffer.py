@@ -39,12 +39,10 @@ class BaseBuffer:
                 self.valid_set.add(index)                
 
     def _exclude_from_sampling(self, index):
-        end_idx = index + self.num_td_steps
-        for idx in range(index, end_idx):
-            current_idx = idx % self.capacity
-            if self.valid_indices[current_idx]:
-                self.valid_indices[current_idx] = False
-                self.valid_set.remove(current_idx)
+        end_idx = (index + self.num_td_steps - 1) % self.capacity
+        if self.valid_indices[end_idx]:
+            self.valid_indices[end_idx] = False
+            self.valid_set.remove(end_idx)
 
     def _fetch_trajectory_slices(self, actual_indices, td_steps):
         batch_size = len(actual_indices)
