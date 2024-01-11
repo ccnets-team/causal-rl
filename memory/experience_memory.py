@@ -18,8 +18,8 @@ class ExperienceMemory:
         self.model_seq_length = algorithm_params.model_seq_length
         
         self.batch_size = training_params.batch_size
-        self.buffer_type = memory_params.buffer_type
-        self.priority_alpha = memory_params.priority_alpha
+        self.buffer_type = 'standard' if memory_params.buffer_priority == 0.0 else 'priority'
+        self.buffer_priority = memory_params.buffer_priority
         self.gamma = algorithm_params.discount_factor
         self.compute_td_errors = compute_td_errors
         self.use_priority = False
@@ -215,7 +215,7 @@ class ExperienceMemory:
         return samples
 
     def _calculate_sampling_probabilities(self):
-        alpha=self.priority_alpha
+        alpha=self.buffer_priority
         # Accumulate TD errors using NumPy arrays for memory efficiency
         td_errors = np.concatenate([buf.td_errors[buf.valid_indices] for env in self.multi_buffers for buf in env])
 

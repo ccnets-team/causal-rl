@@ -98,6 +98,8 @@ class RLTuneHelper:
         
         self.max_steps = exploration_params.max_steps
         self.buffer_size = memory_params.buffer_size
+        
+        self.use_on_policy = training_params.use_on_policy
         self.batch_size = training_params.batch_size
         self.replay_ratio = training_params.replay_ratio
         self.train_interval = training_params.train_interval

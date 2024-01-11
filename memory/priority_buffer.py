@@ -50,7 +50,7 @@ class PriorityBuffer(BaseBuffer):
             actual_indices = indices
         else:
             # Convert valid_set to a list to maintain order
-            ordered_valid_set = list(self.valid_dict)
+            ordered_valid_set = list(self.valid_set)
 
             # Check if the indices are more than the available samples
             if len(indices) > len(ordered_valid_set):

@@ -3,16 +3,19 @@ from nn.super_net import SuperNet
 from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
-    # Initialize training parameters
-    def __init__(self, batch_size=64, replay_ratio=1, train_interval = 1):
-        self.batch_size = batch_size  # Batch size for training
-        self.replay_ratio = replay_ratio  # How often past experiences are reused in training (batch size / samples per step)
-        self.train_interval  = train_interval  # Determines how frequently training updates occur based on the number of explorations before each update
-        self.early_training_start_step = None  # Training starts when the replay buffer is full. Set to a specific step count to start training earlier.
-                
+    """
+    Initialize training parameters for a reinforcement learning model.
+    """
+    def __init__(self, batch_size=64, replay_ratio=2, train_interval=1, use_on_policy=False):
+        self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
+        self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
+        self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
+        self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
+        self.use_on_policy = use_on_policy  # Indicates if training uses on-policy (True) or off-policy (False) methods.
+
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps = 16, model_seq_length = 16, discount_factor=0.995, advantage_lambda = 0.99, use_gae_advantage=False):
+    def __init__(self, num_td_steps = 16, model_seq_length = 16, discount_factor=0.99, advantage_lambda = 0.99, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
         self.model_seq_length = model_seq_length  # Length of input sequences for the model
         self.discount_factor = discount_factor  # Discount factor for future rewards
@@ -40,23 +43,19 @@ class OptimizationParameters:
 
 class ExplorationParameters:
     # Initialize exploration parameters
-    def __init__(self, noise_type=None, 
-                 initial_exploration=1, min_exploration=0.01, decay_percentage=0.8, decay_mode='linear',
-                 max_steps=100000):
-        self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent.
-        self.initial_exploration = initial_exploration  # Initial rate of exploration, determining initial randomness in actions.
-        self.min_exploration = min_exploration  # Minimum exploration rate, ensuring some level of exploration throughout training.
-        self.decay_percentage = decay_percentage  # Defines how quickly the exploration rate decays.
-        self.decay_mode = decay_mode  # Determines the method of decay for exploration rate (e.g., 'linear').
-        self.max_steps = max_steps  # Maximum number of steps for the exploration phase.
-
+    # The exploration rate starts at 1 (maximum exploration) and decays over time towards a minimum value (e.g., 0.01) during the training process. 
+    # The specific decay behavior (e.g., linear, exponential) and the rate of decay are managed by the ExplorationUtils class.
+    # By default, the exploration rate decays linearly from 1 to 0.01 over 80% of the max_steps.
+    def __init__(self, noise_type=None, max_steps=100000):
+        self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent. This could be any noise algorithm like epsilon-greedy, OU noise strategy, etc.
+        self.max_steps = max_steps  # Maximum number of steps for the exploration phase. This defines the period over which the exploration strategy is applied.
+        
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_type='standard', priority_alpha = 0, buffer_size=256000):
-        self.buffer_type = buffer_type  # Determines the type of memory buffer used for storing experiences.
-        self.priority_alpha = priority_alpha  # Alpha parameter for adjusting the prioritization in the memory buffer.
+    def __init__(self, buffer_priority=0.0, buffer_size=128000):
+        self.buffer_priority = buffer_priority  # Adjusts the prioritization in the memory buffer. A value of 0 indicates a standard buffer.
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
-
+        
 class NormalizationParameters:
     def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
