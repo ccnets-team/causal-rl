@@ -1,16 +1,10 @@
 [![Static Badge](https://img.shields.io/badge/Python-3.9.18-%233776AB)](https://www.python.org/)
-[![Static Badge](https://img.shields.io/badge/PyTorch-2.1.2-%23EE4C2C)
-](https://pytorch.org/get-started/locally/)
-[![Static Badge](https://img.shields.io/badge/OpenAI%20Gym-0.29.1-%230081A5)
-](https://gymnasium.farama.org/environments/mujoco/)
-[![Static Badge](https://img.shields.io/badge/Unity%20MLagents-0.30.0-%23000000)
-](https://github.com/Unity-Technologies/ml-agents)
-[![Static Badge](https://img.shields.io/badge/%F0%9F%A4%97GPT%20model-Hugging%20Face-%23FF9D0B)
-](https://huggingface.co/gpt2)
-[![Static Badge](https://img.shields.io/badge/CCNets-LinkedIn-%230A66C2)
-](https://www.linkedin.com/company/ccnets/)
-[![Static Badge](https://img.shields.io/badge/Patent-Google-%234285F4)
-](https://patents.google.com/patent/WO2023167576A2/)
+[![Static Badge](https://img.shields.io/badge/PyTorch-2.1.2-%23EE4C2C)](https://pytorch.org/get-started/locally/)
+[![Static Badge](https://img.shields.io/badge/OpenAI%20Gym-0.29.1-%230081A5)](https://gymnasium.farama.org/environments/mujoco/)
+[![Static Badge](https://img.shields.io/badge/Unity%20MLagents-0.30.0-%23000000)](https://github.com/Unity-Technologies/ml-agents)
+[![Static Badge](https://img.shields.io/badge/%F0%9F%A4%97GPT%20model-Hugging%20Face-%23FF9D0B)](https://huggingface.co/gpt2)
+[![Static Badge](https://img.shields.io/badge/CCNets-LinkedIn-%230A66C2)](https://www.linkedin.com/company/ccnets/)
+[![Static Badge](https://img.shields.io/badge/Patent-Google-%234285F4)](https://patents.google.com/patent/WO2023167576A2/)
 
 
 # Table of Contents
