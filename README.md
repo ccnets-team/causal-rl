@@ -1,3 +1,5 @@
+# CausalRL(Causal Reinforcement Learning) and RLTune Framework by CCNets
+
 [![Static Badge](https://img.shields.io/badge/Python-3.9.18-%233776AB)](https://www.python.org/)
 [![Static Badge](https://img.shields.io/badge/PyTorch-2.1.2-%23EE4C2C)](https://pytorch.org/get-started/locally/)
 [![Static Badge](https://img.shields.io/badge/OpenAI%20Gym-0.29.1-%230081A5)](https://gymnasium.farama.org/environments/mujoco/)
@@ -9,20 +11,21 @@
 
 # Table of Contents
 
-- [🎈 **Overview**](#overview)
+- [🎈 **Overview**](#🎈-overview)
    * [Introduction](#introduction)
    * [Key Points](#key-points)
-- [❗️ **Dependencies**](#dependencies)
-- [📥 **Installation**](#installation)
-- [🏃 **Quick Start**](#quick-start)
-- [📖 **Features**](#features)
-    - [✔️ Algorithm Feature Checklist](#algorithm-feature-checklist)
-    - [📗 Algorithms Implementation](#algorithms-implementation)
-    - [📈 CausalRL Benchmarks](#causalrl-benchmarks)
-- [🔎 **API Documentation**](#api-documentation)
-- [🌟 **Contribution Guidelines**](#contribution-guidelines-)
-- [🐞 **Issue Reporting Policy**](#issue-reporting-policy-)
-- [✉️ **Support & Contact**](#support--contact)
+- [❗️ **Dependencies**](#❗️-dependencies)
+- [📥 **Installation**](#📥-installation)
+- [🏃 **Quick Start**](#🏃-quick-start)
+- [📖 **Features**](#📖-features)
+    - [✔️ Algorithm Feature Checklist](#✔️-algorithm-feature-checklist)
+    - [📗 Algorithms Implementation](#📗-algorithms-implementation)
+    - [📈 CausalRL Benchmarks](#📈-causalrl-benchmarks)
+        - [Download and Use Model(W&B)](#download-and-use-modelwb)
+- [🔎 **API Documentation**](#🔎-api-documentation)
+- [🌟 **Contribution Guidelines**](#🌟-contribution-guidelines-)
+- [🐞 **Issue Reporting Policy**](#🐞-issue-reporting-policy-)
+- [✉️ **Support & Contact**](#✉️-support--contact)
 
 
 
@@ -200,8 +203,27 @@ Discover the capabilities of CausalRL algorithms in various OpenAI Gym environme
 - 📜 CausalRL Reports and Insights: W&B - https://api.wandb.ai/links/ccnets/1334iuol
 
 
-<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/91e9d4c3-ac6c-4446-800a-e85c3206445d" style="max-width: 100%; height: auto;">
+<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/db8bddb4-953e-40a3-9f71-e03e9fa24936" style="max-width: 100%; height: auto;">
 
+## Download and Use Model(W&B)
+
+- Install the WandB Package
+```bash
+pip install wandb # If not installed
+```
+
+- Inintialize and Run WandB
+```python
+import wandb
+run = wandb.init() # you may need to enter your API Key
+```
+
+- Download Artifact from WandB
+```python
+Artifact_Name = ... # including the specific model and version you want, and assign it
+artifact = run.use_artifact('rl_tune/causal-rl-gym/{Artifact_Name}', type='model') # 
+artifact_dir = artifact.download()
+```
 
 <br></br>
 
