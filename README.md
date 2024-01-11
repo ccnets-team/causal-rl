@@ -1,3 +1,17 @@
+[![Static Badge](https://img.shields.io/badge/Python-3.9.18-%233776AB)](https://www.python.org/)
+[![Static Badge](https://img.shields.io/badge/PyTorch-2.1.2-%23EE4C2C)
+](https://pytorch.org/get-started/locally/)
+[![Static Badge](https://img.shields.io/badge/OpenAI%20Gym-0.29.1-%230081A5)
+](https://gymnasium.farama.org/environments/mujoco/)
+[![Static Badge](https://img.shields.io/badge/Unity%20MLagents-0.30.0-%23000000)
+](https://github.com/Unity-Technologies/ml-agents)
+[![Static Badge](https://img.shields.io/badge/%F0%9F%A4%97GPT%20model-Hugging%20Face-%23FF9D0B)
+](https://huggingface.co/gpt2)
+[![Static Badge](https://img.shields.io/badge/CCNets-LinkedIn-%230A66C2)
+](https://www.linkedin.com/company/ccnets/)
+[![Static Badge](https://img.shields.io/badge/Patent-Google-%234285F4)
+](https://patents.google.com/patent/WO2023167576A2/)
+
 
 # Table of Contents
 
@@ -36,12 +50,12 @@ Causal RL is an innovative Reinforcement Learning framework that utilizes three 
 # ❗️ ****Dependencies****
 
 ```python
-conda create -name rl_tune python=3.9
+conda create -name rl_tune python=3.9.18
 conda activate rl_tune
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 pip install mlagents==0.30
 pip install protobuf==3.20
-pip install gymnasium==0.29.0
+pip install gymnasium==0.29.1
 pip install mujoco==3.1.0
 pip install jupyter
 pip install transformers==4.34.1
@@ -72,12 +86,9 @@ pip install transformers==4.34.1
 
 ### 1. Import Library
 ```python
-from __future__ import print_function
 from utils.setting.env_settings import analyze_env
-from utils.init import set_seed
-set_seed()
-
 import torch
+
 device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else "cpu")
 ```
 
@@ -127,21 +138,7 @@ class NetworkParameters:
 
 ```
 
-**4. Custom Algorithm Formulation with BaseTrainer Class:**
-
-RL-Tune is built around the BaseTrainer class, empowering users to formulate custom algorithms and utilize commonalized functions for crafting powerful and efficient RL solutions.
-
-```python
-class BaseTrainer:
-    def compute_values(self, states: torch.Tensor, rewards: torch.Tensor,
-                       next_states: torch.Tensor, dones: torch.Tensor,
-                       estimated_value: torch.Tensor) -> (torch.Tensor, torch.Tensor):
-		...
-
-class YourRLTrainer(BaseTrainer):
-```
-
-**5. Enhanced Algorithmic Components:**
+**4. Enhanced Algorithmic Components:**
     
 - Numerical n-td steps:
 Supports configurable numerical n-td steps for effective planning and learning.
@@ -161,7 +158,7 @@ Enhances policy optimization through the **`compute_gae_advantage`** method.
 - Curiosity RL Integration:
 Incorporates curiosity-driven RL components for enhanced exploration and learning in sparse reward environments.
 
-**6. Enhancing CausalRL with GPT** 
+**5. Enhancing CausalRL with GPT** 
 
 ```python
 class NetworkParameters:
@@ -209,7 +206,7 @@ Discover the capabilities of CausalRL algorithms in various OpenAI Gym environme
 - 📜 CausalRL Reports and Insights: W&B - https://api.wandb.ai/links/ccnets/1334iuol
 
 
-<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/a0d99dfe-3247-4b8d-9ada-0811f69ab366" style="max-width: 100%; height: auto;">
+<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/91e9d4c3-ac6c-4446-800a-e85c3206445d" style="max-width: 100%; height: auto;">
 
 
 <br></br>
