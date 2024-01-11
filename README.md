@@ -221,7 +221,7 @@ run = wandb.init() # you may need to enter your API Key
 - Download Artifact from WandB
 ```python
 Artifact_Name = ... # including the specific model and version you want, and assign it
-artifact = run.use_artifact('rl_tune/causal-rl-gym/{Artifact_Name}', type='model') # 
+artifact = run.use_artifact('rl_tune/causal-rl-gym/{Artifact_Name}', type='model')
 artifact_dir = artifact.download()
 ```
 
