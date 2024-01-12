@@ -51,7 +51,7 @@ class ExperienceMemory:
         return sum(buf.size for env in self.multi_buffers for buf in env)
 
     def reset_memory(self):
-        return [buf._reset_buffer() for env in self.multi_buffers for buf in env]
+        return [buf.reset_buffer() for env in self.multi_buffers for buf in env]
 
     def sample_trajectory_from_buffer(self, env_id, agent_id, indices, td_steps):
         return self.multi_buffers[env_id][agent_id].sample_trajectories(indices, td_steps)

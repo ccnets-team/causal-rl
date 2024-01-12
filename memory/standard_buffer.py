@@ -9,11 +9,15 @@ import numpy as np
 class StandardBuffer(BaseBuffer):
     def __init__(self, capacity, state_size, action_size, num_td_steps):
         super().__init__("standard", capacity, state_size, action_size, num_td_steps)
+        self.reset_buffer()
 
     def __len__(self):
         return max(self.size - self.num_td_steps + 1, 0)
 
-    def _reindex_indices(self, indices):
+    def reset_buffer(self):
+        self._reset_buffer()
+    
+    def reindex_indices(self, indices):
         np_indices = np.array(indices, dtype=np.int32)
 
         # Calculate the start and end of the excluded range
@@ -46,8 +50,6 @@ class StandardBuffer(BaseBuffer):
         self.terminated[self.index] = terminated
         self.truncated[self.index] = truncated
         
-        self._exclude_from_sampling(self.index)
-
         # Increment the buffer index and wrap around if necessary
         self.index = (self.index + 1) % self.capacity
 
@@ -57,7 +59,7 @@ class StandardBuffer(BaseBuffer):
         # Remove invalid indices caused by the circular nature of the buffer
         
     def sample_trajectories(self, indices, td_steps):
-        actual_indices = self._reindex_indices(indices)
+        actual_indices = self.reindex_indices(indices)
             
         # Retrieve trajectories for the given actual indices
         samples = self._fetch_trajectory_slices(actual_indices, td_steps)
