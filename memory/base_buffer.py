@@ -12,7 +12,6 @@ class BaseBuffer:
         self.num_td_steps = num_td_steps
         self.state_size = state_size
         self.action_size = action_size
-        self._reset_buffer()
 
     def _reset_buffer(self):
         self.size = 0  
