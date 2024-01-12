@@ -31,6 +31,12 @@ class PriorityBuffer(BaseBuffer):
             self.size += 1
         # Remove invalid indices caused by the circular nature of the buffer
 
+    def fetch_valid_td_errors(self):
+        # Calculate the start and end of the range to exclude from TD errors
+        indices = np.arange(self.__len__())
+        actual_indices = self._reindex_indices(indices)
+        return self.td_errors[actual_indices]
+        
     def update_td_errors_for_sampled(self, indices, td_errors, mask, use_actual_indices=False):
         """
         Updates the TD errors for sampled experiences.

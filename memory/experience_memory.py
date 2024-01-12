@@ -126,13 +126,14 @@ class ExperienceMemory:
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
             buffer = self.multi_buffers[env_id][agent_id]
 
+            np_indices = np.array(indices, np.int32)
             end_index = start_index + len(indices)
             # Extract corresponding local normalized rewards and values
             local_td_errors = td_errors[start_index:end_index]
             local_mask = mask[start_index:end_index]
 
             # Update TD errors for the buffer
-            buffer.update_td_errors_for_sampled(indices, local_td_errors, local_mask, use_actual_indices)
+            buffer.update_td_errors_for_sampled(np_indices, local_td_errors, local_mask, use_actual_indices)
             
             start_index = end_index  # Update start_index for next iteration
 
@@ -168,7 +169,6 @@ class ExperienceMemory:
 
         # Step 1: Calculate sampling probabilities based on TD errors
         sampling_probabilities = self._calculate_sampling_probabilities()
-
         # Step 2: Sample indices based on the calculated probabilities
         sampled_indices = choice(range(total_buffer_size), size=sample_size, p=sampling_probabilities)
         buffer_indices = defaultdict(list)
@@ -205,13 +205,8 @@ class ExperienceMemory:
     def _calculate_sampling_probabilities(self):
         alpha=self.buffer_priority
         # Accumulate TD errors using NumPy arrays for memory efficiency
-        td_errors = np.concatenate([
-            np.concatenate((
-                buf.td_errors[:buf.index], 
-                buf.td_errors[min(buf.index + buf.num_td_steps - 1, buf.capacity): ]
-            )) for env in self.multi_buffers for buf in env
-        ])
-
+        td_errors = np.concatenate([buf.fetch_valid_td_errors() for env in self.multi_buffers for buf in env])
+        
         # Adjust TD errors by alpha
         if alpha != 0:
             adjusted_td_errors = np.power(td_errors, alpha)
@@ -219,5 +214,6 @@ class ExperienceMemory:
             # If alpha is 0, use uniform distribution
             adjusted_td_errors = np.ones_like(td_errors)
 
-        probabilities = adjusted_td_errors / adjusted_td_errors.sum()
+        sum_adjusted_td_errors = adjusted_td_errors.sum()
+        probabilities = adjusted_td_errors / sum_adjusted_td_errors
         return probabilities
