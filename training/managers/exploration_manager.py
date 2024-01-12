@@ -7,21 +7,20 @@ def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, de
     return (min_exploration / initial_exploration) ** (1/decay_steps)
 
 class ExplorationUtils:
-    def __init__(self, exploration):
-        self.initial_exploration = exploration.initial_exploration
-        self.min_exploration = exploration.min_exploration
-        self.decay_percentage = exploration.decay_percentage
-        self.max_steps = exploration.max_steps
+    def __init__(self, exploration_params):
+        # Default exploration rate at the start of training. High value (1.0) promotes initial random exploration.
+        self.initial_exploration = 1.0
 
-        if hasattr(exploration, "decay_mode"):
-            self.decay_mode = exploration.decay_mode
-        else:
-            self.decay_mode = "linear"  # default value
+        # Minimum exploration rate, ensuring some level of exploration is maintained throughout training.
+        self.min_exploration = 0.01
 
-        if self.decay_mode == "linear":
-            self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, self.max_steps, self.decay_percentage)
-        elif self.decay_mode == "exponential":
-            self.decay_factor = compute_exp_decay_factor(self.initial_exploration, self.min_exploration, self.max_steps, self.decay_percentage)
+        # Defines the rate at which exploration decreases. A value of 0.8 means 80% of initial exploration will be reduced over max_steps.
+        self.decay_percentage = 0.8
+
+        # Default decay mode. 'linear' means exploration rate decreases linearly over time.
+        self.decay_mode = "linear"
+
+        self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, exploration_params.max_steps, self.decay_percentage)
 
         self.exploration_rate = self.initial_exploration
         

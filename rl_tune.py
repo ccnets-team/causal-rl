@@ -41,7 +41,7 @@ class RLTune:
             env.end()
 
     # Main Public Methods
-    def train(self, on_policy: bool = False, resume_training: bool = False) -> None:
+    def train(self, resume_training: bool = False) -> None:
         """
         Train the model based on the provided policy.
         """
@@ -50,7 +50,7 @@ class RLTune:
         if resume_training:
             self.helper.load_model()
 
-        training_method = self.train_on_policy if on_policy else self.train_off_policy
+        training_method = self.train_on_policy if self.helper.use_on_policy else self.train_off_policy
         for step in tqdm(range(self.max_steps)):
             self._train_step_logic(step, training_method)
 
@@ -123,7 +123,6 @@ class RLTune:
         
     def train_step(self) -> None:
         """Single step of training."""
-        
         samples = self.memory.sample_batch_trajectory()
         if samples is not None:
             self.trainer.transform_transition(samples)

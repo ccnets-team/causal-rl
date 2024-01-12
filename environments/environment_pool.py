@@ -42,7 +42,7 @@ class EnvironmentPool:
     def step_env(self):
         for env in self.env_list:
             env.step_environment()
-        
+
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
@@ -57,7 +57,7 @@ class EnvironmentPool:
         action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
         if training:
             trainer.reset_actor_noise(reset_noise=reset_tensor)
-            
+        
         for env in self.env_list:
             env.agent_reset.fill(False)
             

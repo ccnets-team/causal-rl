@@ -17,6 +17,7 @@ class RevEnv(nn.Module):
         self.action_size = env_config.action_size
         self.d_model = rev_env_params.d_model
         self.num_layers = rev_env_params.num_layers
+        self.relu = nn.ReLU()
         self.value_size = 1
             
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(self.state_size + self.action_size \
@@ -38,9 +39,9 @@ class RevEnv(nn.Module):
         # Embed and process the state, action, and value
         embedded_input = self._embed_and_process(next_state, action, value)
         processed_output = self.net(embedded_input, mask=padding_mask)
-
         # Reverse the processed output and apply the final layer
         reversed_output = processed_output.flip(dims=[1])
+        reversed_output = self.relu(reversed_output)
         return self.final_layer(reversed_output)
 
     def _embed_and_process(self, next_state, action, value):

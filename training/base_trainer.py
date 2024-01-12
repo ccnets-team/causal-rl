@@ -60,7 +60,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         padding_mask = create_padding_mask_before_dones(dones)
 
-        model_seq_length = self.model_seq_length 
+        model_seq_length = padding_mask.size(1) 
         model_seq_mask = create_model_seq_mask(padding_mask, model_seq_length)
 
         # Apply the mask to each trajectory component
