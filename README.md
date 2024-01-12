@@ -1,4 +1,4 @@
-# CausalRL(Causal Reinforcement Learning) and RLTune Framework by CCNets
+# Causal Reinforcement Learning Framework by CCNets
 
 [![Static Badge](https://img.shields.io/badge/Python-3.9.18-%233776AB)](https://www.python.org/)
 [![Static Badge](https://img.shields.io/badge/PyTorch-2.1.2-%23EE4C2C)](https://pytorch.org/get-started/locally/)
@@ -38,9 +38,9 @@ Causal RL is an innovative Reinforcement Learning framework that utilizes three 
 
 ## **Key Points**
 
-1. **Causal Learning with Reverse Causal Mask**: Causal RL employs a reverse mask to better understand and utilize the causal relationships between states and actions, enhancing learning efficiency and strategy effectiveness.
+1. Introduction of Causal RL integrating reverse-environment network into Actor-Critic framework learning the causal relationships between states, actions, and values, while maximizing accumulative rewards.
 
-2. Develop flexible custom algorithms based on RL principles using role-based network, uniformly integrated with the latest RL frameworks.
+2. **Language Model Training with Reverse Causal Mask**: Causal RL utilizes a reverse mask during training to enhance its understanding of causal relationships between states and actions, leading to improved learning efficiency and strategic effectiveness.
 
 3. **Efficient Parameter Tuning**: RLTune offers a preset pipeline for parameter tuning for benchmarking, reducing the effort required in initial setups.
 
@@ -115,11 +115,7 @@ rl_params.algorithm.num_td_steps = 5
 rl_params.normalization.state_normalizer = "running_z_standardizer"
 ```
 
-**2. Comprehensive RL Modules**
-
-RL-Tune features comprehensive modules including memory, normalization, noise, exploration, and strategy managers, enabling a cohesive and seamless problem-solving experience in the RL domain.
-
-**3. Flexible Network Role Assignments:**
+**2. Flexible Network Role Assignments**
 
 RL-Tune’s flexible architecture facilitates distinct role assignments to different networks, optimizing the processes of development and management for various network configurations.
 
@@ -128,34 +124,14 @@ from nn.super_net import SuperNet
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
-                 tau=1e-1, use_target_network=True, network_type=SuperNet):
+                 tau=1e-1, use_target_network=True, network_type=SuperNet): # `network_type` parameter allows you to specify the type of neural network model
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
 
 ```
 
-**4. Enhanced Algorithmic Components:**
-    
-- Numerical n-td steps:
-Supports configurable numerical n-td steps for effective planning and learning.
-    
-- Expected Value Calculation:
-Enables precise value predictions with the **`calculate_expected_value`** method.
-    
-- Value Loss Computation:
-Optimizes value approximation with the **`calculate_value_loss`** method.
-    
-- Advantage Calculation:
-Refines policy estimates with the **`calculate_advantage`** method.
-    
-- GAE Advantage:
-Enhances policy optimization through the **`compute_gae_advantage`** method.
-    
-- Curiosity RL Integration:
-Incorporates curiosity-driven RL components for enhanced exploration and learning in sparse reward environments.
-
-**5. Enhancing CausalRL with GPT** 
+**3. Enhancing CausalRL with GPT** 
 
 ```python
 class NetworkParameters:
@@ -164,9 +140,6 @@ class NetworkParameters:
         self.critic_network = network_type  
         self.actor_network = network_type  
         self.rev_env_network = network_type 
-        self.critic_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  
-        self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  
-        self.rev_env_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  
 ```
 
 - Advanced Sequence Learning: GPT excels in processing sequence data, aiding agents in predicting future states and actions based on past events. This is particularly useful in strategy games like chess or Go.
@@ -181,7 +154,8 @@ class NetworkParameters:
 
 
 ## ✔️ Algorithm Feature Checklist
-<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/69c7e40f-0faa-4c46-a3e8-fedb2676a478" style="max-width: 90%; height: auto;">
+<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/2f9128a7-e428-4824-9423-725175d0c26e" style="max-width: 90%; height: auto;">
+
 
 ## 📗 Algorithms Implementation
 
@@ -203,7 +177,8 @@ Discover the capabilities of CausalRL algorithms in various OpenAI Gym environme
 - 📜 CausalRL Reports and Insights: W&B - https://api.wandb.ai/links/ccnets/1334iuol
 
 
-<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/db8bddb4-953e-40a3-9f71-e03e9fa24936" style="max-width: 100%; height: auto;">
+<img src="https://github.com/ccnets-team/rl-tune/assets/95277008/8f0d5f2d-ec93-4706-aa94-77b971a88ffb" style="max-width: 100%; height: auto;">
+
 
 ## Download and Use Model(W&B)
 
