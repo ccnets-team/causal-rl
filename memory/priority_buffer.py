@@ -22,6 +22,8 @@ class PriorityBuffer(BaseBuffer):
         self.terminated[self.index] = terminated
         self.truncated[self.index] = truncated
         self.td_errors[self.index] = MIN_TD_ERROR
+        
+        self._exclude_from_sampling(self.index)
 
         # Increment the buffer index and wrap around if necessary
         self.index = (self.index + 1) % self.capacity
@@ -31,13 +33,7 @@ class PriorityBuffer(BaseBuffer):
             self.size += 1
         # Remove invalid indices caused by the circular nature of the buffer
 
-    def fetch_valid_td_errors(self):
-        # Calculate the start and end of the range to exclude from TD errors
-        indices = np.arange(self.__len__())
-        actual_indices = self._reindex_indices(indices)
-        return self.td_errors[actual_indices]
-        
-    def update_td_errors_for_sampled(self, indices, td_errors, mask, use_actual_indices=False):
+    def update_td_errors_for_sampled(self, indices, td_errors, mask):
         """
         Updates the TD errors for sampled experiences.
 
@@ -46,16 +42,11 @@ class PriorityBuffer(BaseBuffer):
         :param mask: Mask array indicating which steps to update.
         :param use_actual_indices: Flag to indicate if indices are actual indices or need conversion.
         """
-        
-        if use_actual_indices:
-            actual_indices = indices
-        else:
-            actual_indices = self._reindex_indices(indices)
 
         # Calculate the range of indices for each trajectory
         seq_len = mask.shape[1]
         range_indices = seq_len - 1 - np.arange(seq_len)
-        all_indices = (self.capacity + actual_indices.reshape(-1, 1) - range_indices) % self.capacity
+        all_indices = (self.capacity + indices.reshape(-1, 1) - range_indices) % self.capacity
 
         # Flatten the mask and indices array for advanced indexing
         update_mask = mask.ravel().astype(bool)

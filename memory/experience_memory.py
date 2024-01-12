@@ -53,8 +53,8 @@ class ExperienceMemory:
     def reset_memory(self):
         return [buf._reset_buffer() for env in self.multi_buffers for buf in env]
 
-    def sample_trajectory_from_buffer(self, env_id, agent_id, indices, td_steps, use_actual_indices):
-        return self.multi_buffers[env_id][agent_id].sample_trajectories(indices, td_steps, use_actual_indices)
+    def sample_trajectory_from_buffer(self, env_id, agent_id, indices, td_steps):
+        return self.multi_buffers[env_id][agent_id]._fetch_trajectory_slices(indices, td_steps)
 
     def _create_batch_trajectory_components(self, samples):
         components = [np.stack([b[i] for b in samples], axis=0) for i in range(5)]
@@ -102,7 +102,7 @@ class ExperienceMemory:
         states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
         batch_trajectory = BatchTrajectory(states, actions, rewards, next_states, dones, buffer_indices)
         self.compute_td_errors(batch_trajectory)
-        self.update_td_errors(batch_trajectory, use_actual_indices = True)
+        self.update_td_errors(batch_trajectory)
 
     def sample_batch_trajectory(self, use_sampling_normalizer_update=False):
         samples, buffer_indices = self.sample_trajectory_data(use_sampling_normalizer_update)
@@ -112,7 +112,7 @@ class ExperienceMemory:
         states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
         return BatchTrajectory(states, actions, rewards, next_states, dones, buffer_indices)
     
-    def update_td_errors(self, trajectory: BatchTrajectory, use_actual_indices = False):
+    def update_td_errors(self, trajectory: BatchTrajectory):
         if not self.use_priority:
             return 
         
@@ -133,7 +133,7 @@ class ExperienceMemory:
             local_mask = mask[start_index:end_index]
 
             # Update TD errors for the buffer
-            buffer.update_td_errors_for_sampled(np_indices, local_td_errors, local_mask, use_actual_indices)
+            buffer.update_td_errors_for_sampled(np_indices, local_td_errors, local_mask)
             
             start_index = end_index  # Update start_index for next iteration
 
@@ -162,7 +162,7 @@ class ExperienceMemory:
 
             buffer_indices[buffer_id].append(local_idx)
         
-        samples = self._fetch_samples(buffer_indices, td_step, use_actual_indices=False)
+        samples = self._fetch_samples(buffer_indices, td_step)
         return samples, buffer_indices
 
     def priority_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes, total_buffer_size):
@@ -180,7 +180,7 @@ class ExperienceMemory:
 
             buffer_indices[buffer_id].append(local_idx)
 
-        samples = self._fetch_samples(buffer_indices, td_steps, use_actual_indices=False)
+        samples = self._fetch_samples(buffer_indices, td_steps)
         return samples, buffer_indices
 
     def _calculate_cumulative_sizes(self):
@@ -192,12 +192,12 @@ class ExperienceMemory:
                 cumulative_sizes.append(total_buffer_size)
         return cumulative_sizes, total_buffer_size
 
-    def _fetch_samples(self, buffer_indices, num_td_steps, use_actual_indices):
+    def _fetch_samples(self, buffer_indices, num_td_steps):
         samples = []
         for buffer_id, local_indices in buffer_indices.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
             # Fetch the experience using local indices
-            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices, num_td_steps, use_actual_indices)
+            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices, num_td_steps)
             samples.extend(batch)
 
         return samples
@@ -205,7 +205,7 @@ class ExperienceMemory:
     def _calculate_sampling_probabilities(self):
         alpha=self.buffer_priority
         # Accumulate TD errors using NumPy arrays for memory efficiency
-        td_errors = np.concatenate([buf.fetch_valid_td_errors() for env in self.multi_buffers for buf in env])
+        td_errors = np.concatenate([buf.td_errors[:buf.size] for env in self.multi_buffers for buf in env])
         
         # Adjust TD errors by alpha
         if alpha != 0:

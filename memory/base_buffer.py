@@ -26,13 +26,19 @@ class BaseBuffer:
         self.td_errors = np.empty(self.capacity)  # Store TD errors for each transition
 
     def __len__(self):
-        return max(self.size - self.num_td_steps + 1, 0)
+        return self.size
 
-    def _fetch_trajectory_slices(self, actual_indices, td_steps):
-        batch_size = len(actual_indices)
+    def _exclude_from_sampling(self, index):
+        end_idx = (index + self.num_td_steps - 1) % self.capacity
+        self.terminated[end_idx] = True
+        self.truncated[end_idx] = True
+        self.td_errors[end_idx] = 0.0
+            
+    def _fetch_trajectory_slices(self, indices, td_steps):
+        batch_size = len(indices)
         buffer_size = self.capacity
         # Expand indices for num_td_steps steps and wrap around using modulo operation
-        expanded_indices = np.array([range(buffer_size + i -  td_steps + 1, buffer_size + i + 1) for i in actual_indices]) % buffer_size
+        expanded_indices = np.array([range(buffer_size + i -  td_steps + 1, buffer_size + i + 1) for i in indices]) % buffer_size
         expanded_indices = expanded_indices.reshape(batch_size, td_steps)
 
         # Fetch the slices using advanced indexing
@@ -68,37 +74,3 @@ class BaseBuffer:
         
         transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions
-
-    def _reindex_indices(self, indices):
-        np_indices = np.array(indices, dtype=np.int32)
-
-        # Calculate the start and end of the excluded range
-        excluded_range_start = self.index
-        excluded_range_end = (self.index + self.num_td_steps - 1) % self.capacity
-
-        # Check if the range wraps around
-        if excluded_range_end < excluded_range_start:
-            # Identify indices that are either after the start or before the end of the range
-            need_reindexing = (np_indices >= excluded_range_start) | (np_indices <= excluded_range_end)
-        else:
-            # Identify indices that are within the continuous range
-            need_reindexing = (np_indices >= excluded_range_start) & (np_indices <= excluded_range_end)
-
-        # Reindex these indices
-        np_indices[need_reindexing] += (self.num_td_steps - 1)
-
-        # Ensure indices are within bounds
-        actual_indices = np_indices % self.capacity
-
-        return actual_indices
-                
-    def sample_trajectories(self, indices, td_steps, use_actual_indices=False):
-        if use_actual_indices:
-            actual_indices = indices
-        else:
-            actual_indices = self._reindex_indices(indices)
-            
-        # Retrieve trajectories for the given actual indices
-        samples = self._fetch_trajectory_slices(actual_indices, td_steps)
-            
-        return samples

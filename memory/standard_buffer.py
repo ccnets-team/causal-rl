@@ -18,6 +18,8 @@ class StandardBuffer(BaseBuffer):
         self.next_states[self.index] = next_state
         self.terminated[self.index] = terminated
         self.truncated[self.index] = truncated
+        
+        self._exclude_from_sampling(self.index)
 
         # Increment the buffer index and wrap around if necessary
         self.index = (self.index + 1) % self.capacity
