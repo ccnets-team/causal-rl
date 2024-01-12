@@ -12,6 +12,9 @@ class PriorityBuffer(BaseBuffer):
     def __init__(self, capacity, state_size, action_size, num_td_steps):
         super().__init__("priority", capacity, state_size, action_size, num_td_steps)
 
+    def __len__(self):
+        return self.size
+
     def add_transition(self, state, action, reward, next_state, terminated, truncated):
 
         # Update the buffer with the new transition data
@@ -56,3 +59,5 @@ class PriorityBuffer(BaseBuffer):
         # Perform the update using advanced indexing
         self.td_errors[all_indices_flat[update_mask]] = td_errors_flat[update_mask]
 
+    def sample_trajectories(self, indices, td_steps):
+        return self._fetch_trajectory_slices(indices, td_steps)

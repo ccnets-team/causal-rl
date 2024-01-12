@@ -25,15 +25,12 @@ class BaseBuffer:
         self.truncated = np.empty(self.capacity)       
         self.td_errors = np.empty(self.capacity)  # Store TD errors for each transition
 
-    def __len__(self):
-        return self.size
-
     def _exclude_from_sampling(self, index):
         end_idx = (index + self.num_td_steps - 1) % self.capacity
         self.terminated[end_idx] = True
         self.truncated[end_idx] = True
         self.td_errors[end_idx] = 0.0
-            
+
     def _fetch_trajectory_slices(self, indices, td_steps):
         batch_size = len(indices)
         buffer_size = self.capacity

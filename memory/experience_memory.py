@@ -54,7 +54,7 @@ class ExperienceMemory:
         return [buf._reset_buffer() for env in self.multi_buffers for buf in env]
 
     def sample_trajectory_from_buffer(self, env_id, agent_id, indices, td_steps):
-        return self.multi_buffers[env_id][agent_id]._fetch_trajectory_slices(indices, td_steps)
+        return self.multi_buffers[env_id][agent_id].sample_trajectories(indices, td_steps)
 
     def _create_batch_trajectory_components(self, samples):
         components = [np.stack([b[i] for b in samples], axis=0) for i in range(5)]
@@ -93,8 +93,7 @@ class ExperienceMemory:
         samples = []
         for buffer_id, indices in buffer_indices.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
-            buffer = self.multi_buffers[env_id][agent_id]
-            trajectory = buffer._fetch_trajectory_slices(indices, self.model_seq_length)
+            trajectory = self.sample_trajectory_from_buffer(env_id, agent_id, indices, self.model_seq_length)
             samples.extend(trajectory)
         
         if samples is None or len(samples) == 0:
