@@ -10,16 +10,24 @@ class TrainingParameters:
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
-        self.early_training_start_step = 0  # Optional step count to start training earlier than when replay buffer is full.
+        self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, train_seq_length = 16, explore_seq_length = 12, discount_factor=0.99, advantage_lambda = 0.99, use_gae_advantage=False):
-        self.train_seq_length = train_seq_length  # Sequence length for training, represents the number of TD steps for multi-step returns and determines the amount of past information used for learning.
-        self.explore_seq_length = explore_seq_length  # Sequence length during exploration, impacts how the model interacts with and perceives its environment.
-        self.discount_factor = discount_factor  # Discount factor for future rewards
-        self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting n-step returns.
+    def __init__(self, num_td_steps=16, train_seq_length=16, explore_seq_length=12, discount_factor=0.99, advantage_lambda=0.99, use_gae_advantage=False):
+        self.num_td_steps = num_td_steps  # The number of TD steps for multi-step returns. Determines the temporal horizon used for learning.
+        self.train_seq_length = train_seq_length  # Sequence length for training. Represents the number of consecutive states used in each training update.
+        self.explore_seq_length = explore_seq_length  # Sequence length during exploration. Impacts how the model interacts with and perceives its environment.
+        self.discount_factor = discount_factor  # Discount factor for future rewards.
+        self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
+            
+        assert self.num_td_steps >= self.train_seq_length, "num_td_steps must be greater than or equal to train_seq_length"
+
+        # Explanation:
+        # num_td_steps: Represents the horizon over which Temporal Difference updates are calculated.
+        # train_seq_length: Defines the window of consecutive data points used for each training update. 
+        # It is crucial that num_td_steps is not less than train_seq_length, as it would mean the model tries to learn from a future beyond its TD update horizon.
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, 

@@ -180,5 +180,32 @@ def scale_advantage(advantages, norm_type=None):
 
     return advantages / abs_mean_advantage
 
+def create_train_seq_mask(padding_mask, train_seq_length):
+    """
+    Creates a selection mask for trajectories.
 
+    :param padding_mask: Mask tensor from create_padding_mask_before_dones, shape [B, S, 1].
+    :param train_seq_length: Length of the train sequence to select.
+    :return: Selection mask tensor, shape [B, train_seq_length, 1].
+    """
+    batch_size, seq_len, _ = padding_mask.shape
+
+    # Find the index of the first non-padding point after 'done'
+    first_non_padding_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
+    end_non_padding_idx = first_non_padding_idx + train_seq_length
+    end_select_idx = torch.clamp(end_non_padding_idx, max=seq_len)
+    first_select_idx = end_select_idx - train_seq_length
+
+    # Create a range tensor of shape [S]
+    range_tensor = torch.arange(seq_len, device=padding_mask.device).unsqueeze(0).unsqueeze(-1)
+
+    # Broadcast to shape [B, S, 1] and compare
+    select_mask = (range_tensor >= first_select_idx) & (range_tensor < end_select_idx)
+    
+    return select_mask
+
+# Function to apply selection mask to a trajectory component
+def apply_seq_mask(component, model_seq_mask, model_seq_length):
+    component_shape = component.shape
+    return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
 
