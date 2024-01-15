@@ -7,7 +7,7 @@ from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
-from .trainer_utils import calculate_gae_returns, calculate_lambda_returns
+from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value
 from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction
 from .trainer_utils import create_padding_mask_before_dones, create_train_seq_mask, apply_seq_mask
 
@@ -18,6 +18,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
+        self.gammas = compute_discounted_future_value(self.discount_factor, self.train_seq_length)
+        self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.train_seq_length)
+        self.scaling_factors = torch.sum(self.gammas* self.lambdas, dim=1, keepdim=True)
         
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -109,26 +112,27 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def apply_normalize_value(self, estimated_value, expected_value):
         """Normalize the returns based on the specified normalizer type."""
         normalizer_type = self.value_normalizer
-        if normalizer_type is not None:
-            if normalizer_type == 'L1_norm':
-                normalized_estimated_value = estimated_value / (estimated_value.abs().mean(dim=0, keepdim=True) + 1e-8)
-                normalized_expected_value = expected_value / (expected_value.abs().mean(dim=0, keepdim=True) + 1e-8)
-            elif normalizer_type == 'batch_norm':
-                # Batch normalization - normalizing based on batch mean and std
-                batch_mean_estimated = estimated_value.mean(dim=0, keepdim=True)
-                batch_std_estimated = estimated_value.std(dim=0, keepdim=True) + 1e-8
-                normalized_estimated_value = (estimated_value - batch_mean_estimated) / batch_std_estimated
-                
-                batch_mean_expected = expected_value.mean(dim=0, keepdim=True)
-                batch_std_expected = expected_value.std(dim=0, keepdim=True) + 1e-8
-                normalized_expected_value = (expected_value - batch_mean_expected) / batch_std_expected
-            else:
-                normalized_estimated_value = self.normalize_value(estimated_value)
-                normalized_expected_value = self.normalize_value(expected_value)
-                self.update_value(estimated_value)
-                self.update_value(expected_value)
-            return normalized_estimated_value, normalized_expected_value
-        return estimated_value, expected_value
+        if normalizer_type is None:
+            normalized_estimated_value = estimated_value/self.scaling_factors
+            normalized_expected_value = expected_value/self.scaling_factors            
+        elif normalizer_type == 'L1_norm':
+            normalized_estimated_value = estimated_value / (estimated_value.abs().mean(dim=0, keepdim=True) + 1e-8)
+            normalized_expected_value = expected_value / (expected_value.abs().mean(dim=0, keepdim=True) + 1e-8)
+        elif normalizer_type == 'batch_norm':
+            # Batch normalization - normalizing based on batch mean and std
+            batch_mean_estimated = estimated_value.mean(dim=0, keepdim=True)
+            batch_std_estimated = estimated_value.std(dim=0, keepdim=True) + 1e-8
+            normalized_estimated_value = (estimated_value - batch_mean_estimated) / batch_std_estimated
+            
+            batch_mean_expected = expected_value.mean(dim=0, keepdim=True)
+            batch_std_expected = expected_value.std(dim=0, keepdim=True) + 1e-8
+            normalized_expected_value = (expected_value - batch_mean_expected) / batch_std_expected
+        else:
+            normalized_estimated_value = self.normalize_value(estimated_value)
+            normalized_expected_value = self.normalize_value(expected_value)
+            self.update_value(estimated_value)
+            self.update_value(expected_value)
+        return normalized_estimated_value, normalized_expected_value
 
     def compute_td_errors(self, trajectory: BatchTrajectory):
         states, actions, rewards, next_states, dones = trajectory 
