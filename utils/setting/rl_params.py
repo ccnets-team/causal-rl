@@ -14,7 +14,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps=16, train_seq_length=16, explore_seq_length=12, discount_factor=0.99, advantage_lambda=0.99, use_gae_advantage=False):
+    def __init__(self, num_td_steps=20, train_seq_length=16, explore_seq_length=12, discount_factor=0.99, advantage_lambda=0.99, use_gae_advantage=False):
         self.num_td_steps = num_td_steps  # The number of TD steps for multi-step returns. Determines the temporal horizon used for learning.
         self.train_seq_length = train_seq_length  # Sequence length for training. Represents the number of consecutive states used in each training update.
         self.explore_seq_length = explore_seq_length  # Sequence length during exploration. Impacts how the model interacts with and perceives its environment.
@@ -31,7 +31,7 @@ class AlgorithmParameters:
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
-                 tau=1e-1, use_target_network=True, network_type=GPT):
+                 tau=None, use_target_network=False, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.

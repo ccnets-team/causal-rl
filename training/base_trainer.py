@@ -125,6 +125,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             else:
                 normalized_estimated_value = self.normalize_value(estimated_value)
                 normalized_expected_value = self.normalize_value(expected_value)
+                self.update_value(estimated_value)
                 self.update_value(expected_value)
             return normalized_estimated_value, normalized_expected_value
         return estimated_value, expected_value
@@ -151,12 +152,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             
         trajectory.push_td_errors(td_errors, padding_mask)
 
-    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
+    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, train_seq_mask: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
 
         padding_mask = create_padding_mask_before_dones(dones)
-        train_seq_mask = create_train_seq_mask(padding_mask, self.train_seq_length)
         next_padding_mask = torch.cat((padding_mask[:,1:], padding_mask[:,-1:]), dim = 1)
 
         with torch.no_grad():
@@ -169,7 +169,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             else:
                 _expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
             
-            _expected_value = apply_seq_mask(_expected_value, train_seq_mask)
+            _expected_value = apply_seq_mask(_expected_value, train_seq_mask, self.train_seq_length)
             normalized_estimated_value, noramlized_expected_value = self.apply_normalize_value(estimated_value, _expected_value)
             advantage = (noramlized_expected_value - normalized_estimated_value)
             expected_value = advantage + estimated_value
