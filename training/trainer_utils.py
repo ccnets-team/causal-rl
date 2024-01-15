@@ -88,7 +88,7 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
 
 def compute_discounted_future_value(discount_factor, max_seq_len):
     # Create a range tensor [0, 1, 2, ..., max_seq_len-1]
-    discount_exponents = max_seq_len - torch.arange(max_seq_len).unsqueeze(0)
+    discount_exponents = torch.arange(max_seq_len).unsqueeze(0)
 
     # Compute the discount factors by raising to the power of the exponents
     discount_factors = discount_factor ** discount_exponents

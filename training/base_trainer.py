@@ -19,6 +19,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
         self.discount_factors = compute_discounted_future_value(self.discount_factor, self.train_seq_length).to(self.device)
+        self.sum_gammas = self.discount_factors.sum(dim=1, keepdim=True) 
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -107,8 +108,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         padding_mask = create_padding_mask_before_dones(dones)
         next_padding_mask = torch.cat((padding_mask[:,1:], padding_mask[:,-1:]), dim = 1)
 
-        mode_seq_sum_discounted_gammas = (self.discount_factors[:,-rewards.shape[1]:]).sum(dim=1, keepdim=True)
-        scaled_rewards = rewards/mode_seq_sum_discounted_gammas
+        scaled_rewards = rewards/self.sum_gammas
         
         with torch.no_grad():
             estimated_value = self.trainer_calculate_value_estimate(states, mask=padding_mask)
@@ -120,7 +120,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 expected_value = (_advantage + estimated_value)
             else:
                 expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
-                
             _advantage = (expected_value - estimated_value)
             advantage = self.normalize_advantage(_advantage)
             td_errors = advantage.abs()
@@ -134,9 +133,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         padding_mask = create_padding_mask_before_dones(dones)
         next_padding_mask = torch.cat((padding_mask[:,1:], padding_mask[:,-1:]), dim = 1)
 
-        td_steps_sum_discounted_gammas = (self.discount_factors[:,-rewards.shape[1]:]).sum(dim=1, keepdim=True)
-        scaled_rewards = rewards/td_steps_sum_discounted_gammas
-        
+        scaled_rewards = rewards/self.sum_gammas
+                
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, next_padding_mask)
             trajectory_values = torch.cat([estimated_value[:, :1], future_values], dim=1)
