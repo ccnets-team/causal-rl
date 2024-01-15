@@ -4,17 +4,17 @@ from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, trainer_name='causal_rl', batch_size=64, replay_ratio=1, train_interval=1, use_on_policy=False):
+    def __init__(self, trainer_name='causal_rl', use_on_policy=False, batch_size=64, replay_ratio=1, train_interval=1):
         self.trainer_name = trainer_name  # Specifies the type of trainer algorithm to be used (e.g., 'causal_rl', 'ddpg', 'a2c', etc.). Determines the learning strategy and underlying mechanics of the model.
+        self.use_on_policy = use_on_policy  # Indicates if training uses on-policy (True) or off-policy (False) methods.
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
-        self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
-        self.use_on_policy = use_on_policy  # Indicates if training uses on-policy (True) or off-policy (False) methods.
+        self.early_training_start_step = 0  # Optional step count to start training earlier than when replay buffer is full.
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, train_seq_length = 24, explore_seq_length = 12, discount_factor=0.99, advantage_lambda = 0.99, use_gae_advantage=False):
+    def __init__(self, train_seq_length = 16, explore_seq_length = 12, discount_factor=0.99, advantage_lambda = 0.99, use_gae_advantage=False):
         self.train_seq_length = train_seq_length  # Sequence length for training, represents the number of TD steps for multi-step returns and determines the amount of past information used for learning.
         self.explore_seq_length = explore_seq_length  # Sequence length during exploration, impacts how the model interacts with and perceives its environment.
         self.discount_factor = discount_factor  # Discount factor for future rewards
@@ -56,10 +56,10 @@ class MemoryParameters:
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
         
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', return_normalizer='running_mean_std'):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
-        self.advantage_normalizer = advantage_normalizer
+        self.return_normalizer = return_normalizer
 
 class RLParameters:
     def __init__(self,

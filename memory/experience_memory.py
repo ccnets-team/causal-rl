@@ -15,7 +15,6 @@ class ExperienceMemory:
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
         self.train_seq_length = algorithm_params.train_seq_length
-        self.explore_seq_length = algorithm_params.explore_seq_length
         
         self.batch_size = training_params.batch_size
         self.use_priority = False if memory_params.buffer_priority == 0.0 else True
@@ -84,13 +83,13 @@ class ExperienceMemory:
         if not self.use_priority:
             return 
         
-        if self.td_error_update_counter % self.explore_seq_length != 0:
+        if self.td_error_update_counter % self.train_seq_length != 0:
             return
         
         samples = []
         for buffer_id, indices in buffer_indices.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
-            trajectory = self.sample_trajectory_from_buffer(env_id, agent_id, indices, self.explore_seq_length)
+            trajectory = self.sample_trajectory_from_buffer(env_id, agent_id, indices, self.train_seq_length)
             samples.extend(trajectory)
         
         if samples is None or len(samples) == 0:
@@ -135,7 +134,8 @@ class ExperienceMemory:
 
     def sample_trajectory_data(self, use_sampling_normalizer_update = True):
         sample_sz = self.batch_size
-        td_steps = self.explore_seq_length if use_sampling_normalizer_update else self.train_seq_length
+        td_steps = self.train_seq_length 
+        # td_steps = self.train_seq_length if use_sampling_normalizer_update else self.train_seq_length
         
         # Cumulative size calculation now a separate method for clarity
         cumulative_sizes, total_buffer_size = self._calculate_cumulative_sizes()
