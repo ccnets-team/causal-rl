@@ -138,14 +138,14 @@ def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
     Compute Generalized Advantage Estimation (GAE).
     
     Args:
-    - values (torch.Tensor): Estimated values with shape [batch_size, num_td_steps+1, 1].
-    - rewards (torch.Tensor): Observed rewards with shape [batch_size, num_td_steps, 1].
-    - dones (torch.Tensor): done flags (1 if terminal state, else 1) with shape [batch_size, num_td_steps, 1].
+    - values (torch.Tensor): Estimated values with shape [batch_size, train_seq_length+1, 1].
+    - rewards (torch.Tensor): Observed rewards with shape [batch_size, train_seq_length, 1].
+    - dones (torch.Tensor): done flags (1 if terminal state, else 1) with shape [batch_size, train_seq_length, 1].
     - gamma (float): Discount factor.
     - tau (float): GAE parameter for bias-variance trade-off.
 
     Returns:
-    - advantages (torch.Tensor): Computed advantages with shape [batch_size, num_td_steps, 1].
+    - advantages (torch.Tensor): Computed advantages with shape [batch_size, train_seq_length, 1].
     """
     # Copy the inputs to avoid modifying original tensors
     # Prepare tensor for advantages
@@ -179,37 +179,6 @@ def scale_advantage(advantages, norm_type=None):
         return advantages
 
     return advantages / abs_mean_advantage
-
-def create_model_seq_mask(padding_mask, model_seq_length):
-    """
-    Creates a selection mask for trajectories.
-
-    :param padding_mask: Mask tensor from create_padding_mask_before_dones, shape [B, S, 1].
-    :param model_seq_length: Length of the model sequence to select.
-    :return: Selection mask tensor, shape [B, model_seq_length, 1].
-    """
-    batch_size, seq_len, _ = padding_mask.shape
-
-    # Find the index of the first non-padding point after 'done'
-    first_non_padding_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
-    end_non_padding_idx = first_non_padding_idx + model_seq_length
-    end_select_idx = torch.clamp(end_non_padding_idx, max=seq_len)
-    first_select_idx = end_select_idx - model_seq_length
-
-    # Create a range tensor of shape [S]
-    range_tensor = torch.arange(seq_len, device=padding_mask.device).unsqueeze(0).unsqueeze(-1)
-
-    # Broadcast to shape [B, S, 1] and compare
-    select_mask = (range_tensor >= first_select_idx) & (range_tensor < end_select_idx)
-    
-    return select_mask
-
-# Function to apply selection mask to a trajectory component
-def apply_seq_mask(component, model_seq_mask, model_seq_length):
-    component_shape = component.shape
-    return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
-
-
 
 
 

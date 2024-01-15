@@ -6,7 +6,7 @@ class TrainingParameters:
     """
     Initialize training parameters for a reinforcement learning model.
     """
-    def __init__(self, batch_size=64, replay_ratio=2, train_interval=1, use_on_policy=False):
+    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, use_on_policy=False):
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
@@ -15,16 +15,16 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps = 16, model_seq_length = 16, discount_factor=0.99, advantage_lambda = 0.99, use_gae_advantage=False):
-        self.num_td_steps = num_td_steps  # Number of TD steps for multi-step retur ns
-        self.model_seq_length = model_seq_length  # Length of input sequences for the model
+    def __init__(self, train_seq_length = 24, explore_seq_length = 12, discount_factor=0.99, advantage_lambda = 0.99, use_gae_advantage=False):
+        self.train_seq_length = train_seq_length  # Sequence length for training, represents the number of TD steps for multi-step returns and determines the amount of past information used for learning.
+        self.explore_seq_length = explore_seq_length  # Sequence length during exploration, impacts how the model interacts with and perceives its environment.
         self.discount_factor = discount_factor  # Discount factor for future rewards
         self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting n-step returns.
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
-                 tau=1e-1, use_target_network=True, network_type=GPT):
+                 tau=None, use_target_network=False, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
@@ -52,7 +52,7 @@ class ExplorationParameters:
         
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_priority=0.0, buffer_size=128000):
+    def __init__(self, buffer_priority=0.0, buffer_size=256000):
         self.buffer_priority = buffer_priority  # Adjusts the prioritization in the memory buffer. A value of 0 indicates a standard buffer.
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
         

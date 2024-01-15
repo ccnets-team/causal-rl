@@ -7,12 +7,12 @@ from .base_buffer import BaseBuffer
 import numpy as np
 
 class StandardBuffer(BaseBuffer):
-    def __init__(self, capacity, state_size, action_size, num_td_steps):
-        super().__init__("standard", capacity, state_size, action_size, num_td_steps)
+    def __init__(self, capacity, state_size, action_size, train_seq_length):
+        super().__init__("standard", capacity, state_size, action_size, train_seq_length)
         self.reset_buffer()
 
     def __len__(self):
-        return max(self.size - self.num_td_steps + 1, 0)
+        return max(self.size - self.train_seq_length + 1, 0)
 
     def reset_buffer(self):
         self._reset_buffer()
@@ -22,7 +22,7 @@ class StandardBuffer(BaseBuffer):
 
         # Calculate the start and end of the excluded range
         excluded_range_start = self.index
-        excluded_range_end = (self.index + self.num_td_steps - 1) % self.capacity
+        excluded_range_end = (self.index + self.train_seq_length - 1) % self.capacity
 
         # Check if the range wraps around
         if excluded_range_end < excluded_range_start:
@@ -33,7 +33,7 @@ class StandardBuffer(BaseBuffer):
             need_reindexing = (np_indices >= excluded_range_start) & (np_indices <= excluded_range_end)
 
         # Reindex these indices
-        np_indices[need_reindexing] += (self.num_td_steps - 1)
+        np_indices[need_reindexing] += (self.train_seq_length - 1)
 
         # Ensure indices are within bounds
         actual_indices = np_indices % self.capacity
