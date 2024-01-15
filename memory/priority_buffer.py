@@ -9,15 +9,15 @@ import numpy as np
 MIN_TD_ERROR = 1e-4
 
 class PriorityBuffer(BaseBuffer):
-    def __init__(self, capacity, state_size, action_size, num_td_steps):
-        super().__init__("priority", capacity, state_size, action_size, num_td_steps)
+    def __init__(self, capacity, state_size, action_size, train_seq_length):
+        super().__init__("priority", capacity, state_size, action_size, train_seq_length)
         self.reset_buffer()
 
     def __len__(self):
         return self.size
 
     def _exclude_from_sampling(self, index):
-        end_idx = (index + self.num_td_steps - 1) % self.capacity
+        end_idx = (index + self.train_seq_length - 1) % self.capacity
         self.td_errors[end_idx] = 0.0
 
     def reset_buffer(self):

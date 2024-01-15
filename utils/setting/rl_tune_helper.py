@@ -93,8 +93,8 @@ class RLTuneHelper:
         exploration_params = self.rl_params.exploration
         memory_params = self.rl_params.memory
 
-        self.num_td_steps = self.rl_params.algorithm.num_td_steps
-        self.model_seq_length = self.rl_params.algorithm.model_seq_length
+        self.train_seq_length = self.rl_params.algorithm.train_seq_length
+        self.explore_seq_length = self.rl_params.algorithm.explore_seq_length
         
         self.max_steps = exploration_params.max_steps
         self.buffer_size = memory_params.buffer_size
@@ -120,10 +120,10 @@ class RLTuneHelper:
 
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
-            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.model_seq_length, self.parent.device)
+            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.explore_seq_length, self.parent.device)
     def _ensure_test_environment_exists(self):
         if not self.parent.test_env:
-            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.model_seq_length, self.parent.device, self.use_graphics)
+            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.explore_seq_length, self.parent.device, self.use_graphics)
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:

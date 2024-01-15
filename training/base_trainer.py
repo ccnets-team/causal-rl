@@ -8,7 +8,7 @@ from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
 from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value 
-from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction, apply_seq_mask, create_model_seq_mask
+from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction
 from .trainer_utils import create_padding_mask_before_dones
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
@@ -18,7 +18,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
-        self.discount_factors = compute_discounted_future_value(self.discount_factor, self.num_td_steps).to(self.device)
+        self.discount_factors = compute_discounted_future_value(self.discount_factor, self.train_seq_length).to(self.device)
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -33,15 +33,14 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
-        NormalizationUtils.__init__(self, env_config, self.normalization_params, self.model_seq_length, device)
+        NormalizationUtils.__init__(self, env_config, self.normalization_params, self.train_seq_length, device)
 
     def _init_exploration_utils(self):
         ExplorationUtils.__init__(self, self.exploration_params)
 
     def _init_trainer_specific_params(self):
         self.use_gae_advantage = self.algorithm_params.use_gae_advantage
-        self.num_td_steps = self.algorithm_params.num_td_steps 
-        self.model_seq_length = self.algorithm_params.model_seq_length
+        self.train_seq_length = self.algorithm_params.train_seq_length 
         self.use_target_network = self.network_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
@@ -55,23 +54,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
     
-    def select_model_seq_length(self, trajectory):
-        states, actions, rewards, next_states, dones = trajectory
-        
-        padding_mask = create_padding_mask_before_dones(dones)
-
-        model_seq_length = padding_mask.size(1) 
-        model_seq_mask = create_model_seq_mask(padding_mask, model_seq_length)
-
-        # Apply the mask to each trajectory component
-        sel_states = apply_seq_mask(states, model_seq_mask, model_seq_length)
-        sel_actions = apply_seq_mask(actions, model_seq_mask, model_seq_length)
-        sel_rewards = apply_seq_mask(rewards, model_seq_mask, model_seq_length)
-        sel_next_states = apply_seq_mask(next_states, model_seq_mask, model_seq_length)
-        sel_dones = apply_seq_mask(dones, model_seq_mask, model_seq_length)
-
-        return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, model_seq_mask
-
     def select_tensor_reduction(self, tensor, mask=None):
         """
         Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
@@ -123,13 +105,14 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         states, actions, rewards, next_states, dones = trajectory 
         
         padding_mask = create_padding_mask_before_dones(dones)
+        next_padding_mask = torch.cat((padding_mask[:,1:], padding_mask[:,-1:]), dim = 1)
 
         mode_seq_sum_discounted_gammas = (self.discount_factors[:,-rewards.shape[1]:]).sum(dim=1, keepdim=True)
         scaled_rewards = rewards/mode_seq_sum_discounted_gammas
         
         with torch.no_grad():
             estimated_value = self.trainer_calculate_value_estimate(states, mask=padding_mask)
-            future_values = self.trainer_calculate_future_value(next_states, padding_mask)
+            future_values = self.trainer_calculate_future_value(next_states, next_padding_mask)
             trajectory_values = torch.cat([estimated_value[:, :1], future_values], dim=1)
             
             if self.use_gae_advantage:
@@ -144,27 +127,26 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             
         trajectory.push_td_errors(td_errors, padding_mask)
 
-    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, model_seq_mask: torch.Tensor):
+    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
 
         padding_mask = create_padding_mask_before_dones(dones)
+        next_padding_mask = torch.cat((padding_mask[:,1:], padding_mask[:,-1:]), dim = 1)
 
         td_steps_sum_discounted_gammas = (self.discount_factors[:,-rewards.shape[1]:]).sum(dim=1, keepdim=True)
         scaled_rewards = rewards/td_steps_sum_discounted_gammas
         
         with torch.no_grad():
-            future_values = self.trainer_calculate_future_value(next_states, padding_mask)
+            future_values = self.trainer_calculate_future_value(next_states, next_padding_mask)
             trajectory_values = torch.cat([estimated_value[:, :1], future_values], dim=1)
             
             if self.use_gae_advantage:
                 _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
-                _expected_value = (_advantage + estimated_value)
+                expected_value = (_advantage + estimated_value)
             else:
-                _expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
+                expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
             
-            model_seq_length = estimated_value.shape[1]
-            expected_value = apply_seq_mask(_expected_value, model_seq_mask, model_seq_length)
             _advantage = (expected_value - estimated_value)
             
             # Use the separate function to normalize the advantage

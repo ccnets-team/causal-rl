@@ -14,15 +14,14 @@ class ExperienceMemory:
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
-        self.num_td_steps = algorithm_params.num_td_steps
-        self.model_seq_length = algorithm_params.model_seq_length
+        self.train_seq_length = algorithm_params.train_seq_length
+        self.explore_seq_length = algorithm_params.explore_seq_length
         
         self.batch_size = training_params.batch_size
-        self.buffer_type = 'standard' if memory_params.buffer_priority == 0.0 else 'priority'
+        self.use_priority = False if memory_params.buffer_priority == 0.0 else True
         self.buffer_priority = memory_params.buffer_priority
         self.gamma = algorithm_params.discount_factor
         self.compute_td_errors = compute_td_errors
-        self.use_priority = False
         self.td_error_update_counter = 0
 
         # Capacity calculation now in a separate method for clarity
@@ -33,16 +32,14 @@ class ExperienceMemory:
 
     def _calculate_capacity_per_agent(self, buffer_size):
         # Capacity calculation logic separated for clarity
-        return int(buffer_size) // (self.num_environments * self.num_agents) + self.num_td_steps
+        return int(buffer_size) // (self.num_environments * self.num_agents) + self.train_seq_length
 
     def _initialize_buffers(self):
         # Buffer initialization logic separated for clarity
-        if self.buffer_type == "standard": 
-            self.use_priority = False
-            return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.num_td_steps) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
+        if self.use_priority:
+            return [[PriorityBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.train_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
         else:
-            self.use_priority = True
-            return [[PriorityBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.num_td_steps) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
+            return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.train_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
             
     def __len__(self):
         return sum(len(buf) for env in self.multi_buffers for buf in env)
@@ -87,13 +84,13 @@ class ExperienceMemory:
         if not self.use_priority:
             return 
         
-        if self.td_error_update_counter % self.model_seq_length != 0:
+        if self.td_error_update_counter % self.explore_seq_length != 0:
             return
         
         samples = []
         for buffer_id, indices in buffer_indices.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
-            trajectory = self.sample_trajectory_from_buffer(env_id, agent_id, indices, self.model_seq_length)
+            trajectory = self.sample_trajectory_from_buffer(env_id, agent_id, indices, self.explore_seq_length)
             samples.extend(trajectory)
         
         if samples is None or len(samples) == 0:
@@ -138,8 +135,8 @@ class ExperienceMemory:
 
     def sample_trajectory_data(self, use_sampling_normalizer_update = True):
         sample_sz = self.batch_size
-        td_steps = self.num_td_steps
-            
+        td_steps = self.explore_seq_length if use_sampling_normalizer_update else self.train_seq_length
+        
         # Cumulative size calculation now a separate method for clarity
         cumulative_sizes, total_buffer_size = self._calculate_cumulative_sizes()
         if sample_sz > total_buffer_size:
@@ -150,7 +147,7 @@ class ExperienceMemory:
             samples, buffer_indices = self.priority_sample_trajectory_data(sample_sz, td_steps, cumulative_sizes, total_buffer_size)
         return samples, buffer_indices  
     
-    def balanced_sample_trajectory_data(self, sample_size, td_step, cumulative_sizes, total_buffer_size):
+    def balanced_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes, total_buffer_size):
         sampled_indices = random.sample(range(total_buffer_size), sample_size)
         buffer_indices = defaultdict(list)
         for idx in sampled_indices:
@@ -161,7 +158,7 @@ class ExperienceMemory:
 
             buffer_indices[buffer_id].append(local_idx)
         
-        samples = self._fetch_samples(buffer_indices, td_step)
+        samples = self._fetch_samples(buffer_indices, td_steps)
         return samples, buffer_indices
 
     def priority_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes, total_buffer_size):
@@ -191,12 +188,12 @@ class ExperienceMemory:
                 cumulative_sizes.append(total_buffer_size)
         return cumulative_sizes, total_buffer_size
 
-    def _fetch_samples(self, buffer_indices, num_td_steps):
+    def _fetch_samples(self, buffer_indices, td_steps):
         samples = []
         for buffer_id, local_indices in buffer_indices.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
             # Fetch the experience using local indices
-            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices, num_td_steps)
+            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices, td_steps)
             samples.extend(batch)
 
         return samples

@@ -5,21 +5,21 @@ from utils.structure.trajectories  import MultiEnvTrajectories
 import torch
 
 class EnvironmentPool: 
-    def __init__(self, env_config, model_seq_length, device, test_env, use_graphics):
+    def __init__(self, env_config, explore_seq_length, device, test_env, use_graphics):
         super(EnvironmentPool, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
         w_id = 0 if test_env else 1
         w_id += 100
         self.device = device
-        self.model_seq_length = model_seq_length
+        self.explore_seq_length = explore_seq_length
          
         if env_config.env_type == "gym":
-            self.env_list = [GymEnvWrapper(env_config, model_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
+            self.env_list = [GymEnvWrapper(env_config, explore_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
         elif env_config.env_type == "mlagents":
-            self.env_list = [MLAgentsEnvWrapper(env_config, model_seq_length, test_env, use_graphics = use_graphics, \
+            self.env_list = [MLAgentsEnvWrapper(env_config, explore_seq_length, test_env, use_graphics = use_graphics, \
                 worker_id = int(w_id + i), seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
