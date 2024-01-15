@@ -23,7 +23,7 @@ class AlgorithmParameters:
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
-                 tau=None, use_target_network=False, network_type=GPT):
+                 tau=1e-1, use_target_network=True, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.

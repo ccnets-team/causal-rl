@@ -5,8 +5,28 @@ from utils.setting.rl_params import RLParameters
 from typing import Tuple, Optional, Union, Type, Dict, List
 from environments.settings.gym_utils import setup_gym_environment
 from environments.settings.mlagents_utils import setup_mlagents_environment
-from utils.setting.custom_env_settings import MLAGENTS_ENV_SPECIFIC_ARGS, GYM_ENV_SPECIFIC_ARGS
 
+MLAGENTS_ENV_SPECIFIC_ARGS = {
+    "3DBallHard": {},
+    "Worm": {},
+    "Crawler": {},
+    "Walker": {}, 
+    "Hallway": {},
+    "PushBlock": {},
+    "Pyramids": {}
+}
+
+GYM_ENV_SPECIFIC_ARGS = {
+    "InvertedDoublePendulum-": {},   
+    "Pusher-": {},   
+    "Reacher-": {},
+    "Hopper-": {},      
+    "Walker2d-": {},   
+    "Ant-": {},
+    "HalfCheetah-": {},   
+    "Humanoid-": {},    
+    "HumanoidStandup-": {}
+}
 GYM_NUM_ENVIRONMENTS = 1
 
 def analyze_env(env_name):
