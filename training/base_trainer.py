@@ -20,7 +20,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_exploration_utils()
         self.gammas = compute_discounted_future_value(self.discount_factor, self.train_seq_length)
         self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.train_seq_length)
-        self.scaling_factors = torch.sum(self.gammas* self.lambdas, dim=1, keepdim=True)
+        self.scaling_factors = torch.sum(self.gammas* self.lambdas, dim=1, keepdim=True).to(self.device)
         
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
