@@ -3,10 +3,9 @@ from nn.super_net import SuperNet
 from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
-    """
-    Initialize training parameters for a reinforcement learning model.
-    """
-    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, use_on_policy=False):
+    # Initialize training parameters for a reinforcement learning model.
+    def __init__(self, trainer_name='causal_rl', batch_size=64, replay_ratio=1, train_interval=1, use_on_policy=False):
+        self.trainer_name = trainer_name  # Specifies the type of trainer algorithm to be used (e.g., 'causal_rl', 'ddpg', 'a2c', etc.). Determines the learning strategy and underlying mechanics of the model.
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
@@ -80,12 +79,26 @@ class RLParameters:
         self.exploration = ExplorationParameters() if exploration is None else exploration
         self.memory = MemoryParameters() if memory is None else memory
         self.normalization = NormalizationParameters() if normalization is None else normalization
-            
+
+    def __getattr__(self, name):
+        # Check if the attribute is part of any of the parameter classes
+        for param in [self.training, self.algorithm, self.network, self.optimization, self.exploration, self.memory, self.normalization]:
+            if hasattr(param, name):
+                return getattr(param, name)
+        raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+
+    def __setattr__(self, name, value):
+        # Set attribute if it's one of RLParameters' direct attributes
+        if name in ["training", "algorithm", "network", "optimization", "exploration", "memory", "normalization"]:
+            super().__setattr__(name, value)
+        else:
+            # Set attribute in one of the parameter classes
+            for param in [self.training, self.algorithm, self.network, self.optimization, self.exploration, self.memory, self.normalization]:
+                if hasattr(param, name):
+                    setattr(param, name, value)
+                    return
+            # If the attribute is not found in any of the parameter classes, set it as a new attribute of RLParameters
+            super().__setattr__(name, value)
+
     def __iter__(self):
-        yield self.training
-        yield self.algorithm 
-        yield self.network
-        yield self.optimization
-        yield self.exploration
-        yield self.memory
-        yield self.normalization	
+        yield from [self.training, self.algorithm, self.network, self.optimization, self.exploration, self.memory, self.normalization]

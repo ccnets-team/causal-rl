@@ -28,7 +28,7 @@ def configure_parameters(env_name: str, is_unity: bool = False) -> Tuple[Optiona
 
     env_config = setup_environment(env_name, is_unity)
     if env_config is None:
-        return None
+        return None, None
 
     env_name, num_agents, obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high = env_config
 
