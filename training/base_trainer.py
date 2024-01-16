@@ -8,7 +8,7 @@ from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
 from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value
-from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction
+from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction, masked_tensor_first_reduction
 from .trainer_utils import create_padding_mask_before_dones
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
@@ -46,7 +46,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.use_target_network = self.network_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
-        self.value_normalizer = self.normalization_params.value_normalizer
+        self.advantage_normalizer = self.normalization_params.advantage_normalizer
         self.reduction_type = 'cross'
 
     def _compute_training_start_step(self):
@@ -70,6 +70,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         if mask is not None:
             if self.reduction_type == 'adaptive':
                 return adaptive_masked_tensor_reduction(tensor, mask, length_weight_exponent = 2)
+            elif self.reduction_type == 'first':
+                return masked_tensor_first_reduction(tensor, mask)                
             elif self.reduction_type in ['batch', 'seq', 'all']:
                 return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
             elif self.reduction_type == 'cross':
@@ -91,75 +93,43 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
     
-    def apply_normalize_value(self, estimated_value, expected_value):
+    def apply_normalize_advantage(self, advantage):
         """Normalize the returns based on the specified normalizer type."""
-        normalizer_type = self.value_normalizer
+        normalizer_type = self.advantage_normalizer
         if normalizer_type is None:
-            normalized_estimated_value = estimated_value/self.scaling_factors
-            normalized_expected_value = expected_value/self.scaling_factors            
+            normalized_advantage = advantage/self.scaling_factors
         elif normalizer_type == 'L1_norm':
-            normalized_estimated_value = estimated_value / (estimated_value.abs().mean(dim=0, keepdim=True) + 1e-8)
-            normalized_expected_value = expected_value / (expected_value.abs().mean(dim=0, keepdim=True) + 1e-8)
+            normalized_advantage = advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
         elif normalizer_type == 'batch_norm':
             # Batch normalization - normalizing based on batch mean and std
-            batch_mean_estimated = estimated_value.mean(dim=0, keepdim=True)
-            batch_std_estimated = estimated_value.std(dim=0, keepdim=True) + 1e-8
-            normalized_estimated_value = (estimated_value - batch_mean_estimated) / batch_std_estimated
-            
-            batch_mean_expected = expected_value.mean(dim=0, keepdim=True)
-            batch_std_expected = expected_value.std(dim=0, keepdim=True) + 1e-8
-            normalized_expected_value = (expected_value - batch_mean_expected) / batch_std_expected
+            batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
+            batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
+            normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
         else:
-            normalized_estimated_value = self.normalize_value(estimated_value)
-            normalized_expected_value = self.normalize_value(expected_value)
-            self.update_value(expected_value)
-        return normalized_estimated_value, normalized_expected_value
-
-    def compute_td_errors(self, trajectory: BatchTrajectory):
-        states, actions, rewards, next_states, dones = trajectory 
-        
-        padding_mask = create_padding_mask_before_dones(dones)
-        next_padding_mask = torch.cat((padding_mask[:,1:], padding_mask[:,-1:]), dim = 1)
-
-        with torch.no_grad():
-            estimated_value = self.trainer_calculate_value_estimate(states, mask=padding_mask)
-            future_values = self.trainer_calculate_future_value(next_states, next_padding_mask)
-            trajectory_values = torch.cat([estimated_value[:, :1], future_values], dim=1)
-            
-            if self.use_gae_advantage:
-                _advantage = calculate_gae_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
-                returns = (_advantage + estimated_value)
-            else:
-                returns = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
-            expected_value = self.normalize_value(returns)
-            advantage = (expected_value - estimated_value)
-            td_errors = advantage.abs()
-            
-        trajectory.push_td_errors(td_errors, padding_mask)
+            normalized_advantage = self.normalize_advantage(advantage)
+            self.update_advantage(advantage)
+        return normalized_advantage
 
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
-
         padding_mask = create_padding_mask_before_dones(dones)
-        next_padding_mask = torch.cat((padding_mask[:,1:], padding_mask[:,-1:]), dim = 1)
-
         with torch.no_grad():
-            future_values = self.trainer_calculate_future_value(next_states, next_padding_mask)
+            future_values = self.trainer_calculate_future_value(next_states, padding_mask)
             trajectory_values = torch.cat([estimated_value[:, :1], future_values], dim=1)
             
             if self.use_gae_advantage:
                 _advantage = calculate_gae_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
-                _expected_value = (_advantage + estimated_value)
+                expected_value = (_advantage + estimated_value)
             else:
-                _expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
+                expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
             
-            normalized_estimated_value, noramlized_expected_value = self.apply_normalize_value(estimated_value, _expected_value)
-            advantage = (noramlized_expected_value - normalized_estimated_value)
-            expected_value = advantage + estimated_value
+            advantage = (expected_value - estimated_value)
+            normalized_advantage = self.apply_normalize_advantage(advantage)
+            normalized_expected_value = normalized_advantage + estimated_value
             # Uncomment and adjust the normalization if necessary
 
-        return expected_value, advantage
+        return normalized_expected_value, normalized_advantage
 
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():

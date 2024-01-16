@@ -9,7 +9,7 @@ from numpy.random import choice
 import copy
 
 class ExperienceMemory:
-    def __init__(self, env_config, training_params, algorithm_params, memory_params, compute_td_errors, device):
+    def __init__(self, env_config, training_params, algorithm_params, memory_params, device):
         self.device = device
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
@@ -19,7 +19,6 @@ class ExperienceMemory:
         
         self.batch_size = training_params.batch_size
         self.gamma = algorithm_params.discount_factor
-        self.compute_td_errors = compute_td_errors
 
         # Capacity calculation now in a separate method for clarity
         self.capacity_per_agent = self._calculate_capacity_per_agent(memory_params.buffer_size)
