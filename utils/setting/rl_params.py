@@ -4,17 +4,16 @@ from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, trainer_name='causal_rl', use_on_policy=False, batch_size=64, replay_ratio=1, train_interval=1):
+    def __init__(self, trainer_name='causal_rl', use_on_policy=False, batch_size=64, replay_ratio=2, train_interval=1):
         self.trainer_name = trainer_name  # Specifies the type of trainer algorithm to be used (e.g., 'causal_rl', 'ddpg', 'a2c', etc.). Determines the learning strategy and underlying mechanics of the model.
         self.use_on_policy = use_on_policy  # Indicates if training uses on-policy (True) or off-policy (False) methods.
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
-        self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, train_seq_length=16, explore_seq_length=12, discount_factor=0.99, advantage_lambda=0.99, use_gae_advantage=False):
+    def __init__(self, train_seq_length=16, explore_seq_length=8, discount_factor=0.99, advantage_lambda=0.98, use_gae_advantage=False):
         self.train_seq_length = train_seq_length  # Sequence length for training. Represents the number of consecutive states used in each training update.
         self.explore_seq_length = explore_seq_length  # Sequence length during exploration. Impacts how the model interacts with and perceives its environment.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
@@ -22,22 +21,21 @@ class AlgorithmParameters:
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
-                 tau=1e-1, use_target_network=True, network_type=GPT):
+    def __init__(self, num_layers=5, d_model=256, dropout=0.01, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
         self.critic_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the critic network.
         self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
         self.rev_env_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the reverse environment network.
-        self.tau = tau  # Target network update rate, used in algorithms with target networks.
-        self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=2e-5, lr_decay_ratio=1e-1, clip_grad_range=None):
+    def __init__(self, lr=2e-5, lr_decay_ratio=1e-1, tau=1e-1, use_target_network=True, clip_grad_range=1.0):
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training.
+        self.tau = tau  # Target network update rate, used in algorithms with target networks.
+        self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
 
 class ExplorationParameters:
@@ -51,11 +49,12 @@ class ExplorationParameters:
         
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_size=256000):
+    def __init__(self, buffer_size=128000):
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
+        self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
         
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer='running_abs_mean'):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer='running_mean_std'):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
         self.advantage_normalizer = advantage_normalizer

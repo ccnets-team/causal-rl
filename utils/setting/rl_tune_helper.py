@@ -102,9 +102,8 @@ class RLTuneHelper:
         self.batch_size = training_params.batch_size
         self.replay_ratio = training_params.replay_ratio
         self.train_interval = training_params.train_interval
-
         self.samples_per_step = training_params.batch_size//training_params.replay_ratio
-        self.training_start_step = self.buffer_size//int(self.batch_size/training_params.replay_ratio) if training_params.early_training_start_step is None else training_params.early_training_start_step
+        self.training_start_step = self.buffer_size//int(self.batch_size/training_params.replay_ratio) if memory_params.early_training_start_step is None else memory_params.early_training_start_step
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_interval*self.batch_size))
 
     def _setup_training(self):
