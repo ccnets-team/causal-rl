@@ -2,21 +2,6 @@
 import torch
 import torch.nn.functional as F
 
-def masked_tensor_first_reduction(tensor, mask):
-    # Convert mask to a float tensor for compatibility with torch.argmax
-    mask_float = mask.float()
-
-    # Identify the index of the first True in each sequence
-    first_true_indices = torch.argmax(mask_float, dim=1)
-
-    # Create a range tensor for batch dimension indexing
-    batch_indices = torch.arange(tensor.shape[0], device=tensor.device)
-
-    # Use advanced indexing to select the values at the first True index for each sequence
-    selected_values = tensor[batch_indices, first_true_indices]
-
-    return selected_values
-
 def masked_tensor_reduction(tensor, mask, reduction="batch"):
     # Dictionary mapping for reduction type to dimension
     reduction_to_dim = {"batch": 0, "seq": 1}
@@ -44,27 +29,6 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
     # Calculate the mean by dividing the sum by the number of unmasked entries
     mean_per_sequence = sum_per_sequence / count_per_sequence
     return mean_per_sequence
-
-def adaptive_masked_tensor_reduction(tensor, mask, length_weight_exponent = 2):
-    # Ensure mask is a boolean tensor and compatible with tensor dimensions
-    mask_bool = mask.bool()
-    steps_count = mask_bool.sum(dim=1).unsqueeze(-1)
-    total_steps = mask_bool.size(1)
-    steps_proportion = pow(steps_count.float() / total_steps, length_weight_exponent)
-
-    count_per_sequence = torch.sum(mask_bool, dim=0)
-    count_per_batch = torch.sum(mask_bool, dim=1)   
-
-    # Apply mask to tensor and calculate the mean for sequences where some steps are masked
-    masked_tensor = tensor * mask_bool.float()
-    mean_full = (masked_tensor * steps_proportion).sum(dim=0) / count_per_sequence.clamp(min=1)
-
-    # Calculate mean for sequences where steps are not masked (inverse mask)
-    mean_partial = (masked_tensor * (1 - steps_proportion)).sum(dim=1) / count_per_batch.clamp(min=1)
-
-    # Concatenate the means along a new dimension
-    reduced_tensor = torch.cat([mean_full, mean_partial], dim=0)
-    return reduced_tensor
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -102,30 +66,7 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     return mask
 
 def compute_discounted_future_value(discount_factor, max_seq_len):
-    # Create a range tensor [0, 1, 2, ..., max_seq_len-1]
-    discount_exponents = torch.arange(max_seq_len).unsqueeze(0)
-
-    # Compute the discount factors by raising to the power of the exponents
-    discount_factors = discount_factor ** discount_exponents
-
-    # Return the discount factors with an additional dimension to match the expected shape
-    return discount_factors.unsqueeze(-1)
-
-def calculate_accumulative_rewards(rewards, discount_factor, mask):
-    batch_size, seq_len, _ = rewards.shape
-    # Initialize a tensor for accumulative rewards with zeros
-    accumulative_rewards = torch.zeros_like(rewards)
-
-    # Loop backwards through the sequence
-    for t in reversed(range(seq_len)):
-        if t == seq_len - 1:
-            # If it's the last step, the accumulative reward is just the immediate reward
-            accumulative_rewards[:, t, :] = rewards[:, t, :]* mask[:, t, :]
-        else:
-            # Accumulate reward at step t with the discounted reward at t+1, but only where the mask is true
-            accumulative_rewards[:, t, :] = (rewards[:, t, :] + discount_factor * accumulative_rewards[:, t+1, :])* mask[:, t, :]
-
-    return accumulative_rewards
+    return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
 
 def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
     # Determine the batch size and sequence length from the rewards shape
@@ -194,33 +135,3 @@ def scale_advantage(advantages, norm_type=None):
         return advantages
 
     return advantages / abs_mean_advantage
-
-def create_train_seq_mask(padding_mask, train_seq_length):
-    """
-    Creates a selection mask for trajectories.
-
-    :param padding_mask: Mask tensor from create_padding_mask_before_dones, shape [B, S, 1].
-    :param train_seq_length: Length of the train sequence to select.
-    :return: Selection mask tensor, shape [B, train_seq_length, 1].
-    """
-    batch_size, seq_len, _ = padding_mask.shape
-
-    # Find the index of the first non-padding point after 'done'
-    first_non_padding_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
-    end_non_padding_idx = first_non_padding_idx + train_seq_length
-    end_select_idx = torch.clamp(end_non_padding_idx, max=seq_len)
-    first_select_idx = end_select_idx - train_seq_length
-
-    # Create a range tensor of shape [S]
-    range_tensor = torch.arange(seq_len, device=padding_mask.device).unsqueeze(0).unsqueeze(-1)
-
-    # Broadcast to shape [B, S, 1] and compare
-    select_mask = (range_tensor >= first_select_idx) & (range_tensor < end_select_idx)
-    
-    return select_mask
-
-# Function to apply selection mask to a trajectory component
-def apply_seq_mask(component, model_seq_mask, model_seq_length):
-    component_shape = component.shape
-    return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
-

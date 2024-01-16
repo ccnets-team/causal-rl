@@ -59,17 +59,32 @@ class NormalizationUtils:
         self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization_params, device=device)
         self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization_params, device=device)
         self.advantage_manager = NormalizerBase(train_seq_length, 'advantage_normalizer', normalization_params, device=device)
+        self.advantage_normalizer = normalization_params.advantage_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
+        
+    def normalize_advantage(self, advantage, scaling_factors = 1):
+        """Normalize the returns based on the specified normalizer type."""
+        normalizer_type = self.advantage_normalizer
+        if normalizer_type is None:
+            normalized_advantage = advantage/scaling_factors
+        elif normalizer_type == 'L1_norm':
+            normalized_advantage = advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
+        elif normalizer_type == 'batch_norm':
+            # Batch normalization - normalizing based on batch mean and std
+            batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
+            batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
+            normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
+        else:
+            normalized_advantage = self.advantage_manager.normalize_data(advantage.squeeze(-1)).unsqueeze(-1)
+            self.update_advantage(advantage)
+        return normalized_advantage
 
     def normalize_state(self, state):
         return self.state_manager.normalize_data(state)
 
     def normalize_reward(self, reward):
         return self.reward_manager.normalize_data(reward)
-
-    def normalize_advantage(self, advantage):
-        return self.advantage_manager.normalize_data(advantage.squeeze(-1)).unsqueeze(-1)
 
     def update_advantage(self, advantage):
         self.advantage_manager._update_normalizer(advantage.squeeze(-1))

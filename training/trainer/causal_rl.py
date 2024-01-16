@@ -112,9 +112,6 @@ class CausalRL(BaseTrainer):
         # Update the network parameters.
         self.update_step()
         
-        td_errors = (expected_value - estimated_value).detach().abs()
-        trajectory.push_td_errors(td_errors, padding_mask)
-        
         metrics = create_training_metrics(
             estimated_value=estimated_value,
             expected_value=expected_value,
@@ -165,17 +162,12 @@ class CausalRL(BaseTrainer):
         self.update_target_networks()
         self.update_schedulers()
 
-    def trainer_calculate_value_estimate(self, states, mask = None):
-        with torch.no_grad():
-            estimated_value = self.critic(states, mask=mask)
-        return estimated_value    
-
-    def trainer_calculate_future_value(self, next_state, mask = None):
+    def trainer_calculate_future_value(self, next_state, mask):
         with torch.no_grad():
             if self.use_target_network:  
-                future_value = self.target_critic(next_state, mask=mask)
+                future_value = self.target_critic(next_state, mask)
             else:
-                future_value = self.critic(next_state, mask=mask)
+                future_value = self.critic(next_state, mask)
         return future_value    
 
     def cost_fn(self, predict, target):

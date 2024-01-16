@@ -8,8 +8,7 @@ from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
 from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value
-from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction, masked_tensor_first_reduction
-from .trainer_utils import create_padding_mask_before_dones
+from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -21,7 +20,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.gammas = compute_discounted_future_value(self.discount_factor, self.train_seq_length)
         self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.train_seq_length)
         self.scaling_factors = torch.sum(self.gammas* self.lambdas, dim=1, keepdim=True).to(self.device)
-        
+
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
          self.optimization_params, self.exploration_params, 
@@ -68,11 +67,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :return: The reduced tensor.
         """
         if mask is not None:
-            if self.reduction_type == 'adaptive':
-                return adaptive_masked_tensor_reduction(tensor, mask, length_weight_exponent = 2)
-            elif self.reduction_type == 'first':
-                return masked_tensor_first_reduction(tensor, mask)                
-            elif self.reduction_type in ['batch', 'seq', 'all']:
+            if self.reduction_type in ['batch', 'seq', 'all']:
                 return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
             elif self.reduction_type == 'cross':
                 batch_dim_reduction = masked_tensor_reduction(tensor, mask, reduction="batch")/2
@@ -92,23 +87,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         squared_error = (estimated_value - expected_value).square()
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
-    
-    def apply_normalize_advantage(self, advantage):
-        """Normalize the returns based on the specified normalizer type."""
-        normalizer_type = self.advantage_normalizer
-        if normalizer_type is None:
-            normalized_advantage = advantage/self.scaling_factors
-        elif normalizer_type == 'L1_norm':
-            normalized_advantage = advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
-        elif normalizer_type == 'batch_norm':
-            # Batch normalization - normalizing based on batch mean and std
-            batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
-            batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
-            normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
-        else:
-            normalized_advantage = self.normalize_advantage(advantage)
-            self.update_advantage(advantage)
-        return normalized_advantage
 
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
         """Compute the advantage and expected value."""
@@ -125,10 +103,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
             
             advantage = (expected_value - estimated_value)
-            normalized_advantage = self.apply_normalize_advantage(advantage)
+            normalized_advantage = self.normalize_advantage(advantage, self.scaling_factors)
             normalized_expected_value = normalized_advantage + estimated_value
-            # Uncomment and adjust the normalization if necessary
-
         return normalized_expected_value, normalized_advantage
 
     def reset_actor_noise(self, reset_noise):
@@ -138,10 +114,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     @abstractmethod
     def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
-        pass
-
-    @abstractmethod
-    def trainer_calculate_value_estimate(self, states, mask = None):
         pass
 
     @abstractmethod
