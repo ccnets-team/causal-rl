@@ -88,47 +88,21 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
 
-    def apply_value_scaling(self, values):
-        """
-        Applies variance-based scaling to the given values.
-
-        Variance-based scaling is a technique used to normalize the scale of values (such as expected returns or advantages)
-        in reinforcement learning. This normalization is particularly important in environments where the rewards can
-        have high variability or different scales across episodes.
-
-        Args:
-            values (torch.Tensor): A tensor containing the values to be scaled. These could be expected returns,
-                                advantages, or any other metric that benefits from scaling.
-
-        Returns:
-            torch.Tensor: The scaled values, normalized by the sum of discount factors (gammas).
-
-        The scaling factor used here, `self.sum_gammas`, is the cumulative sum of discount factors applied to
-        future rewards. This sum acts as a normalization factor that adjusts the values to a consistent scale,
-        compensating for the variance introduced by the discounting process over different sequence lengths.
-
-        By dividing the values by `self.sum_gammas`, we ensure that the resulting scaled values have a standardized
-        scale regardless of the length of the reward sequence or the variability of the rewards. This standardization
-        is crucial for stabilizing the learning process and ensuring that the model's performance is consistent across
-        different training scenarios.
-        """
-        return values / self.sum_gammas
-    
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
+        scaled_rewards = rewards / self.sum_gammas
         padding_mask = create_padding_mask_before_dones(dones)
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
             trajectory_values = torch.cat([estimated_value[:, :1], future_values], dim=1)
             
             if self.use_gae_advantage:
-                _advantage = calculate_gae_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
+                _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
                 expected_value = (_advantage + estimated_value)
             else:
-                expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
+                expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
             
-                expected_value = self.apply_value_scaling(expected_value)
             advantage = (expected_value - estimated_value)
             normalized_advantage = self.normalize_advantage(advantage)
         return expected_value, normalized_advantage
