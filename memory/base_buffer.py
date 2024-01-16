@@ -6,10 +6,10 @@
 import numpy as np
 
 class BaseBuffer:
-    def __init__(self, buffer_type, capacity, state_size, action_size, num_td_steps):
+    def __init__(self, buffer_type, capacity, state_size, action_size, seq_len):
         self.buffer_type = buffer_type
         self.capacity = capacity
-        self.num_td_steps = num_td_steps
+        self.seq_len = seq_len
         self.state_size = state_size
         self.action_size = action_size
 

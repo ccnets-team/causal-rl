@@ -14,16 +14,12 @@ class ExperienceMemory:
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
-        self.num_td_steps = algorithm_params.num_td_steps
         self.train_seq_length = algorithm_params.train_seq_length
         self.explore_seq_length = algorithm_params.explore_seq_length
         
         self.batch_size = training_params.batch_size
-        self.use_priority = False if memory_params.buffer_priority == 0.0 else True
-        self.buffer_priority = memory_params.buffer_priority
         self.gamma = algorithm_params.discount_factor
         self.compute_td_errors = compute_td_errors
-        self.td_error_update_counter = 0
 
         # Capacity calculation now in a separate method for clarity
         self.capacity_per_agent = self._calculate_capacity_per_agent(memory_params.buffer_size)
@@ -33,14 +29,11 @@ class ExperienceMemory:
 
     def _calculate_capacity_per_agent(self, buffer_size):
         # Capacity calculation logic separated for clarity
-        return int(buffer_size) // (self.num_environments * self.num_agents) + self.num_td_steps
+        return int(buffer_size) // (self.num_environments * self.num_agents) + self.train_seq_length
 
     def _initialize_buffers(self):
         # Buffer initialization logic separated for clarity
-        if self.use_priority:
-            return [[PriorityBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.num_td_steps) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
-        else:
-            return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.num_td_steps) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
+        return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.train_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
             
     def __len__(self):
         return sum(len(buf) for env in self.multi_buffers for buf in env)
@@ -69,84 +62,32 @@ class ExperienceMemory:
         if multi_env_trajectories.env_ids is None:
             return
 
-        buffer_indices = defaultdict(list)
         for data in zip(multi_env_trajectories.env_ids, multi_env_trajectories.agent_ids,
                         multi_env_trajectories.states, multi_env_trajectories.actions,
                         multi_env_trajectories.rewards, multi_env_trajectories.next_states,
                         multi_env_trajectories.dones_terminated, multi_env_trajectories.dones_truncated):
             env_id, agent_id = data[:2]
             buffer = self.multi_buffers[env_id][agent_id]
-            buffer_id = int(env_id * self.num_agents + agent_id)
-            buffer_indices[buffer_id].append(buffer.index)
             buffer.add_transition(*data[2:])
         
-        self.td_error_update_counter += 1
-
-        if not self.use_priority:
-            return 
         
-        if self.td_error_update_counter % self.explore_seq_length != 0:
-            return
-        
-        samples = []
-        for buffer_id, indices in buffer_indices.items():
-            env_id, agent_id = self._get_env_agent_ids(buffer_id)
-            trajectory = self.sample_trajectory_from_buffer(env_id, agent_id, indices, self.explore_seq_length)
-            samples.extend(trajectory)
-        
-        if samples is None or len(samples) == 0:
-            return
-        states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
-        batch_trajectory = BatchTrajectory(states, actions, rewards, next_states, dones, buffer_indices)
-        self.compute_td_errors(batch_trajectory)
-        self.update_td_errors(batch_trajectory)
-
-    def sample_batch_trajectory(self, use_sampling_normalizer_update=False):
-        samples, buffer_indices = self.sample_trajectory_data(use_sampling_normalizer_update)
+    def sample_batch_trajectory(self):
+        samples, buffer_indices = self.sample_trajectory_data()
         if samples is None:
             return None
 
         states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
         return BatchTrajectory(states, actions, rewards, next_states, dones, buffer_indices)
     
-    def update_td_errors(self, trajectory: BatchTrajectory):
-        if not self.use_priority:
-            return 
-        
-        td_errors = trajectory.td_errors.cpu().numpy()
-        mask = trajectory.padding_mask.cpu().numpy()
-        buffer_indices = trajectory.buffer_indices
-        start_index = 0
-
-        for buffer_id, indices in buffer_indices.items():
-            # Map buffer_id back to env_id and agent_id
-            env_id, agent_id = self._get_env_agent_ids(buffer_id)
-            buffer = self.multi_buffers[env_id][agent_id]
-
-            np_indices = np.array(indices, np.int32)
-            end_index = start_index + len(indices)
-            # Extract corresponding local normalized rewards and values
-            local_td_errors = td_errors[start_index:end_index]
-            local_mask = mask[start_index:end_index]
-
-            # Update TD errors for the buffer
-            buffer.update_td_errors_for_sampled(np_indices, local_td_errors, local_mask)
-            
-            start_index = end_index  # Update start_index for next iteration
-
-    def sample_trajectory_data(self, use_sampling_normalizer_update = True):
+    def sample_trajectory_data(self):
         sample_sz = self.batch_size
         td_steps = self.train_seq_length 
-        # td_steps = self.train_seq_length if use_sampling_normalizer_update else self.train_seq_length
         
         # Cumulative size calculation now a separate method for clarity
         cumulative_sizes, total_buffer_size = self._calculate_cumulative_sizes()
         if sample_sz > total_buffer_size:
             return None, None
-        if use_sampling_normalizer_update or not self.use_priority:
-            samples, buffer_indices = self.balanced_sample_trajectory_data(sample_sz, td_steps, cumulative_sizes, total_buffer_size)
-        else:
-            samples, buffer_indices = self.priority_sample_trajectory_data(sample_sz, td_steps, cumulative_sizes, total_buffer_size)
+        samples, buffer_indices = self.balanced_sample_trajectory_data(sample_sz, td_steps, cumulative_sizes, total_buffer_size)
         return samples, buffer_indices  
     
     def balanced_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes, total_buffer_size):
@@ -160,24 +101,6 @@ class ExperienceMemory:
 
             buffer_indices[buffer_id].append(local_idx)
         
-        samples = self._fetch_samples(buffer_indices, td_steps)
-        return samples, buffer_indices
-
-    def priority_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes, total_buffer_size):
-
-        # Step 1: Calculate sampling probabilities based on TD errors
-        sampling_probabilities = self._calculate_sampling_probabilities()
-        # Step 2: Sample indices based on the calculated probabilities
-        sampled_indices = choice(range(total_buffer_size), size=sample_size, p=sampling_probabilities)
-        buffer_indices = defaultdict(list)
-        for idx in sampled_indices:
-            buffer_id = next(i for i, cum_size in enumerate(cumulative_sizes) if idx < cum_size)
-
-            previous_cumulative_size = cumulative_sizes[buffer_id - 1] if buffer_id > 0 else 0
-            local_idx = idx - previous_cumulative_size
-
-            buffer_indices[buffer_id].append(local_idx)
-
         samples = self._fetch_samples(buffer_indices, td_steps)
         return samples, buffer_indices
 
@@ -199,19 +122,3 @@ class ExperienceMemory:
             samples.extend(batch)
 
         return samples
-
-    def _calculate_sampling_probabilities(self):
-        alpha=self.buffer_priority
-        # Accumulate TD errors using NumPy arrays for memory efficiency
-        td_errors = np.concatenate([buf.td_errors[:buf.size] for env in self.multi_buffers for buf in env])
-        
-        # Adjust TD errors by alpha
-        if alpha != 0:
-            adjusted_td_errors = np.power(td_errors, alpha)
-        else:
-            # If alpha is 0, use uniform distribution
-            adjusted_td_errors = np.ones_like(td_errors)
-
-        sum_adjusted_td_errors = adjusted_td_errors.sum()
-        probabilities = adjusted_td_errors / sum_adjusted_td_errors
-        return probabilities

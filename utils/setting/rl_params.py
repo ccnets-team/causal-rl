@@ -14,20 +14,12 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, num_td_steps=16, train_seq_length=16, explore_seq_length=12, discount_factor=0.99, advantage_lambda=0.99, use_gae_advantage=False):
-        self.num_td_steps = num_td_steps  # The number of TD steps for multi-step returns. Determines the temporal horizon used for learning.
+    def __init__(self, train_seq_length=16, explore_seq_length=12, discount_factor=0.99, advantage_lambda=0.99, use_gae_advantage=False):
         self.train_seq_length = train_seq_length  # Sequence length for training. Represents the number of consecutive states used in each training update.
         self.explore_seq_length = explore_seq_length  # Sequence length during exploration. Impacts how the model interacts with and perceives its environment.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting
         self.use_gae_advantage = use_gae_advantage  # Whether to use Generalized Advantage Estimation
-            
-        assert self.num_td_steps >= self.train_seq_length, "num_td_steps must be greater than or equal to train_seq_length"
-
-        # Explanation:
-        # num_td_steps: Represents the horizon over which Temporal Difference updates are calculated.
-        # train_seq_length: Defines the window of consecutive data points used for each training update. 
-        # It is crucial that num_td_steps is not less than train_seq_length, as it would mean the model tries to learn from a future beyond its TD update horizon.
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
@@ -59,12 +51,11 @@ class ExplorationParameters:
         
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_priority=0.0, buffer_size=256000):
-        self.buffer_priority = buffer_priority  # Adjusts the prioritization in the memory buffer. A value of 0 indicates a standard buffer.
+    def __init__(self, buffer_size=256000):
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
         
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer=None, value_normalizer='running_mean_std'):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', value_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
         self.value_normalizer = value_normalizer
