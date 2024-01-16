@@ -45,28 +45,5 @@ class PriorityBuffer(BaseBuffer):
             self.size += 1
         # Remove invalid indices caused by the circular nature of the buffer
 
-    def update_td_errors_for_sampled(self, indices, td_errors, mask):
-        """
-        Updates the TD errors for sampled experiences.
-
-        :param indices: Indices of the last element of the sampled experiences.
-        :param td_errors: Temporal Difference errors for the sampled experiences.
-        :param mask: Mask array indicating which steps to update.
-        :param use_actual_indices: Flag to indicate if indices are actual indices or need conversion.
-        """
-
-        # Calculate the range of indices for each trajectory
-        seq_len = mask.shape[1]
-        range_indices = seq_len - 1 - np.arange(seq_len)
-        all_indices = (self.capacity + indices.reshape(-1, 1) - range_indices) % self.capacity
-
-        # Flatten the mask and indices array for advanced indexing
-        update_mask = mask.ravel().astype(bool)
-        all_indices_flat = all_indices.ravel()
-        td_errors_flat = td_errors.ravel()
-
-        # Perform the update using advanced indexing
-        self.td_errors[all_indices_flat[update_mask]] = td_errors_flat[update_mask]
-
     def sample_trajectories(self, indices, td_steps):
         return self._fetch_trajectory_slices(indices, td_steps)
