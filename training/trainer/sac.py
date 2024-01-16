@@ -13,7 +13,7 @@ from nn.roles.critic import DualInputCritic as Critic
 from nn.roles.actor import SingleInputActor as PolicyNetwork
 from nn.roles.critic import SingleInputCritic as ValueNetwork
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, adaptive_masked_tensor_reduction
+from training.trainer_utils import create_padding_mask_before_dones
 
 class SAC(BaseTrainer):
     def __init__(self, env_config, rl_params, device):

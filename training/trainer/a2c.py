@@ -12,7 +12,7 @@ from utils.structure.trajectories  import BatchTrajectory
 from nn.roles.critic import SingleInputCritic
 from nn.roles.actor import SingleInputActor
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, adaptive_masked_tensor_reduction
+from training.trainer_utils import create_padding_mask_before_dones
 
 class A2C(BaseTrainer):
     def __init__(self, env_config, rl_params, device):

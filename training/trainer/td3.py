@@ -12,7 +12,7 @@ from training.base_trainer import BaseTrainer
 from nn.roles.actor import SingleInputActor
 from nn.roles.critic import DualInputCritic
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones, adaptive_masked_tensor_reduction
+from training.trainer_utils import create_padding_mask_before_dones
 
 class TD3(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
