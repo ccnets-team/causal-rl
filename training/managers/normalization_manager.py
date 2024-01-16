@@ -63,11 +63,11 @@ class NormalizationUtils:
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
         
-    def normalize_advantage(self, advantage, scaling_factors = 1):
+    def normalize_advantage(self, advantage):
         """Normalize the returns based on the specified normalizer type."""
         normalizer_type = self.advantage_normalizer
         if normalizer_type is None:
-            normalized_advantage = advantage/scaling_factors
+            normalized_advantage = advantage
         elif normalizer_type == 'L1_norm':
             normalized_advantage = advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
         elif normalizer_type == 'batch_norm':

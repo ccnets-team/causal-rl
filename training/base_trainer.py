@@ -19,7 +19,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_exploration_utils()
         self.gammas = compute_discounted_future_value(self.discount_factor, self.train_seq_length)
         self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.train_seq_length)
-        self.scaling_factors = torch.sum(self.gammas* self.lambdas, dim=1, keepdim=True).to(self.device)
+        self.sum_gammas = torch.sum(self.gammas, dim=1, keepdim=True).to(self.device)
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -88,6 +88,32 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
 
+    def apply_value_scaling(self, values):
+        """
+        Applies variance-based scaling to the given values.
+
+        Variance-based scaling is a technique used to normalize the scale of values (such as expected returns or advantages)
+        in reinforcement learning. This normalization is particularly important in environments where the rewards can
+        have high variability or different scales across episodes.
+
+        Args:
+            values (torch.Tensor): A tensor containing the values to be scaled. These could be expected returns,
+                                advantages, or any other metric that benefits from scaling.
+
+        Returns:
+            torch.Tensor: The scaled values, normalized by the sum of discount factors (gammas).
+
+        The scaling factor used here, `self.sum_gammas`, is the cumulative sum of discount factors applied to
+        future rewards. This sum acts as a normalization factor that adjusts the values to a consistent scale,
+        compensating for the variance introduced by the discounting process over different sequence lengths.
+
+        By dividing the values by `self.sum_gammas`, we ensure that the resulting scaled values have a standardized
+        scale regardless of the length of the reward sequence or the variability of the rewards. This standardization
+        is crucial for stabilizing the learning process and ensuring that the model's performance is consistent across
+        different training scenarios.
+        """
+        return values / self.sum_gammas
+    
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
@@ -102,10 +128,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             else:
                 expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
             
+                expected_value = self.apply_value_scaling(expected_value)
             advantage = (expected_value - estimated_value)
-            normalized_advantage = self.normalize_advantage(advantage, self.scaling_factors)
-            normalized_expected_value = normalized_advantage + estimated_value
-        return normalized_expected_value, normalized_advantage
+            normalized_advantage = self.normalize_advantage(advantage)
+        return expected_value, normalized_advantage
 
     def reset_actor_noise(self, reset_noise):
         for actor in self.get_networks():
