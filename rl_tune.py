@@ -1,13 +1,15 @@
 from tqdm.notebook import tqdm
 from utils.structure.env_config import EnvConfig
+from utils.setting.rl_params import RLParameters
 from utils.setting.rl_tune_helper import RLTuneHelper
 from utils.wandb_logger import wandb_end
+from training.rl_trainer import RLTrainer
 
 class RLTune:
     """
     Class for tuning and training reinforcement learning models using a specified Trainer.
     """
-    def __init__(self, env_config: EnvConfig, trainer, device, use_graphics=False, use_print=False, use_wandb = False):
+    def __init__(self, env_config: EnvConfig, rl_params: RLParameters, device, use_graphics=False, use_print=False, use_wandb = False):
         """Initialize an instance of RLTune.
         Args:
             env_config (EnvConfig): Configuration for the environment.
@@ -17,11 +19,11 @@ class RLTune:
             use_print (bool, optional): Whether to print training/testing logs. Default is False.
         """
         
-        self.trainer = trainer.initialize(env_config, device)
+        self.trainer = RLTrainer.create(env_config, rl_params, device)
         self.device = device
-        self.max_steps = trainer.rl_params.exploration.max_steps
+        self.max_steps = rl_params.max_steps
         self.train_env, self.test_env, self.memory = None, None, None
-        self.helper = RLTuneHelper(self, trainer.trainer_name, env_config, trainer.rl_params, use_graphics, use_print, use_wandb)
+        self.helper = RLTuneHelper(self, env_config, rl_params, use_graphics, use_print, use_wandb)
 
     # Context Management
     def __enter__(self):

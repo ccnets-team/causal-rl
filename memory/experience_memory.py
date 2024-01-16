@@ -14,6 +14,7 @@ class ExperienceMemory:
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
+        self.num_td_steps = algorithm_params.num_td_steps
         self.train_seq_length = algorithm_params.train_seq_length
         self.explore_seq_length = algorithm_params.explore_seq_length
         
@@ -32,14 +33,14 @@ class ExperienceMemory:
 
     def _calculate_capacity_per_agent(self, buffer_size):
         # Capacity calculation logic separated for clarity
-        return int(buffer_size) // (self.num_environments * self.num_agents) + self.train_seq_length
+        return int(buffer_size) // (self.num_environments * self.num_agents) + self.num_td_steps
 
     def _initialize_buffers(self):
         # Buffer initialization logic separated for clarity
         if self.use_priority:
-            return [[PriorityBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.train_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
+            return [[PriorityBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.num_td_steps) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
         else:
-            return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.train_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
+            return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.num_td_steps) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
             
     def __len__(self):
         return sum(len(buf) for env in self.multi_buffers for buf in env)
@@ -135,7 +136,8 @@ class ExperienceMemory:
 
     def sample_trajectory_data(self, use_sampling_normalizer_update = True):
         sample_sz = self.batch_size
-        td_steps = self.explore_seq_length if use_sampling_normalizer_update else self.train_seq_length
+        td_steps = self.train_seq_length 
+        # td_steps = self.train_seq_length if use_sampling_normalizer_update else self.train_seq_length
         
         # Cumulative size calculation now a separate method for clarity
         cumulative_sizes, total_buffer_size = self._calculate_cumulative_sizes()

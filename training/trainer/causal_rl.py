@@ -63,9 +63,8 @@ class CausalRL(BaseTrainer):
         self.set_train(training=True)
     
         # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
-        states, actions, rewards, next_states, dones = trajectory
+        states, actions, rewards, next_states, dones, train_seq_mask = self.select_train_seq_length(trajectory)
         padding_mask = create_padding_mask_before_dones(dones)
-
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states, padding_mask)
             
@@ -91,7 +90,7 @@ class CausalRL(BaseTrainer):
         coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, estimated_value)
+        expected_value, advantage = self.compute_values(trajectory, estimated_value, train_seq_mask)
             
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   

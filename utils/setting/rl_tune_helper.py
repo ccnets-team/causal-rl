@@ -15,14 +15,13 @@ DEFAULT_PRINT_INTERVAL = 100
 DEFAULT_SAVE_INTERVAL = 1000
 
 class RLTuneHelper:
-    def __init__(self, parent, trainer_name, env_config, rl_params, use_graphics, use_print, use_wandb):
-        self.recorder = RecordManager(trainer_name, env_config, rl_params)
-
+    def __init__(self, parent, env_config, rl_params, use_graphics, use_print, use_wandb):
+        self.recorder = RecordManager(rl_params.trainer_name, env_config, rl_params)
         self.parent = parent
         self.use_graphics, self.use_print = use_graphics, use_print
         self.env_config, self.rl_params = env_config, rl_params
         if use_wandb:
-            wandb_init(trainer_name, env_config, rl_params)
+            wandb_init(rl_params.trainer_name, env_config, rl_params)
         self.use_wandb = use_wandb
         
         self.use_normalizer = (rl_params.normalization.reward_normalizer) is not None or (rl_params.normalization.state_normalizer is not None) 

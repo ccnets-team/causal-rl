@@ -7,9 +7,9 @@ from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
-from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value 
+from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value
 from .trainer_utils import adaptive_masked_tensor_reduction, masked_tensor_reduction
-from .trainer_utils import create_padding_mask_before_dones
+from .trainer_utils import create_padding_mask_before_dones, create_train_seq_mask, apply_seq_mask
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, trainer_name, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -18,8 +18,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
-        self.discount_factors = compute_discounted_future_value(self.discount_factor, self.train_seq_length).to(self.device)
-
+        self.gammas = compute_discounted_future_value(self.discount_factor, self.train_seq_length)
+        self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.train_seq_length)
+        self.scaling_factors = torch.sum(self.gammas* self.lambdas, dim=1, keepdim=True).to(self.device)
+        
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
          self.optimization_params, self.exploration_params, 
@@ -40,11 +42,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def _init_trainer_specific_params(self):
         self.use_gae_advantage = self.algorithm_params.use_gae_advantage
+        self.num_td_steps = self.algorithm_params.num_td_steps 
         self.train_seq_length = self.algorithm_params.train_seq_length 
         self.use_target_network = self.network_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
-        self.advantage_normalizer = self.normalization_params.advantage_normalizer
+        self.value_normalizer = self.normalization_params.value_normalizer
         self.reduction_type = 'cross'
 
     def _compute_training_start_step(self):
@@ -88,18 +91,47 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         squared_error = (estimated_value - expected_value).square()
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
+    
+    def select_train_seq_length(self, trajectory):
+        states, actions, rewards, next_states, dones = trajectory
+        
+        padding_mask = create_padding_mask_before_dones(dones)
 
-    def apply_normalize_advantage(self, advantage):
-        """Normalize the advantage based on the specified normalizer type."""
-        normalizer_type = self.advantage_normalizer
-        if normalizer_type is not None:
-            if normalizer_type == 'L1_norm':
-                return advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
-            else:
-                normalized_advantage = self.normalize_advantage(advantage)
-                self.update_advantage(advantage)
-                return normalized_advantage
-        return advantage
+        train_seq_length = self.train_seq_length
+        model_seq_mask = create_train_seq_mask(padding_mask, train_seq_length)
+
+        # Apply the mask to each trajectory component
+        sel_states = apply_seq_mask(states, model_seq_mask, train_seq_length)
+        sel_actions = apply_seq_mask(actions, model_seq_mask, train_seq_length)
+        sel_rewards = apply_seq_mask(rewards, model_seq_mask, train_seq_length)
+        sel_next_states = apply_seq_mask(next_states, model_seq_mask, train_seq_length)
+        sel_dones = apply_seq_mask(dones, model_seq_mask, train_seq_length)
+        
+        return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, model_seq_mask
+
+    def apply_normalize_value(self, estimated_value, expected_value):
+        """Normalize the returns based on the specified normalizer type."""
+        normalizer_type = self.value_normalizer
+        if normalizer_type is None:
+            normalized_estimated_value = estimated_value/self.scaling_factors
+            normalized_expected_value = expected_value/self.scaling_factors            
+        elif normalizer_type == 'L1_norm':
+            normalized_estimated_value = estimated_value / (estimated_value.abs().mean(dim=0, keepdim=True) + 1e-8)
+            normalized_expected_value = expected_value / (expected_value.abs().mean(dim=0, keepdim=True) + 1e-8)
+        elif normalizer_type == 'batch_norm':
+            # Batch normalization - normalizing based on batch mean and std
+            batch_mean_estimated = estimated_value.mean(dim=0, keepdim=True)
+            batch_std_estimated = estimated_value.std(dim=0, keepdim=True) + 1e-8
+            normalized_estimated_value = (estimated_value - batch_mean_estimated) / batch_std_estimated
+            
+            batch_mean_expected = expected_value.mean(dim=0, keepdim=True)
+            batch_std_expected = expected_value.std(dim=0, keepdim=True) + 1e-8
+            normalized_expected_value = (expected_value - batch_mean_expected) / batch_std_expected
+        else:
+            normalized_estimated_value = self.normalize_value(estimated_value)
+            normalized_expected_value = self.normalize_value(expected_value)
+            self.update_value(expected_value)
+        return normalized_estimated_value, normalized_expected_value
 
     def compute_td_errors(self, trajectory: BatchTrajectory):
         states, actions, rewards, next_states, dones = trajectory 
@@ -107,50 +139,44 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         padding_mask = create_padding_mask_before_dones(dones)
         next_padding_mask = torch.cat((padding_mask[:,1:], padding_mask[:,-1:]), dim = 1)
 
-        mode_seq_sum_discounted_gammas = (self.discount_factors[:,-rewards.shape[1]:]).sum(dim=1, keepdim=True)
-        scaled_rewards = rewards/mode_seq_sum_discounted_gammas
-        
         with torch.no_grad():
             estimated_value = self.trainer_calculate_value_estimate(states, mask=padding_mask)
             future_values = self.trainer_calculate_future_value(next_states, next_padding_mask)
             trajectory_values = torch.cat([estimated_value[:, :1], future_values], dim=1)
             
             if self.use_gae_advantage:
-                _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
-                expected_value = (_advantage + estimated_value)
+                _advantage = calculate_gae_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
+                returns = (_advantage + estimated_value)
             else:
-                expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
-                
-            _advantage = (expected_value - estimated_value)
-            advantage = self.normalize_advantage(_advantage)
+                returns = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
+            expected_value = self.normalize_value(returns)
+            advantage = (expected_value - estimated_value)
             td_errors = advantage.abs()
             
         trajectory.push_td_errors(td_errors, padding_mask)
 
-    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
+    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, train_seq_mask: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
 
         padding_mask = create_padding_mask_before_dones(dones)
         next_padding_mask = torch.cat((padding_mask[:,1:], padding_mask[:,-1:]), dim = 1)
 
-        td_steps_sum_discounted_gammas = (self.discount_factors[:,-rewards.shape[1]:]).sum(dim=1, keepdim=True)
-        scaled_rewards = rewards/td_steps_sum_discounted_gammas
-        
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, next_padding_mask)
             trajectory_values = torch.cat([estimated_value[:, :1], future_values], dim=1)
             
             if self.use_gae_advantage:
-                _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
-                expected_value = (_advantage + estimated_value)
+                _advantage = calculate_gae_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
+                _expected_value = (_advantage + estimated_value)
             else:
-                expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
+                _expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
             
-            _advantage = (expected_value - estimated_value)
-            
-            # Use the separate function to normalize the advantage
-            advantage = self.apply_normalize_advantage(_advantage)
+            _expected_value = apply_seq_mask(_expected_value, train_seq_mask, self.train_seq_length)
+            normalized_estimated_value, noramlized_expected_value = self.apply_normalize_value(estimated_value, _expected_value)
+            advantage = (noramlized_expected_value - normalized_estimated_value)
+            expected_value = advantage + estimated_value
+            # Uncomment and adjust the normalization if necessary
 
         return expected_value, advantage
 

@@ -6,10 +6,10 @@
 import numpy as np
 
 class BaseBuffer:
-    def __init__(self, buffer_type, capacity, state_size, action_size, train_seq_length):
+    def __init__(self, buffer_type, capacity, state_size, action_size, num_td_steps):
         self.buffer_type = buffer_type
         self.capacity = capacity
-        self.train_seq_length = train_seq_length
+        self.num_td_steps = num_td_steps
         self.state_size = state_size
         self.action_size = action_size
 
@@ -26,7 +26,7 @@ class BaseBuffer:
     def _fetch_trajectory_slices(self, indices, td_steps):
         batch_size = len(indices)
         buffer_size = self.capacity
-        # Expand indices for train_seq_length steps and wrap around using modulo operation
+        # Expand indices for num_td_steps steps and wrap around using modulo operation
         expanded_indices = np.array([range(buffer_size + i -  td_steps + 1, buffer_size + i + 1) for i in indices]) % buffer_size
         expanded_indices = expanded_indices.reshape(batch_size, td_steps)
 

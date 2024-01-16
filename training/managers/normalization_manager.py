@@ -58,7 +58,7 @@ class NormalizationUtils:
     def __init__(self, env_config, normalization_params, train_seq_length, device):
         self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization_params, device=device)
         self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization_params, device=device)
-        self.advantage_manager = NormalizerBase(train_seq_length, 'advantage_normalizer', normalization_params, device=device)
+        self.value_manager = NormalizerBase(train_seq_length, 'value_normalizer', normalization_params, device=device)
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
@@ -68,11 +68,11 @@ class NormalizationUtils:
     def normalize_reward(self, reward):
         return self.reward_manager.normalize_data(reward)
 
-    def normalize_advantage(self, advantage):
-        return self.advantage_manager.normalize_data(advantage.squeeze(-1)).unsqueeze(-1)
+    def normalize_value(self, advantage):
+        return self.value_manager.normalize_data(advantage.squeeze(-1)).unsqueeze(-1)
 
-    def update_advantage(self, advantage):
-        self.advantage_manager._update_normalizer(advantage.squeeze(-1))
+    def update_value(self, advantage):
+        self.value_manager._update_normalizer(advantage.squeeze(-1))
     
     def get_state_normalizer(self):
         return self.state_manager.normalizer
@@ -80,8 +80,8 @@ class NormalizationUtils:
     def get_reward_normalizer(self):
         return self.reward_manager.normalizer
 
-    def get_advantage_normalizer(self):
-        return self.advantage_manager.normalizer
+    def get_value_normalizer(self):
+        return self.value_manager.normalizer
 
     def transform_transition(self, trans: BatchTrajectory):
         trans.state = self.normalize_state(trans.state)
