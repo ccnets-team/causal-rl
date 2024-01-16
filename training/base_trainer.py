@@ -130,7 +130,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         else:
             normalized_estimated_value = self.normalize_value(estimated_value)
             normalized_expected_value = self.normalize_value(expected_value)
-            self.update_value(estimated_value)
             self.update_value(expected_value)
         return normalized_estimated_value, normalized_expected_value
 
