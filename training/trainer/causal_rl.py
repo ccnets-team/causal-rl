@@ -22,7 +22,7 @@ class CausalRL(BaseTrainer):
     def __init__(self, env_config, rl_params, device):
         trainer_name = "causal_rl"
         self.network_names = ["critic", "actor", "rev_env"]
-        network_params, exploration_params = rl_params.network, rl_params.exploration
+        network_params, exploration_params, optimization_params = rl_params.network, rl_params.exploration, rl_params.optimization
         critic_network = network_params.critic_network
         actor_network = network_params.actor_network
         rev_env_network = network_params.rev_env_network
@@ -30,7 +30,7 @@ class CausalRL(BaseTrainer):
         self.critic = SingleInputCritic(critic_network, env_config, network_params.critic_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, network_params.actor_params, exploration_params).to(device)
         self.revEnv = RevEnv(rev_env_network, env_config, network_params.rev_env_params).to(device)
-        self.target_critic = copy.deepcopy(self.critic) if network_params.use_target_network else None
+        self.target_critic = copy.deepcopy(self.critic) if optimization_params.use_target_network else None
 
         super(CausalRL, self).__init__(trainer_name, env_config, rl_params, 
                                         networks = [self.critic, self.actor, self.revEnv], \

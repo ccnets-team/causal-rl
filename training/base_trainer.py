@@ -30,7 +30,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         training_start_step = self._compute_training_start_step()
         total_iterations = max(self.exploration_params.max_steps - training_start_step, 0)//self.training_params.train_interval
         TrainingManager.__init__(self, networks, target_networks, self.optimization_params.lr, self.optimization_params.lr_decay_ratio, 
-                                 self.optimization_params.clip_grad_range, self.network_params.tau, total_iterations)
+                                 self.optimization_params.clip_grad_range, self.optimization_params.tau, total_iterations)
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
@@ -42,14 +42,14 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def _init_trainer_specific_params(self):
         self.use_gae_advantage = self.algorithm_params.use_gae_advantage
         self.train_seq_length = self.algorithm_params.train_seq_length 
-        self.use_target_network = self.network_params.use_target_network
+        self.use_target_network = self.optimization_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
         self.advantage_normalizer = self.normalization_params.advantage_normalizer
         self.reduction_type = 'cross'
 
     def _compute_training_start_step(self):
-        training_start_step = self.training_params.early_training_start_step
+        training_start_step = self.memory_params.early_training_start_step
         if training_start_step is None:
             batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
             training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
