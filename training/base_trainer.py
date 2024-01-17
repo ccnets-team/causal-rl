@@ -19,7 +19,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_exploration_utils()
         self.gammas = compute_discounted_future_value(self.discount_factor, self.train_seq_length)
         self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.train_seq_length)
-        self.sum_gammas = torch.sum(self.gammas, dim=1, keepdim=True).to(self.device)            
+        self.scaling_factors = torch.sum(self.gammas * self.lambdas, dim=1, keepdim=True).to(self.device)            
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -90,7 +90,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     
     def calculate_expected_value(self, rewards, next_states, dones):
         """Compute the advantage and expected value."""
-        scaled_rewards = rewards / self.sum_gammas
+        scaled_rewards = rewards / self.scaling_factors
         padding_mask = create_padding_mask_before_dones(dones)
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
@@ -105,7 +105,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
-        scaled_rewards = rewards / self.sum_gammas
+        scaled_rewards = rewards / self.scaling_factors
         padding_mask = create_padding_mask_before_dones(dones)
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)

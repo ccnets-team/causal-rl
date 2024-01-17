@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, train_seq_length=16, explore_seq_length=16, discount_factor=0.99, advantage_lambda=0.99):
+    def __init__(self, train_seq_length=16, explore_seq_length=16, discount_factor=0.99, advantage_lambda=0.9):
         self.train_seq_length = train_seq_length  # Sequence length for training. Represents the number of consecutive states used in each training update.
         self.explore_seq_length = explore_seq_length  # Sequence length during exploration. Impacts how the model interacts with and perceives its environment.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
@@ -51,7 +51,7 @@ class MemoryParameters:
     # Initialize memory parameters
     def __init__(self, buffer_size=256000):
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
-        self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
+        self.early_training_start_step = 0  # Optional step count to start training earlier than when replay buffer is full.
         
 class NormalizationParameters:
     def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
