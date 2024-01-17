@@ -214,10 +214,6 @@ class CausalRL(BaseTrainer):
         coop_critic_error1, coop_actor_error1, coop_revEnv_error1 = self.compute_cooperative_errors_from_costs(forward_cost1, reverse_cost1, recurrent_cost1)
         coop_critic_error2, coop_actor_error2, coop_revEnv_error2 = self.compute_cooperative_errors_from_costs(forward_cost2, reverse_cost2, recurrent_cost2)
 
-        coop_critic_error = coop_critic_error1 + coop_critic_error2
-        coop_actor_error = coop_actor_error1 + coop_actor_error2
-        coop_revEnv_error = coop_revEnv_error1 + coop_revEnv_error2
-        
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
         expected_value, advantage = self.compute_values(trajectory, estimated_value)
             
@@ -225,18 +221,23 @@ class CausalRL(BaseTrainer):
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss = self.select_tensor_reduction(coop_critic_error, padding_mask)
+        critic_loss1 = self.select_tensor_reduction(coop_critic_error1, padding_mask)
+        critic_loss2 = self.select_tensor_reduction(coop_critic_error2, padding_mask)
+        critic_loss = critic_loss1 + critic_loss2
         
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss = self.select_tensor_reduction(advantage * coop_actor_error, padding_mask)       
+        actor_loss1 = self.select_tensor_reduction(advantage * coop_actor_error1, padding_mask)       
+        actor_loss2 = self.select_tensor_reduction(advantage * coop_actor_error2, padding_mask)
+        actor_loss = actor_loss1 + actor_loss2
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss = self.select_tensor_reduction(coop_revEnv_error, padding_mask)
-        
+        revEnv_loss1 = self.select_tensor_reduction(coop_revEnv_error1, padding_mask)
+        revEnv_loss2 = self.select_tensor_reduction(coop_revEnv_error2, padding_mask)
+        revEnv_loss = revEnv_loss1 + revEnv_loss2
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
-            [[value_loss, critic_loss], [actor_loss], [revEnv_loss]])
+            [[value_loss, critic_loss1, critic_loss2], [actor_loss1, actor_loss2], [revEnv_loss1, revEnv_loss2]])
 
         # Update the network parameters.
         self.update_step()

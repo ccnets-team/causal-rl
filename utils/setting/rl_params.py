@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, train_seq_length=16, explore_seq_length=16, discount_factor=0.99, advantage_lambda=0.9):
+    def __init__(self, train_seq_length=16, explore_seq_length=16, discount_factor=0.99, advantage_lambda=0.99):
         self.train_seq_length = train_seq_length  # Sequence length for training. Represents the number of consecutive states used in each training update.
         self.explore_seq_length = explore_seq_length  # Sequence length during exploration. Impacts how the model interacts with and perceives its environment.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
