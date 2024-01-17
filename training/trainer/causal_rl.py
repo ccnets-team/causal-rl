@@ -87,7 +87,7 @@ class CausalRL(BaseTrainer):
                 
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state)
         
-        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(states, forward_cost, reverse_cost, recurrent_cost)
+        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost)
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
         expected_value, advantage = self.compute_values(trajectory, estimated_value)

@@ -3,7 +3,7 @@ from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, trainer_name = 'causal_rl', trainer_variant = 'hybrid', use_on_policy=False, batch_size=64, replay_ratio=1, train_interval=1):
+    def __init__(self, trainer_name = 'causal_rl', trainer_variant = 'classic', use_on_policy=False, batch_size=64, replay_ratio=1, train_interval=1):
         self.trainer_name = trainer_name  # Specifies the type of trainer algorithm to be used (e.g., 'causal_rl', 'ddpg', 'a2c', etc.). Determines the learning strategy and underlying mechanics of the model.
         self.trainer_variant = trainer_variant 
         self.use_on_policy = use_on_policy  # Indicates if training uses on-policy (True) or off-policy (False) methods.
@@ -51,7 +51,7 @@ class MemoryParameters:
     # Initialize memory parameters
     def __init__(self, buffer_size=256000):
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
-        self.early_training_start_step = 0  # Optional step count to start training earlier than when replay buffer is full.
+        self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
         
 class NormalizationParameters:
     def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
