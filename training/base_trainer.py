@@ -19,7 +19,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_exploration_utils()
         self.gammas = compute_discounted_future_value(self.discount_factor, self.train_seq_length)
         self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.train_seq_length)
-        self.sum_gammas = torch.sum(self.gammas, dim=1, keepdim=True).to(self.device)
+        self.sum_gammas = torch.sum(self.gammas, dim=1, keepdim=True).to(self.device)            
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -87,6 +87,20 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         squared_error = (estimated_value - expected_value).square()
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
+    
+    def calculate_expected_value(self, rewards, next_states, dones):
+        """Compute the advantage and expected value."""
+        scaled_rewards = rewards / self.sum_gammas
+        padding_mask = create_padding_mask_before_dones(dones)
+        with torch.no_grad():
+            future_values = self.trainer_calculate_future_value(next_states, padding_mask)
+            trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
+            
+            if self.use_gae_advantage:
+                assert self.advantage_normalizer is not None, "Advantage normalizer must be specified for GAE advantage"
+            else:
+                expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
+        return expected_value
 
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
         """Compute the advantage and expected value."""
@@ -95,7 +109,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         padding_mask = create_padding_mask_before_dones(dones)
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
-            trajectory_values = torch.cat([estimated_value[:, :1], future_values], dim=1)
+            trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
             
             if self.use_gae_advantage:
                 _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)

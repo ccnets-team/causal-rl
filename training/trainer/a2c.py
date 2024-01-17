@@ -82,7 +82,7 @@ class A2C(BaseTrainer):
         expected_value, advantage = self.compute_values(trajectory, estimated_value)
 
         # Compute critic loss
-        value_loss = self.self.calculate_value_loss(estimated_value, expected_value, mask)
+        value_loss = self.calculate_value_loss(estimated_value, expected_value, mask)
         critic_optimizer.zero_grad()
         value_loss.backward()
         critic_optimizer.step()
@@ -90,7 +90,7 @@ class A2C(BaseTrainer):
         # Compute actor loss
         log_prob = self.actor.log_prob(states, actions)
         
-        actor_loss = -adaptive_masked_tensor_reduction(log_prob * advantage.detach(), mask)
+        actor_loss = -self.select_tensor_reduction(log_prob * advantage.detach(), mask)
         
         actor_optimizer.zero_grad()
         actor_loss.backward()

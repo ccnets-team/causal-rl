@@ -102,7 +102,7 @@ class DDPG(BaseTrainer):
         critic_optimizer.step()
 
         # Compute actor loss
-        actor_loss = -adaptive_masked_tensor_reduction(self.critic(states, self.actor(states), mask = mask), mask)
+        actor_loss = -self.select_tensor_reduction(self.critic(states, self.actor(states), mask = mask), mask)
 
         # Optimize the actor
         actor_optimizer.zero_grad()

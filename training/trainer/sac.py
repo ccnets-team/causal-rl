@@ -135,7 +135,7 @@ class SAC(BaseTrainer):
 
             # Calculate the minimum of the masked tensors
             min_qf_pi  = torch.min(masked_qf1, masked_qf2)            
-        policy_loss = adaptive_masked_tensor_reduction(self.alpha * log_pi - min_qf_pi, mask)
+        policy_loss = self.select_tensor_reduction(self.alpha * log_pi - min_qf_pi, mask)
         
         return policy_loss, log_pi
 
@@ -147,7 +147,7 @@ class SAC(BaseTrainer):
         log_pi (torch.Tensor): The log_pi tensor obtained from the policy network.
         """
 
-        alpha_loss = -adaptive_masked_tensor_reduction(self.log_alpha * (log_pi + self.target_entropy).detach(), mask)
+        alpha_loss = -self.select_tensor_reduction(self.log_alpha * (log_pi + self.target_entropy).detach(), mask)
         
         self.alpha_optimizer.zero_grad()
         alpha_loss.backward()

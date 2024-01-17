@@ -104,7 +104,7 @@ class TD3(BaseTrainer):
 
         # Actor Training
         if self.total_steps % self.policy_update == 0:
-            self.actor_loss = -adaptive_masked_tensor_reduction(self.critic1(state, self.actor(state)), mask)
+            self.actor_loss = -self.select_tensor_reduction(self.critic1(state, self.actor(state)), mask)
             actor_optimizer.zero_grad()
             self.actor_loss.backward()
             actor_optimizer.step()
