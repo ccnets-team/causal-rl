@@ -110,29 +110,23 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, model_seq_mask
 
-    def apply_normalize_advantage(self, estimated_value, expected_value):
+    def apply_normalize_advantage(self, advantage):
         """Normalize the returns based on the specified normalizer type."""
         normalizer_type = self.advantage_normalizer
         if normalizer_type is None:
-            normalized_estimated_value = estimated_value
-            normalized_expected_value = expected_value            
+            normalized_advantage = advantage
         elif normalizer_type == 'L1_norm':
-            normalized_estimated_value = estimated_value / (estimated_value.abs().mean(dim=0, keepdim=True) + 1e-8)
-            normalized_expected_value = expected_value / (expected_value.abs().mean(dim=0, keepdim=True) + 1e-8)
+            normalized_advantage = advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
         elif normalizer_type == 'batch_norm':
             # Batch normalization - normalizing based on batch mean and std
-            batch_mean_estimated = estimated_value.mean(dim=0, keepdim=True)
-            batch_std_estimated = estimated_value.std(dim=0, keepdim=True) + 1e-8
-            normalized_estimated_value = (estimated_value - batch_mean_estimated) / batch_std_estimated
+            batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
+            batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
+            normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
             
-            batch_mean_expected = expected_value.mean(dim=0, keepdim=True)
-            batch_std_expected = expected_value.std(dim=0, keepdim=True) + 1e-8
-            normalized_expected_value = (expected_value - batch_mean_expected) / batch_std_expected
         else:
-            normalized_estimated_value = self.normalize_advantage(estimated_value)
-            normalized_expected_value = self.normalize_advantage(expected_value)
-            self.update_advantage(expected_value)
-        return normalized_estimated_value, normalized_expected_value
+            normalized_advantage = self.normalize_advantage(advantage)
+            self.update_advantage(advantage)
+        return normalized_advantage
 
     def compute_td_errors(self, trajectory: BatchTrajectory):
         states, actions, rewards, next_states, dones = trajectory 
