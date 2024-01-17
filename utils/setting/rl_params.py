@@ -64,10 +64,10 @@ class MemoryParameters:
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
         
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer=None, value_normalizer='running_mean_std'):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
-        self.value_normalizer = value_normalizer
+        self.advantage_normalizer = advantage_normalizer
 
 class RLParameters:
     def __init__(self,
