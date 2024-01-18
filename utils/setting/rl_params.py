@@ -31,7 +31,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=1e-4, lr_decay_ratio=1e-1, tau=1e-1, use_target_network=True, clip_grad_range=None): 
+    def __init__(self, lr=5e-5, lr_decay_ratio=1e-1, tau=1e-1, use_target_network=True, clip_grad_range=1.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
