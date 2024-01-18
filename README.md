@@ -167,7 +167,6 @@ class TrainingParameters:
 ```
 - **CausalRL - Classic**
 
-    - Predicts actions based on the current state.
         - *Training Flow: state -> action -> state*
     - More advantageous when the state size is significantly larger than the action size.
 
@@ -178,7 +177,6 @@ class TrainingParameters:
 
 - **CausalRL - Inverse**
 
-    - Estimates the state based on the current action.
         -  *Training Flow: action -> state -> action*
     - More advantageous when there is not a significant difference between state size and action size.
     - Faster compared to classic and hybrid.
@@ -190,10 +188,9 @@ class TrainingParameters:
 
 - **CausalRL - Hybrid**
 
-    - A hybrid approach, combining aspects of both classic and inverse methods
-    Calculates mixed costs based on both state and action
-        
-        - *Training Flow: state -> action -> reversed state -> recurred action* 
+    - A hybrid approach, combining aspects of both classic and inverse variants        
+        - *Training Flow: state -> action -> state* 
+        - *Training Flow: action -> state -> action* 
 
     - The training process is relatively complex, resulting in a slightly slower learning speed compared to classic and inverse.
         
