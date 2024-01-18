@@ -16,6 +16,8 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.trajectories  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from training.trainer_utils import create_padding_mask_before_dones
+from training.trainer_hook import HybridHook
+        
 class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -27,6 +29,13 @@ class CausalRL(BaseTrainer):
         critic_network = network_params.critic_network
         actor_network = network_params.actor_network
         rev_env_network = network_params.rev_env_network
+        
+        self.action_ratio = env_config.action_size / (env_config.action_size + env_config.state_size)
+        self.state_ratio = 1.0 - self.action_ratio
+        self.critic_hook = HybridHook(self.state_ratio, self.action_ratio)
+        self.actor_hook = HybridHook(self.state_ratio, self.action_ratio)
+        self.revEnv_hook = HybridHook(self.state_ratio, self.action_ratio)
+        
         self.critic = SingleInputCritic(critic_network, env_config, network_params.critic_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, network_params.actor_params, exploration_params).to(device)
         self.revEnv = RevEnv(rev_env_network, env_config, network_params.rev_env_params).to(device)
@@ -221,23 +230,19 @@ class CausalRL(BaseTrainer):
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
 
         # Derive the critic loss from the cooperative critic error.
-        critic_loss1 = self.select_tensor_reduction(coop_critic_error1, padding_mask)
-        critic_loss2 = self.select_tensor_reduction(coop_critic_error2, padding_mask)
-        critic_loss = critic_loss1 + critic_loss2
+        coop_critic_error = self.critic_hook.hybrid(coop_critic_error1, coop_critic_error2)
+        critic_loss = self.select_tensor_reduction(coop_critic_error, padding_mask)
         
-        # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss1 = self.select_tensor_reduction(advantage * coop_actor_error1, padding_mask)       
-        actor_loss2 = self.select_tensor_reduction(advantage * coop_actor_error2, padding_mask)
-        actor_loss = actor_loss1 + actor_loss2
+        coop_actor_error = self.actor_hook.hybrid(coop_actor_error1, coop_actor_error2)
+        actor_loss = self.select_tensor_reduction(advantage * coop_actor_error, padding_mask)
 
-        # Derive the reverse-environment loss from the cooperative reverse-environment error.
-        revEnv_loss1 = self.select_tensor_reduction(coop_revEnv_error1, padding_mask)
-        revEnv_loss2 = self.select_tensor_reduction(coop_revEnv_error2, padding_mask)
-        revEnv_loss = revEnv_loss1 + revEnv_loss2
+        coop_revEnv_error = self.revEnv_hook.hybrid(coop_revEnv_error1, coop_revEnv_error2)
+        revEnv_loss = self.select_tensor_reduction(coop_revEnv_error, padding_mask)
+        
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
-            [[value_loss, critic_loss1, critic_loss2], [actor_loss1, actor_loss2], [revEnv_loss1, revEnv_loss2]])
+            [[value_loss, critic_loss], [actor_loss], [revEnv_loss]])
 
         # Update the network parameters.
         self.update_step()
@@ -258,7 +263,7 @@ class CausalRL(BaseTrainer):
             coop_revEnv_error=coop_revEnv_error1 + coop_revEnv_error2
         )
         return metrics
-
+    
     def compute_transition_costs_from_states(self, states, reversed_state, recurred_state):
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state)
