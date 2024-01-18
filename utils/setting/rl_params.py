@@ -3,7 +3,7 @@ from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, trainer_name = 'causal_rl', trainer_variant = 'classic', use_on_policy=False, batch_size=64, replay_ratio=1, train_interval=1):
+    def __init__(self, trainer_name = 'causal_rl', trainer_variant = 'hybrid', use_on_policy=False, batch_size=64, replay_ratio=1, train_interval=1):
         self.trainer_name = trainer_name  # Specifies the type of trainer algorithm to be used (e.g., 'causal_rl', 'ddpg', 'a2c', etc.). Determines the learning strategy and underlying mechanics of the model.
         self.trainer_variant = trainer_variant 
         self.use_on_policy = use_on_policy  # Indicates if training uses on-policy (True) or off-policy (False) methods.
@@ -31,7 +31,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=2e-5, lr_decay_ratio=1e-1, tau=1e-1, use_target_network=True, clip_grad_range=None): 
+    def __init__(self, lr=1e-4, lr_decay_ratio=1e-1, tau=1e-1, use_target_network=True, clip_grad_range=None): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
@@ -54,7 +54,7 @@ class MemoryParameters:
         self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
         
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer='running_abs_mean'):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
         self.advantage_normalizer = advantage_normalizer
