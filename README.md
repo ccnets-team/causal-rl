@@ -157,55 +157,52 @@ class NetworkParameters:
 
 <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/93ae2640-8dc7-4665-972c-6b2c90557faf" style="max-width: 100%; height: auto;">
 
-**4. CausalRL Variants: Diverse Approaches for Enhanced Learning**
+**4. CausalRL Variants: Adaptable Methods for Diverse Learning Environments**
+- These methods in CausalRL offer flexible options to fit various learning environments, allowing users to choose the best approach for their specific needs.
+
 ```python
 # rl_params.py
 class TrainingParameters:
   def __init__(self, trainer_name = 'causal_rl', trainer_variant = 'hybrid', ...)
 ```
-- **Causal_RL_Classic**
-
-    - Based on traditional reinforcement learning approaches.
-
-        - *Flow: state -> action -> state*
+- **CausalRL - Classic**
 
     - Predicts actions based on the current state.
-
-    - Reverse Environment: Estimates the state in the reverse environment based on the next state and action
+        - *Training Flow: state -> action -> state*
+    - More advantageous when the state size is significantly larger than the action size.
 
         <details>
         <summary><strong> Click to see diagram </strong></summary>
-        <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/16f8f1d5-3ed4-4a11-bbda-ab71da99c927" style="max-width: 100%; height: auto;">
+        <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/5114c4ed-47d5-4dc2-ab11-60df1f843254" style="max-width: 100%; height: auto;">
         </details>
 
-- **Causal_RL_Inverse**
-
-    - A novel approach to reinforcement learning.
-
-        -  *Flow: action -> state -> action*
+- **CausalRL - Inverse**
 
     - Estimates the state based on the current action.
-
-    - Uses the reverse environment to estimate the next state using the estimated value obtained from the current state and action.
+        -  *Training Flow: action -> state -> action*
+    - More advantageous when there is not a significant difference between state size and action size.
+    - Faster compared to classic and hybrid.
 
         <details>
         <summary><strong> Click to see diagram </strong></summary>
-        <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/f64216f6-d543-4a92-b215-bd582d979af6" style="max-width: 100%; height: auto;">
+        <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/bf2d1218-3a55-4327-8deb-d5c7bce11ed4" style="max-width: 100%; height: auto;">
         </details>
 
-- **Causal_RL_Hybrid**
+- **CausalRL - Hybrid**
 
     - A hybrid approach, combining aspects of both classic and inverse methods
-    Calculates mixed costs based on both state and action:
+    Calculates mixed costs based on both state and action
+        
+        - *Training Flow: state -> action -> reversed state -> recurred action* 
 
-        - *Flow: state -> action -> reversed state -> recurred action* 
-
-    - This integrated approach considers the interplay between states and actions, leveraging the strengths of both classic and inverse methodologies for a more comprehensive understanding of the causal relationships in the learning environment.
-
+    - The training process is relatively complex, resulting in a slightly slower learning speed compared to classic and inverse.
+        
         <details>
         <summary><strong> Click to see diagram </strong></summary>
-        <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/cc16fc9a-2484-4020-9251-75fd56667f71" style="max-width: 100%; height: auto;">
+        <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/63b555d0-e11e-463a-9b43-1c5b27db57b7" style="max-width: 100%; height: auto;">
         </details>
+
+<br></br>
 
 ## ✔️ Algorithm Feature Checklist
 <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/2f9128a7-e428-4824-9423-725175d0c26e" style="max-width: 90%; height: auto;">
