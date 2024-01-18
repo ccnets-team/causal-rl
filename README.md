@@ -83,6 +83,7 @@ pip install transformers==4.34.1
 
 ### 1. Import Library
 ```python
+# main.ipynb
 from utils.setting.env_settings import analyze_env
 import torch
 
@@ -92,6 +93,7 @@ device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else 
 ### 2. Initializing and Running Causal RL Training Process
 
 ```python
+# main.ipynb
 from training.rl_trainer import RLTrainer  
 from rl_tune import RLTune
 
@@ -107,6 +109,7 @@ with RLTune(env_config, trainer, device, use_graphics = False, use_print = True,
 RL-Tune facilitates structured management of RL Parameters, allowing users to easily organize, store, and compare parameters, which provides more coherent configurations for diverse RL problems.
 
 ```python
+# main.ipynb
 from utils.setting.env_settings import analyze_env
 
 env_config, rl_params = analyze_env(env_name = "HumanoidStandup-v4")
@@ -120,6 +123,7 @@ rl_params.normalization.state_normalizer = "running_z_standardizer"
 RL-Tune’s flexible architecture facilitates distinct role assignments to different networks, optimizing the processes of development and management for various network configurations.
 
 ```python
+# rl_params.py
 from nn.super_net import SuperNet
 
 class NetworkParameters:
@@ -134,6 +138,7 @@ class NetworkParameters:
 **3. Enhancing CausalRL with GPT** 
 
 ```python
+# rl_params.py
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, 
                  tau=1e-1, use_target_network=True, network_type=GPT):
@@ -152,6 +157,55 @@ class NetworkParameters:
 
 <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/93ae2640-8dc7-4665-972c-6b2c90557faf" style="max-width: 100%; height: auto;">
 
+**4. CausalRL Variants: Diverse Approaches for Enhanced Learning**
+```python
+# rl_params.py
+class TrainingParameters:
+  def __init__(self, trainer_name = 'causal_rl', trainer_variant = 'hybrid', ...)
+```
+- **Causal_RL_Classic**
+
+    - Based on traditional reinforcement learning approaches.
+
+        - *Flow: state -> action -> state*
+
+    - Predicts actions based on the current state.
+
+    - Reverse Environment: Estimates the state in the reverse environment based on the next state and action
+
+        <details>
+        <summary><strong> Click to see diagram </strong></summary>
+        <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/16f8f1d5-3ed4-4a11-bbda-ab71da99c927" style="max-width: 100%; height: auto;">
+        </details>
+
+- **Causal_RL_Inverse**
+
+    - A novel approach to reinforcement learning.
+
+        -  *Flow: action -> state -> action*
+
+    - Estimates the state based on the current action.
+
+    - Uses the reverse environment to estimate the next state using the estimated value obtained from the current state and action.
+
+        <details>
+        <summary><strong> Click to see diagram </strong></summary>
+        <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/f64216f6-d543-4a92-b215-bd582d979af6" style="max-width: 100%; height: auto;">
+        </details>
+
+- **Causal_RL_Hybrid**
+
+    - A hybrid approach, combining aspects of both classic and inverse methods
+    Calculates mixed costs based on both state and action:
+
+        - *Flow: state -> action -> reversed state -> recurred action* 
+
+    - This integrated approach considers the interplay between states and actions, leveraging the strengths of both classic and inverse methodologies for a more comprehensive understanding of the causal relationships in the learning environment.
+
+        <details>
+        <summary><strong> Click to see diagram </strong></summary>
+        <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/cc16fc9a-2484-4020-9251-75fd56667f71" style="max-width: 100%; height: auto;">
+        </details>
 
 ## ✔️ Algorithm Feature Checklist
 <img src="https://github.com/ccnets-team/rl-tune/assets/95277008/2f9128a7-e428-4824-9423-725175d0c26e" style="max-width: 90%; height: auto;">
