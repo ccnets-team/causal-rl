@@ -94,14 +94,14 @@ def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
     Compute Generalized Advantage Estimation (GAE).
     
     Args:
-    - values (torch.Tensor): Estimated values with shape [batch_size, train_seq_length+1, 1].
-    - rewards (torch.Tensor): Observed rewards with shape [batch_size, train_seq_length, 1].
-    - dones (torch.Tensor): done flags (1 if terminal state, else 1) with shape [batch_size, train_seq_length, 1].
+    - values (torch.Tensor): Estimated values with shape [batch_size, max_seq_length+1, 1].
+    - rewards (torch.Tensor): Observed rewards with shape [batch_size, max_seq_length, 1].
+    - dones (torch.Tensor): done flags (1 if terminal state, else 1) with shape [batch_size, max_seq_length, 1].
     - gamma (float): Discount factor.
     - tau (float): GAE parameter for bias-variance trade-off.
 
     Returns:
-    - advantages (torch.Tensor): Computed advantages with shape [batch_size, train_seq_length, 1].
+    - advantages (torch.Tensor): Computed advantages with shape [batch_size, max_seq_length, 1].
     """
     # Copy the inputs to avoid modifying original tensors
     # Prepare tensor for advantages

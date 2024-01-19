@@ -3,7 +3,7 @@ from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, trainer_name = 'causal_rl', trainer_variant = 'hybrid', use_on_policy=False, batch_size=64, replay_ratio=1, train_interval=1):
+    def __init__(self, trainer_name = 'causal_rl', trainer_variant = 'classic', use_on_policy=False, batch_size=64, replay_ratio=1, train_interval=1):
         self.trainer_name = trainer_name  # Specifies the type of trainer algorithm to be used (e.g., 'causal_rl', 'ddpg', 'a2c', etc.). Determines the learning strategy and underlying mechanics of the model.
         self.trainer_variant = trainer_variant 
         self.use_on_policy = use_on_policy  # Indicates if training uses on-policy (True) or off-policy (False) methods.
@@ -13,12 +13,12 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, train_seq_length=16, explore_seq_length=16, discount_factor=0.99, advantage_lambda=0.99):
-        self.train_seq_length = train_seq_length  # Sequence length for training. Represents the number of consecutive states used in each training update.
-        self.explore_seq_length = explore_seq_length  # Sequence length during exploration. Impacts how the model interacts with and perceives its environment.
+    def __init__(self, min_seq_length=12, max_seq_length=16, discount_factor=0.99, advantage_lambda=0.98):
+        self.min_seq_length = min_seq_length  # Minimum sequence length during exploration. Determines the lower bound for the number of consecutive states the model considers while exploring.
+        self.max_seq_length = max_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
-        self.advantage_lambda = advantage_lambda # TD or GAE lambda parameter for weighting
-        self.use_gae_advantage = None # auto set in rl_trainer.py by off-policy False and on-policy True
+        self.advantage_lambda = advantage_lambda # TD (Temporal Difference) or GAE (Generalized Advantage Estimation) lambda parameter for weighting advantages in policy optimization.
+        self.use_gae_advantage = None # This is set automatically in rl_trainer.py based on whether the policy is off-policy (False) or on-policy (True).
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, network_type=GPT):
@@ -31,7 +31,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=5e-5, lr_decay_ratio=1e-1, tau=1e-1, use_target_network=True, clip_grad_range=1.0): 
+    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, tau=1e-1, use_target_network=True, clip_grad_range=None): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.

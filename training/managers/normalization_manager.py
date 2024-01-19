@@ -55,10 +55,10 @@ class NormalizerBase:
         return data
     
 class NormalizationUtils:
-    def __init__(self, env_config, normalization_params, train_seq_length, device):
+    def __init__(self, env_config, normalization_params, max_seq_length, device):
         self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization_params, device=device)
         self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization_params, device=device)
-        self.advantage_manager = NormalizerBase(train_seq_length, 'advantage_normalizer', normalization_params, device=device)
+        self.advantage_manager = NormalizerBase(max_seq_length, 'advantage_normalizer', normalization_params, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
