@@ -17,8 +17,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils()
-        self.gammas = compute_discounted_future_value(self.discount_factor, self.train_seq_length)
-        self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.train_seq_length)
+        self.gammas = compute_discounted_future_value(self.discount_factor, self.max_seq_length)
+        self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.max_seq_length)
         self.scaling_factors = torch.sum(self.gammas * self.lambdas, dim=1, keepdim=True).to(self.device)            
         self.use_discrete = env_config.use_discrete
 
@@ -35,14 +35,14 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
-        NormalizationUtils.__init__(self, env_config, self.normalization_params, self.train_seq_length, device)
+        NormalizationUtils.__init__(self, env_config, self.normalization_params, self.max_seq_length, device)
 
     def _init_exploration_utils(self):
         ExplorationUtils.__init__(self, self.exploration_params)
 
     def _init_trainer_specific_params(self):
         self.use_gae_advantage = self.algorithm_params.use_gae_advantage
-        self.train_seq_length = self.algorithm_params.train_seq_length 
+        self.max_seq_length = self.algorithm_params.max_seq_length 
         self.use_target_network = self.optimization_params.use_target_network
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor

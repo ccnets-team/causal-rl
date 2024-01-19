@@ -5,21 +5,22 @@ from utils.structure.trajectories  import MultiEnvTrajectories
 import torch
 
 class EnvironmentPool: 
-    def __init__(self, env_config, explore_seq_length, device, test_env, use_graphics):
+    def __init__(self, env_config, min_seq_length, max_seq_length, device, test_env, use_graphics):
         super(EnvironmentPool, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
         w_id = 0 if test_env else 1
         w_id += 100
         self.device = device
-        self.explore_seq_length = explore_seq_length
+        self.min_seq_length = min_seq_length
+        self.max_seq_length = max_seq_length
          
         if env_config.env_type == "gym":
-            self.env_list = [GymEnvWrapper(env_config, explore_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
+            self.env_list = [GymEnvWrapper(env_config, max_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
         elif env_config.env_type == "mlagents":
-            self.env_list = [MLAgentsEnvWrapper(env_config, explore_seq_length, test_env, use_graphics = use_graphics, \
+            self.env_list = [MLAgentsEnvWrapper(env_config, max_seq_length, test_env, use_graphics = use_graphics, \
                 worker_id = int(w_id + i), seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
@@ -42,6 +43,12 @@ class EnvironmentPool:
     def step_env(self):
         for env in self.env_list:
             env.step_environment()
+            
+    def sample_sequence_length(self):
+        # Select a sequence length uniformly from the range [min_seq_length, max_seq_length]
+        random_seq_length = np.random.randint(self.min_seq_length, self.max_seq_length + 1)
+
+        return random_seq_length
 
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
@@ -52,8 +59,18 @@ class EnvironmentPool:
         reset_tensor = torch.from_numpy(np_reset).to(self.device)
         state_tensor = torch.from_numpy(np_state).to(self.device)
         mask_tensor = torch.from_numpy(np_mask).to(self.device)
-        
+
         state_tensor = trainer.normalize_state(state_tensor)
+        
+        # In your training loop or function
+        if training:
+            # Calculate the random sequence length
+            random_seq_length = self.sample_sequence_length()
+
+            # Use the calculated uniform sequence length to slice 'state_tensor' and 'mask_tensor'
+            state_tensor = state_tensor[:, -random_seq_length:]
+            mask_tensor = mask_tensor[:, -random_seq_length:]
+            
         action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
         if training:
             trainer.reset_actor_noise(reset_noise=reset_tensor)
@@ -72,10 +89,10 @@ class EnvironmentPool:
             start_idx = end_idx
 
     @staticmethod
-    def create_train_environments(env_config, seq_length, device):
-        return EnvironmentPool(env_config, seq_length, device, test_env=False, use_graphics = False)
+    def create_train_environments(env_config, min_seq_length, max_seq_length, device):
+        return EnvironmentPool(env_config, min_seq_length, max_seq_length, device, test_env=False, use_graphics = False)
     
     @staticmethod
-    def create_test_environments(env_config, seq_length, device, use_graphics):
-        return EnvironmentPool(env_config, seq_length, device, test_env=True, use_graphics = use_graphics)
+    def create_test_environments(env_config, min_seq_length, max_seq_length, device, use_graphics):
+        return EnvironmentPool(env_config, min_seq_length, max_seq_length, device, test_env=True, use_graphics = use_graphics)
 
