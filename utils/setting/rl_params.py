@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, min_seq_length=12, max_seq_length=16, discount_factor=0.99, advantage_lambda=0.98):
+    def __init__(self, min_seq_length=8, max_seq_length=16, discount_factor=0.99, advantage_lambda=0.98):
         self.min_seq_length = min_seq_length  # Minimum sequence length during exploration. Determines the lower bound for the number of consecutive states the model considers while exploring.
         self.max_seq_length = max_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
@@ -29,9 +29,9 @@ class NetworkParameters:
         self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
         self.rev_env_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the reverse environment network.
 
-class OptimizationParameters:
+class OptimizationParameters:   
     # Initialize optimization parameters
-    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, tau=1e-1, use_target_network=True, clip_grad_range=None): 
+    def __init__(self, lr=1e-4, lr_decay_ratio=1e-2, tau=1e-1, use_target_network=True, clip_grad_range=1.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
@@ -43,8 +43,9 @@ class ExplorationParameters:
     # The exploration rate starts at 1 (maximum exploration) and decays over time towards a minimum value (e.g., 0.01) during the training process. 
     # The specific decay behavior (e.g., linear, exponential) and the rate of decay are managed by the ExplorationUtils class.
     # By default, the exploration rate decays linearly from 1 to 0.01 over 80% of the max_steps.
-    def __init__(self, noise_type=None, max_steps=100000):
+    def __init__(self, noise_type=None, use_exploration_rate = True, max_steps=100000):
         self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent. This could be any noise algorithm like epsilon-greedy, OU noise strategy, etc.
+        self.use_exploration_rate = use_exploration_rate  # Type of exploration noise used to encourage exploration in the agent. This could be any noise algorithm like epsilon-greedy, OU noise strategy, etc.
         self.max_steps = max_steps  # Maximum number of steps for the exploration phase. This defines the period over which the exploration strategy is applied.
         
 class MemoryParameters:

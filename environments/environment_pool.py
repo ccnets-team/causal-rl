@@ -44,12 +44,29 @@ class EnvironmentPool:
         for env in self.env_list:
             env.step_environment()
             
-    def sample_sequence_length(self):
+    def sample_sequence_length(self, batch_size):
         # Select a sequence length uniformly from the range [min_seq_length, max_seq_length]
-        random_seq_length = np.random.randint(self.min_seq_length, self.max_seq_length + 1)
+        return self.min_seq_length + np.random.rand(batch_size)*(self.max_seq_length - self.min_seq_length)
 
-        return random_seq_length
+    def apply_effective_sequence_mask(self, trainer, padding_mask):
+        """
+        Applies an effective sequence mask to the given padding mask based on 
+        the exploration rate and random sequence lengths.
+        """
+        batch_size = padding_mask.size(0)
+        random_seq_lengths = self.sample_sequence_length(batch_size)
 
+        # Adjusting sequence length based on exploration rate
+        exploration_rate = trainer.get_exploration_rate()
+        effective_seq_length = (1 - exploration_rate) * self.max_seq_length + exploration_rate * random_seq_lengths
+        effective_seq_length = torch.clamp(torch.tensor(effective_seq_length, device=self.device), self.min_seq_length, self.max_seq_length)
+
+        padding_seq_length = padding_mask.size(1) - effective_seq_length
+        # Create a range tensor and apply the mask
+        range_tensor = torch.arange(padding_mask.size(1), device=self.device).expand_as(padding_mask)
+        mask_indices = range_tensor < padding_seq_length.unsqueeze(1)
+        padding_mask[mask_indices] = 0.0
+        
     def explore_env(self, trainer, training):
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
@@ -58,20 +75,15 @@ class EnvironmentPool:
 
         reset_tensor = torch.from_numpy(np_reset).to(self.device)
         state_tensor = torch.from_numpy(np_state).to(self.device)
-        mask_tensor = torch.from_numpy(np_mask).to(self.device)
+        padding_mask = torch.from_numpy(np_mask).to(self.device)
 
-        state_tensor = trainer.normalize_state(state_tensor)
-        
         # In your training loop or function
-        if training:
-            # Calculate the random sequence length
-            random_seq_length = self.sample_sequence_length()
 
-            # Use the calculated uniform sequence length to slice 'state_tensor' and 'mask_tensor'
-            state_tensor = state_tensor[:, -random_seq_length:]
-            mask_tensor = mask_tensor[:, -random_seq_length:]
-            
-        action_tensor = trainer.get_action(state_tensor, mask_tensor, training=training)
+        if training:
+            self.apply_effective_sequence_mask(trainer, padding_mask)
+                        
+        state_tensor = trainer.normalize_state(state_tensor)
+        action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
         if training:
             trainer.reset_actor_noise(reset_noise=reset_tensor)
         
