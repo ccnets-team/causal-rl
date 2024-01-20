@@ -43,12 +43,19 @@ class EnvironmentPool:
     def step_env(self):
         for env in self.env_list:
             env.step_environment()
-            
-    def sample_sequence_length(self, batch_size):
-        # Select a sequence length uniformly from the range [min_seq_length, max_seq_length]
-        return self.min_seq_length + np.random.rand(batch_size)*(self.max_seq_length - self.min_seq_length)
 
-    def apply_effective_sequence_mask(self, trainer, padding_mask):
+    def sample_sequence_length(self, batch_size):
+        # Create an array of possible sequence lengths
+        possible_lengths = np.arange(self.min_seq_length, self.max_seq_length + 1)
+        
+        # Set the weights proportional to the sequence length
+        weights = possible_lengths / possible_lengths.sum()
+
+        # Sample sequence lengths based on these weights
+        sampled_lengths = np.random.choice(possible_lengths, size=batch_size, p=weights)
+        return sampled_lengths
+    
+    def apply_effective_sequence_mask(self, padding_mask):
         """
         Applies an effective sequence mask to the given padding mask based on 
         the exploration rate and random sequence lengths.
@@ -56,10 +63,7 @@ class EnvironmentPool:
         batch_size = padding_mask.size(0)
         random_seq_lengths = self.sample_sequence_length(batch_size)
 
-        # Adjusting sequence length based on exploration rate
-        exploration_rate = trainer.get_exploration_rate()
-        effective_seq_length = (1 - exploration_rate) * self.max_seq_length + exploration_rate * random_seq_lengths
-        effective_seq_length = torch.clamp(torch.tensor(effective_seq_length, device=self.device), self.min_seq_length, self.max_seq_length)
+        effective_seq_length = torch.clamp(torch.tensor(random_seq_lengths, device=self.device), self.min_seq_length, self.max_seq_length)
 
         padding_seq_length = padding_mask.size(1) - effective_seq_length
         # Create a range tensor and apply the mask
@@ -80,7 +84,7 @@ class EnvironmentPool:
         # In your training loop or function
 
         if training:
-            self.apply_effective_sequence_mask(trainer, padding_mask)
+            self.apply_effective_sequence_mask(padding_mask)
                         
         state_tensor = trainer.normalize_state(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
