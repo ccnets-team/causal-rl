@@ -1,6 +1,8 @@
 import torch
 from preprocessing.normalizer.running_mean_std import RunningMeanStd
 from preprocessing.normalizer.running_abs_mean import RunningAbsMean
+from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
+from preprocessing.normalizer.exponential_moving_abs_mean import ExponentialMovingAbsMean
 
 import numpy as np
 from utils.structure.trajectories  import BatchTrajectory
@@ -20,6 +22,10 @@ class NormalizerBase:
             self.normalizer = RunningMeanStd(vector_size, device)
         elif norm_type == "running_abs_mean":
             self.normalizer = RunningAbsMean(vector_size, device)
+        elif norm_type == "exponential_moving_mean_var":
+            self.normalizer = ExponentialMovingMeanVar(vector_size, device, alpha = 1e-4)
+        elif norm_type == "exponential_moving_abs_mean":
+            self.normalizer = ExponentialMovingAbsMean(vector_size, device, alpha = 1e-4)
             
         self.device = device
                     
