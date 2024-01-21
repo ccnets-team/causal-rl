@@ -11,7 +11,7 @@ class ExponentialMovingAbsMean:
         self.alpha = alpha
         self.window_size = window_size if window_size is not None else (2 / alpha - 1)
         self.device = device
-        self.mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
+        self.abs_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.initialized = False
 
     def update(self, x):
@@ -23,27 +23,26 @@ class ExponentialMovingAbsMean:
         x = x.to(dtype=torch.float64).abs()
 
         if not self.initialized:
-            self.mean = x.mean(dim=0)
+            self.abs_mean = x.mean(dim=0)
             self.initialized = True
             return
         
         weights = self.alpha * ((1 - self.alpha) ** torch.arange(x.size(0) - 1, -1, -1, device=self.device))[:, None]
-        self.mean = torch.sum(weights * x, dim=0) + (1 - torch.sum(weights, dim=0)) * self.mean
+        self.abs_mean = torch.sum(weights * x, dim=0) + (1 - torch.sum(weights, dim=0)) * self.abs_mean
 
     def get_abs_mean(self):
         return self.abs_mean
 
     def normalize(self, values):
-        if len(values) < 1 or self.count < 1:
+        if len(values) < 1:
             return values
         abs_mean = self.get_abs_mean()
         normalized_values = values / (abs_mean + 1e-8)
         return normalized_values
 
     def save(self, path):
-        torch.save({'abs_mean': self.abs_mean, 'count': self.count}, path)
+        torch.save({'abs_mean': self.abs_mean}, path)
 
     def load(self, path):
         checkpoint = torch.load(path, map_location=self.device)
         self.abs_mean = checkpoint['abs_mean']
-        self.count = checkpoint['count']
