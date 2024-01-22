@@ -61,7 +61,7 @@ class NormalizationParameters:
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
         self.advantage_normalizer = advantage_normalizer
         self.exponential_moving_alpha = exponential_moving_alpha
-        self.c = clip_norm_range
+        self.clip_norm_range = clip_norm_range
 
 class RLParameters:
     def __init__(self,
