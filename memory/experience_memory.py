@@ -4,9 +4,6 @@ import random
 import torch
 from utils.structure.trajectories import BatchTrajectory, MultiEnvTrajectories
 from memory.standard_buffer import StandardBuffer
-from memory.priority_buffer import PriorityBuffer
-from numpy.random import choice
-import copy
 
 class ExperienceMemory:
     def __init__(self, env_config, training_params, algorithm_params, memory_params, device):
@@ -14,11 +11,9 @@ class ExperienceMemory:
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
-        self.max_seq_length = algorithm_params.max_seq_length
-        self.max_seq_length = algorithm_params.max_seq_length
+        self.gpt_seq_length = algorithm_params.gpt_seq_length
         
         self.batch_size = training_params.batch_size
-        self.gamma = algorithm_params.discount_factor
 
         # Capacity calculation now in a separate method for clarity
         self.capacity_per_agent = self._calculate_capacity_per_agent(memory_params.buffer_size)
@@ -28,11 +23,11 @@ class ExperienceMemory:
 
     def _calculate_capacity_per_agent(self, buffer_size):
         # Capacity calculation logic separated for clarity
-        return int(buffer_size) // (self.num_environments * self.num_agents) + self.max_seq_length
+        return int(buffer_size) // (self.num_environments * self.num_agents) + self.gpt_seq_length
 
     def _initialize_buffers(self):
         # Buffer initialization logic separated for clarity
-        return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.max_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
+        return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.gpt_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
             
     def __len__(self):
         return sum(len(buf) for env in self.multi_buffers for buf in env)
@@ -69,7 +64,6 @@ class ExperienceMemory:
             buffer = self.multi_buffers[env_id][agent_id]
             buffer.add_transition(*data[2:])
         
-        
     def sample_batch_trajectory(self):
         samples, buffer_indices = self.sample_trajectory_data()
         if samples is None:
@@ -80,7 +74,7 @@ class ExperienceMemory:
     
     def sample_trajectory_data(self):
         sample_sz = self.batch_size
-        td_steps = self.max_seq_length 
+        td_steps = self.gpt_seq_length 
         
         # Cumulative size calculation now a separate method for clarity
         cumulative_sizes, total_buffer_size = self._calculate_cumulative_sizes()

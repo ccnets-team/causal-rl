@@ -8,7 +8,6 @@ def load_trainer(trainer, save_path):
     target_networks = trainer.get_target_networks()
     state_normalizer = trainer.get_state_normalizer() 
     reward_normalizer = trainer.get_reward_normalizer() 
-    advantage_normalizer = trainer.get_advantage_normalizer() 
     
     for idx, it in enumerate(target_networks):
         if it is not None:
@@ -20,9 +19,6 @@ def load_trainer(trainer, save_path):
     if reward_normalizer is not None:
         reward_normalizer.load(save_path + f"reward_normalizer" + '.pth')
 
-    if advantage_normalizer is not None:
-        advantage_normalizer.load(save_path + f"advantage_normalizer" + '.pth')
-        
     for idx, it in enumerate(networks):
         it.load_state_dict(torch.load(save_path + f"network_{idx}"+ '.pth', map_location="cuda:0"))
     
@@ -40,7 +36,6 @@ def save_trainer(trainer, save_path):
     target_networks = trainer.get_target_networks()
     state_normalizer = trainer.get_state_normalizer() 
     reward_normalizer = trainer.get_reward_normalizer() 
-    advantage_normalizer = trainer.get_advantage_normalizer() 
 
     for idx, it in enumerate(networks):
         torch.save(it.state_dict(), os.path.join(save_path, f"network_{idx}" + '.pth'))
@@ -58,6 +53,3 @@ def save_trainer(trainer, save_path):
 
     if reward_normalizer is not None:
         reward_normalizer.save(os.path.join(save_path, f"reward_normalizer" + '.pth'))
-
-    if advantage_normalizer is not None:
-        advantage_normalizer.save(os.path.join(save_path, f"advantage_normalizer" + '.pth'))

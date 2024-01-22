@@ -3,22 +3,17 @@ from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, trainer_name = 'causal_rl', trainer_variant = 'classic', use_on_policy=False, batch_size=64, replay_ratio=1, train_interval=1):
-        self.trainer_name = trainer_name  # Specifies the type of trainer algorithm to be used (e.g., 'causal_rl', 'ddpg', 'a2c', etc.). Determines the learning strategy and underlying mechanics of the model.
-        self.trainer_variant = trainer_variant 
-        self.use_on_policy = use_on_policy  # Indicates if training uses on-policy (True) or off-policy (False) methods.
+    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1):
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, min_seq_length=1, max_seq_length=16, discount_factor=0.99, advantage_lambda=0.98):
-        self.min_seq_length = min_seq_length  # Minimum sequence length during exploration. Determines the lower bound for the number of consecutive states the model considers while exploring.
-        self.max_seq_length = max_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
+    def __init__(self, gpt_seq_length=16, discount_factor=0.99, advantage_lambda=0.98):
+        self.gpt_seq_length = gpt_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) or GAE (Generalized Advantage Estimation) lambda parameter for weighting advantages in policy optimization.
-        self.use_gae_advantage = None # This is set automatically in rl_trainer.py based on whether the policy is off-policy (False) or on-policy (True).
 
 class NetworkParameters:
     def __init__(self, num_layers=5, d_model=256, dropout=0.01, network_type=GPT):
@@ -31,19 +26,14 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, scheduler_type='cyclic', tau=1e-1, use_target_network=True, clip_grad_range=None): 
+    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, scheduler_type='cyclic', tau=1e-1, clip_grad_range=None): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training. In 'cyclic', it's used to determine the base_lr.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
-        self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
 
 class ExplorationParameters:
-    # Initialize exploration parameters
-    # The exploration rate starts at 1 (maximum exploration) and decays over time towards a minimum value (e.g., 0.01) during the training process. 
-    # The specific decay behavior (e.g., linear, exponential) and the rate of decay are managed by the ExplorationUtils class.
-    # By default, the exploration rate decays linearly from 1 to 0.01 over 80% of the max_steps.
     def __init__(self, noise_type=None, max_steps=100000):
         self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent. This could be any noise algorithm like epsilon-greedy, OU noise strategy, etc.
         self.max_steps = max_steps  # Maximum number of steps for the exploration phase. This defines the period over which the exploration strategy is applied.
@@ -55,11 +45,10 @@ class MemoryParameters:
         self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
         
 class NormalizationParameters:
-    def __init__(self, state_normalizer='exponential_moving_mean_var', reward_normalizer='exponential_moving_mean_var', advantage_normalizer=None,
+    def __init__(self, state_normalizer='exponential_moving_mean_var', reward_normalizer='exponential_moving_mean_var', 
                  exponential_moving_alpha = 1e-4, clip_norm_range = 10.0):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
-        self.advantage_normalizer = advantage_normalizer
         self.exponential_moving_alpha = exponential_moving_alpha
         self.clip_norm_range = clip_norm_range
 

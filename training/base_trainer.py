@@ -1,6 +1,5 @@
 import torch
 from training.managers.training_manager import TrainingManager 
-from training.managers.exploration_manager import ExplorationUtils 
 from training.managers.normalization_manager import NormalizationUtils 
 from abc import abstractmethod
 from nn.roles.actor import _BaseActor
@@ -10,15 +9,14 @@ from utils.structure.trajectories  import BatchTrajectory
 from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value
 from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones
 
-class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
-    def __init__(self, trainer_name, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
+class BaseTrainer(TrainingManager, NormalizationUtils):
+    def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
         self._unpack_rl_params(rl_params)
         self._init_trainer_specific_params()
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
-        self._init_exploration_utils()
-        self.gammas = compute_discounted_future_value(self.discount_factor, self.max_seq_length)
-        self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.max_seq_length)
+        self.gammas = compute_discounted_future_value(self.discount_factor, self.gpt_seq_length)
+        self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.gpt_seq_length)
         self.scaling_factors = torch.sum(self.gammas * self.lambdas, dim=1, keepdim=True).to(self.device)            
         self.use_discrete = env_config.use_discrete
 
@@ -35,18 +33,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
-        NormalizationUtils.__init__(self, env_config, self.normalization_params, self.max_seq_length, device)
-
-    def _init_exploration_utils(self):
-        ExplorationUtils.__init__(self, self.exploration_params)
+        NormalizationUtils.__init__(self, env_config, self.normalization_params, device)
 
     def _init_trainer_specific_params(self):
-        self.use_gae_advantage = self.algorithm_params.use_gae_advantage
-        self.max_seq_length = self.algorithm_params.max_seq_length 
-        self.use_target_network = self.optimization_params.use_target_network
+        self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
-        self.advantage_normalizer = self.normalization_params.advantage_normalizer
         self.reduction_type = 'cross'
 
     def _compute_training_start_step(self):
@@ -88,20 +80,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         squared_error = (estimated_value - expected_value).square()
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
-    
-    def calculate_expected_value(self, rewards, next_states, dones):
-        """Compute the advantage and expected value."""
-        scaled_rewards = rewards / self.scaling_factors
-        padding_mask = create_padding_mask_before_dones(dones)
-        with torch.no_grad():
-            future_values = self.trainer_calculate_future_value(next_states, padding_mask)
-            trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
-            
-            if self.use_gae_advantage:
-                assert self.advantage_normalizer is not None, "Advantage normalizer must be specified for GAE advantage"
-            else:
-                expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
-        return expected_value
 
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
         """Compute the advantage and expected value."""
@@ -111,24 +89,13 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
             trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
-            
-            if self.use_gae_advantage:
-                _advantage = calculate_gae_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
-                expected_value = (_advantage + estimated_value)
-            else:
-                expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
+            expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
             
             advantage = (expected_value - estimated_value)
-            normalized_advantage = self.normalize_advantage(advantage)
-        return expected_value, normalized_advantage
-
-    def reset_actor_noise(self, reset_noise):
-        for actor in self.get_networks():
-            if isinstance(actor, _BaseActor):
-                actor.reset_noise(reset_noise)
+        return expected_value, advantage
 
     @abstractmethod
-    def trainer_calculate_future_value(self, next_state, mask = None, use_target = False):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         pass
 
     @abstractmethod

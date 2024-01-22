@@ -57,9 +57,9 @@ class RLParamsLoader:
 
         return rl_params
     
-def set_parameters(rl_params, batch_size, max_seq_length, train_frequency, noise_type, network_type, replay_ratio):
+def set_parameters(rl_params, batch_size, gpt_seq_length, train_frequency, noise_type, network_type, replay_ratio):
     rl_params.training.batch_size = batch_size
-    rl_params.algorithm.max_seq_length = max_seq_length
+    rl_params.algorithm.gpt_seq_length = gpt_seq_length
     rl_params.training.train_frequency = train_frequency
     rl_params.exploration.noise_type = noise_type
     rl_params.network.critic_network = network_type

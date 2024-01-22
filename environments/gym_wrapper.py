@@ -1,7 +1,6 @@
 import gymnasium as gym
 import numpy as np
 from .settings.agent_experience_collector import AgentExperienceCollector
-from environments.settings.gym_utils import get_final_observations_from_info, get_final_rewards_from_info
 from utils.structure.env_observation import EnvObservation
 
 class GymEnvWrapper(AgentExperienceCollector):
@@ -14,7 +13,7 @@ class GymEnvWrapper(AgentExperienceCollector):
     """
     MAX_RANDOM_SEED = 1000  # Maximum value for environment random seed
 
-    def __init__(self, env_config, max_seq_length, test_env: bool, use_graphics: bool = False, seed: int = 0):
+    def __init__(self, env_config, gpt_seq_length, test_env: bool, use_graphics: bool = False, seed: int = 0):
         """
         Initializes the gym environment with the given configuration.
         
@@ -44,12 +43,10 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.obs_shapes = env_config.obs_shapes
         self.obs_types = env_config.obs_types
         self.agents = np.arange(self.num_agents)
-        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, max_seq_length)
+        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, gpt_seq_length)
 
         self.agent_dec = np.ones(self.num_agents, dtype=bool)
         self.agent_life = np.zeros(self.num_agents, dtype=bool)
-
-        self.agent_reset = np.zeros(self.num_agents, dtype=bool)
 
         self.env = gym.make(env_name, render_mode='human') if use_graphics else gym.make_vec(env_name, num_envs=self.num_agents) 
         self.use_graphics = use_graphics
@@ -164,7 +161,6 @@ class GymEnvWrapper(AgentExperienceCollector):
 
         self.agent_life[~np_done] = True 
         self.agent_life[np_done] = False
-        self.agent_reset[np_done] = True 
         return False
 
     def process_terminated_and_decision_agents(self, done: np.ndarray, next_obs: np.ndarray):

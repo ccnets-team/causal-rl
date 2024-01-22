@@ -5,7 +5,7 @@ from .settings.agent_experience_collector import AgentExperienceCollector
 from utils.structure.env_observation import EnvObservation
 
 class MLAgentsEnvWrapper(AgentExperienceCollector):
-    def __init__(self, env_config, max_seq_length, test_env, use_graphics: bool, worker_id, seed = 0, time_scale = 256):
+    def __init__(self, env_config, gpt_seq_length, test_env, use_graphics: bool, worker_id, seed = 0, time_scale = 256):
         num_agents = env_config.num_agents
         super(MLAgentsEnvWrapper, self).__init__(num_agents, env_config)
         if use_graphics:
@@ -25,14 +25,12 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         self.use_discrete = env_config.use_discrete
 
         self.actions = np.zeros((env_config.num_agents, env_config.action_size), dtype = np.float32)
-        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, max_seq_length)
+        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, gpt_seq_length)
 
         self.agent_ids = np.array([i for i in range(env_config.num_agents)], dtype=int)
         self.agent_life = np.zeros((env_config.num_agents), dtype=bool)
         self.agent_dec = np.zeros((env_config.num_agents), dtype=bool)
         
-        self.agent_reset = np.zeros((env_config.num_agents), dtype=bool)
-
         self.reset_environment()
         self.reset_agents()
         self.behavior_name = list(self.env.behavior_specs.keys())[0]
@@ -66,7 +64,6 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
 
     def update_agent_life(self, term_agents, dec_agents):
         self.agent_life[term_agents] = False
-        self.agent_reset[term_agents] = True 
         self.agent_life[dec_agents] = True
     
     def step_environment(self):

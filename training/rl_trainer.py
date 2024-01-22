@@ -1,9 +1,4 @@
 from training.trainer.causal_rl import CausalRL
-from training.trainer.ddpg import DDPG
-from training.trainer.sac import SAC
-from training.trainer.a2c import A2C
-from training.trainer.dqn import DQN
-from training.trainer.td3 import TD3
 from utils.printer import print_rl_params
 
 class RLTrainer:
@@ -20,24 +15,8 @@ class RLTrainer:
         self.saved_trainer = None
         trainer_map = {
             "causal_rl": CausalRL,
-            "ddpg": DDPG,
-            "a2c": A2C,
-            "dqn": DQN,
-            "td3": TD3,
-            "sac": SAC,
         }
 
-        # Mapping of trainer names to use_gae_advantage flag
-        gae_advantage_map = {
-            'causal_rl': False,
-            'ddpg': False,
-            'a2c': True,
-            'ppo': True,
-            'sac': False,
-            'td3': False,
-            'dqn': False
-        }
-        self.rl_params.use_gae_advantage = gae_advantage_map.get(self.trainer_name, False)        
         self.saved_trainer = trainer_map[self.trainer_name](env_config, self.rl_params, device)
         return self.saved_trainer
 
