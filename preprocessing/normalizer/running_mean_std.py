@@ -33,13 +33,13 @@ class RunningMeanStd:
     def get_var(self):
         return self.var
 
-    def normalize(self, values):
-        if len(values) < 1 or self.count < 1:
-            return values
+    def normalize(self, x):
+        if len(x) < 1 or self.count < 1:
+            return x
         mean = self.get_mean()
         var = self.get_var()
-        normalized_values = (values - mean) / (torch.sqrt(var) + 1e-8)
-        return normalized_values.to(dtype=values.dtype)
+        normalized_x = (x - mean) / (torch.sqrt(var) + 1e-8)
+        return normalized_x.to(dtype=x.dtype)
 
     def save(self, path):
         torch.save({'mean': self.mean, 'var': self.var, 'count': self.count}, path)

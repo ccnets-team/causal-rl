@@ -31,7 +31,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         training_start_step = self._compute_training_start_step()
         total_iterations = max(self.exploration_params.max_steps - training_start_step, 0)//self.training_params.train_interval
         TrainingManager.__init__(self, networks, target_networks, self.optimization_params.lr, self.optimization_params.lr_decay_ratio, 
-                                 self.optimization_params.clip_grad_range, self.optimization_params.tau, total_iterations)
+                                 self.optimization_params.clip_grad_range, self.optimization_params.tau, total_iterations, self.optimization_params.scheduler_type)
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):

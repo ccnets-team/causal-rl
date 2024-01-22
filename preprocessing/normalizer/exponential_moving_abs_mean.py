@@ -33,16 +33,20 @@ class ExponentialMovingAbsMean:
     def get_abs_mean(self):
         return self.abs_mean
 
-    def normalize(self, values):
-        if len(values) < 1:
-            return values
+    def normalize(self, x):
+        if len(x) < 1:
+            return x
         abs_mean = self.get_abs_mean()
-        normalized_values = values / (abs_mean + 1e-8)
-        return normalized_values
+        normalized_x = x / (abs_mean + 1e-8)
+        return normalized_x
 
     def save(self, path):
-        torch.save({'abs_mean': self.abs_mean}, path)
+        torch.save({'abs_mean': self.abs_mean, \
+            'alpha': self.alpha, 'window_size': self.window_size, 'initialized': self.initialized}, path)
 
     def load(self, path):
         checkpoint = torch.load(path, map_location=self.device)
         self.abs_mean = checkpoint['abs_mean']
+        self.alpha = checkpoint['alpha']
+        self.window_size = checkpoint['window_size']
+        self.initialized = checkpoint['initialized']

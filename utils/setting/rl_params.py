@@ -29,11 +29,12 @@ class NetworkParameters:
         self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
         self.rev_env_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the reverse environment network.
 
-class OptimizationParameters:   
+class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=3e-5, lr_decay_ratio=1, tau=1e-1, use_target_network=True, clip_grad_range=1.0): 
+    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, scheduler_type='cyclic', tau=1e-1, use_target_network=True, clip_grad_range=None): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
-        self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training.
+        self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training. In 'cyclic', it's used to determine the base_lr.
+        self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
         self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
@@ -43,9 +44,8 @@ class ExplorationParameters:
     # The exploration rate starts at 1 (maximum exploration) and decays over time towards a minimum value (e.g., 0.01) during the training process. 
     # The specific decay behavior (e.g., linear, exponential) and the rate of decay are managed by the ExplorationUtils class.
     # By default, the exploration rate decays linearly from 1 to 0.01 over 80% of the max_steps.
-    def __init__(self, noise_type=None, use_exploration_rate = True, max_steps=100000):
+    def __init__(self, noise_type=None, max_steps=100000):
         self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent. This could be any noise algorithm like epsilon-greedy, OU noise strategy, etc.
-        self.use_exploration_rate = use_exploration_rate  # Type of exploration noise used to encourage exploration in the agent. This could be any noise algorithm like epsilon-greedy, OU noise strategy, etc.
         self.max_steps = max_steps  # Maximum number of steps for the exploration phase. This defines the period over which the exploration strategy is applied.
         
 class MemoryParameters:
@@ -55,10 +55,13 @@ class MemoryParameters:
         self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
         
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
+    def __init__(self, state_normalizer='exponential_moving_mean_var', reward_normalizer='exponential_moving_mean_var', advantage_normalizer=None,
+                 exponential_moving_alpha = 1e-4, clip_norm_range = 10.0):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
         self.advantage_normalizer = advantage_normalizer
+        self.exponential_moving_alpha = exponential_moving_alpha
+        self.c = clip_norm_range
 
 class RLParameters:
     def __init__(self,

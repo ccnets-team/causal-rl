@@ -42,19 +42,23 @@ class ExponentialMovingMeanVar:
         self.squared_mean = torch.sum(weights * (x**2), dim=0) + (1 - torch.sum(weights, dim=0)) * self.squared_mean
         self.var = self.squared_mean - self.mean**2
 
-    def normalize(self, values):
-        if len(values) < 1 or not self.initialized:
-            return values
+    def normalize(self, x):
+        if len(x) < 1 or not self.initialized:
+            return x
         mean = self.get_mean()
         var = self.get_var()
-        normalized_values = (values - mean) / (torch.sqrt(var) + 1e-8)
-        return normalized_values.to(dtype=values.dtype)
+        normalized_x = (x - mean) / (torch.sqrt(var) + 1e-8)
+        return normalized_x.to(dtype=x.dtype)
 
     def save(self, path):
-        torch.save({'mean': self.mean, 'var': self.var, 'initialized': self.initialized}, path)
+        torch.save({'mean': self.mean, 'squared_mean': self.squared_mean, 'var': self.var, \
+            'alpha': self.alpha, 'window_size': self.window_size, 'initialized': self.initialized}, path)
 
     def load(self, path):
         checkpoint = torch.load(path, map_location=self.device)
         self.mean = checkpoint['mean']
+        self.squared_mean = checkpoint['squared_mean']
         self.var = checkpoint['var']
+        self.alpha = checkpoint['alpha']
+        self.window_size = checkpoint['window_size']
         self.initialized = checkpoint['initialized']

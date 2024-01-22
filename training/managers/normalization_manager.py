@@ -12,10 +12,11 @@ TRANSITION_NEXT_STATE_IDX = 3
 TRANSITION_REWARD_IDX = 2
 
 class NormalizerBase:
-    def __init__(self, vector_size, norm_type_key, normalization_params, device, clip_norm_range=10.0):
+    def __init__(self, vector_size, norm_type_key, normalization_params, device):
         self.normalizer = None
         self.vector_size = vector_size
-        self.clip_norm_range = clip_norm_range
+        self.exponential_moving_alpha = normalization_params.exponential_moving_alpha 
+        self.clip_norm_range = normalization_params.clip_norm_range 
 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
@@ -23,9 +24,7 @@ class NormalizerBase:
         elif norm_type == "running_abs_mean":
             self.normalizer = RunningAbsMean(vector_size, device)
         elif norm_type == "exponential_moving_mean_var":
-            self.normalizer = ExponentialMovingMeanVar(vector_size, device, alpha = 1e-4)
-        elif norm_type == "exponential_moving_abs_mean":
-            self.normalizer = ExponentialMovingAbsMean(vector_size, device, alpha = 1e-4)
+            self.normalizer = ExponentialMovingMeanVar(vector_size, device, alpha = self.exponential_moving_alpha)
             
         self.device = device
                     
