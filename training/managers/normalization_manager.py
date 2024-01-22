@@ -1,6 +1,8 @@
 import torch
 from preprocessing.normalizer.running_mean_std import RunningMeanStd
 from preprocessing.normalizer.running_abs_mean import RunningAbsMean
+from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
+from preprocessing.normalizer.exponential_moving_abs_mean import ExponentialMovingAbsMean
 
 import numpy as np
 from utils.structure.trajectories  import BatchTrajectory
@@ -10,16 +12,19 @@ TRANSITION_NEXT_STATE_IDX = 3
 TRANSITION_REWARD_IDX = 2
 
 class NormalizerBase:
-    def __init__(self, vector_size, norm_type_key, normalization_params, device, clip_norm_range=10.0):
+    def __init__(self, vector_size, norm_type_key, normalization_params, device):
         self.normalizer = None
         self.vector_size = vector_size
-        self.clip_norm_range = clip_norm_range
+        self.exponential_moving_alpha = normalization_params.exponential_moving_alpha 
+        self.clip_norm_range = normalization_params.clip_norm_range 
 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
             self.normalizer = RunningMeanStd(vector_size, device)
         elif norm_type == "running_abs_mean":
             self.normalizer = RunningAbsMean(vector_size, device)
+        elif norm_type == "exponential_moving_mean_var":
+            self.normalizer = ExponentialMovingMeanVar(vector_size, device, alpha = self.exponential_moving_alpha)
             
         self.device = device
                     
@@ -77,7 +82,7 @@ class NormalizationUtils:
             normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
         else:
             normalized_advantage = self.advantage_manager.normalize_data(advantage.squeeze(-1)).unsqueeze(-1)
-            self.update_advantage(advantage)
+            self.update_advantage(advantage.squeeze(-1))
         return normalized_advantage
 
     def normalize_state(self, state):
@@ -87,7 +92,7 @@ class NormalizationUtils:
         return self.reward_manager.normalize_data(reward)
 
     def update_advantage(self, advantage):
-        self.advantage_manager._update_normalizer(advantage.squeeze(-1))
+        self.advantage_manager._update_normalizer(advantage)
     
     def get_state_normalizer(self):
         return self.state_manager.normalizer

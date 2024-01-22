@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, min_seq_length=12, max_seq_length=16, discount_factor=0.99, advantage_lambda=0.98):
+    def __init__(self, min_seq_length=1, max_seq_length=16, discount_factor=0.99, advantage_lambda=0.99):
         self.min_seq_length = min_seq_length  # Minimum sequence length during exploration. Determines the lower bound for the number of consecutive states the model considers while exploring.
         self.max_seq_length = max_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
@@ -31,9 +31,10 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, tau=1e-1, use_target_network=True, clip_grad_range=None): 
+    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, scheduler_type='cyclic', tau=1e-1, use_target_network=True, clip_grad_range=2.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
-        self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training.
+        self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training. In 'cyclic', it's used to determine the base_lr.
+        self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
         self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
@@ -54,10 +55,13 @@ class MemoryParameters:
         self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
         
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer='running_abs_mean'):
+    def __init__(self, state_normalizer='exponential_moving_mean_var', reward_normalizer='exponential_moving_mean_var', advantage_normalizer='exponential_moving_mean_var',
+                 exponential_moving_alpha = 1e-4, clip_norm_range = 10.0):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
         self.advantage_normalizer = advantage_normalizer
+        self.exponential_moving_alpha = exponential_moving_alpha
+        self.clip_norm_range = clip_norm_range
 
 class RLParameters:
     def __init__(self,
