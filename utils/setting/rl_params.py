@@ -31,7 +31,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, scheduler_type='cyclic', tau=1e-1, use_target_network=True, clip_grad_range=None): 
+    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, scheduler_type='cyclic', tau=1e-1, use_target_network=True, clip_grad_range=1.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training. In 'cyclic', it's used to determine the base_lr.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
@@ -55,7 +55,7 @@ class MemoryParameters:
         self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
         
 class NormalizationParameters:
-    def __init__(self, state_normalizer='exponential_moving_mean_var', reward_normalizer='exponential_moving_mean_var', advantage_normalizer=None,
+    def __init__(self, state_normalizer='exponential_moving_mean_var', reward_normalizer='exponential_moving_mean_var', advantage_normalizer='exponential_moving_mean_var',
                  exponential_moving_alpha = 1e-4, clip_norm_range = 10.0):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std'.
         self.reward_normalizer = reward_normalizer  # Specifies the method for normalizing rewards, such as 'running_mean_std' or 'running_abs_mean'.
