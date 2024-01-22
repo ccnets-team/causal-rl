@@ -56,10 +56,10 @@ class NormalizerBase:
         return data
     
 class NormalizationUtils:
-    def __init__(self, env_config, normalization_params, device):
+    def __init__(self, env_config, normalization_params, gpt_seq_length, device):
         self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization_params, device=device)
         self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization_params, device=device)
-        self.advantage_manager = NormalizerBase(1, 'advantage_normalizer', normalization_params, device=device)
+        self.advantage_manager = NormalizerBase(gpt_seq_length, 'advantage_normalizer', normalization_params, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
 
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
@@ -77,8 +77,8 @@ class NormalizationUtils:
     def get_reward_normalizer(self):
         return self.reward_manager.normalizer
 
-    def update_advantage(self, advantage):
-        self.advantage_manager._update_normalizer(advantage)
+    def get_advantage_normalizer(self):
+        return self.advantage_manager.normalizer
 
     def normalize_advantage(self, advantage):
         """Normalize the returns based on the specified normalizer type."""
@@ -93,18 +93,18 @@ class NormalizationUtils:
             batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
             normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
         else:
-            normalized_advantage = self.advantage_manager.normalize_data(advantage)
-            self.update_advantage(advantage)
+            normalized_advantage = self.advantage_manager.normalize_data(advantage.squeeze(-1)).unsqueeze(-1)
+            self.update_advantage(advantage.squeeze(-1))
         return normalized_advantage
-
-    def get_advantage_normalizer(self):
-        return self.advantage_manager.normalizer
 
     def transform_transition(self, trans: BatchTrajectory):
         trans.state = self.normalize_state(trans.state)
         trans.next_state = self.normalize_state(trans.next_state)
         trans.reward = self.normalize_reward(trans.reward)
         return trans
+    
+    def update_advantage(self, advantage):
+        self.advantage_manager._update_normalizer(advantage)
 
     def update_normalizer(self, samples):
         for index in self.state_indices:

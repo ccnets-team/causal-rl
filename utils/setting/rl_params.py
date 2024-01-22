@@ -26,7 +26,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, scheduler_type='cyclic', tau=1e-1, clip_grad_range=None): 
+    def __init__(self, lr=5e-5, lr_decay_ratio=2e-1, scheduler_type='cyclic', tau=1e-1, clip_grad_range=1.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.lr_decay_ratio = lr_decay_ratio  # Ratio for learning rate decay over the course of training. In 'cyclic', it's used to determine the base_lr.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.

@@ -33,7 +33,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
-        NormalizationUtils.__init__(self, env_config, self.normalization_params, device)
+        NormalizationUtils.__init__(self, env_config, self.normalization_params, self.gpt_seq_length, device)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
