@@ -92,7 +92,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
             expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
             
             advantage = (expected_value - estimated_value)
-        return expected_value, advantage
+            normalized_advantage = self.normalize_advantage(advantage)
+    
+        return expected_value, normalized_advantage
 
     @abstractmethod
     def trainer_calculate_future_value(self, next_state, mask = None):

@@ -1,8 +1,6 @@
 import torch
 from preprocessing.normalizer.running_mean_std import RunningMeanStd
-from preprocessing.normalizer.running_abs_mean import RunningAbsMean
 from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
-from preprocessing.normalizer.exponential_moving_abs_mean import ExponentialMovingAbsMean
 
 import numpy as np
 from utils.structure.trajectories  import BatchTrajectory
@@ -21,8 +19,6 @@ class NormalizerBase:
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
             self.normalizer = RunningMeanStd(vector_size, device)
-        elif norm_type == "running_abs_mean":
-            self.normalizer = RunningAbsMean(vector_size, device)
         elif norm_type == "exponential_moving_mean_var":
             self.normalizer = ExponentialMovingMeanVar(vector_size, device, alpha = self.exponential_moving_alpha)
             
@@ -63,6 +59,9 @@ class NormalizationUtils:
     def __init__(self, env_config, normalization_params, device):
         self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization_params, device=device)
         self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization_params, device=device)
+        self.advantage_manager = NormalizerBase(1, 'advantage_normalizer', normalization_params, device=device)
+        self.advantage_normalizer = normalization_params.advantage_normalizer
+
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
@@ -71,7 +70,6 @@ class NormalizationUtils:
 
     def normalize_reward(self, reward):
         return self.reward_manager.normalize_data(reward)
-
     
     def get_state_normalizer(self):
         return self.state_manager.normalizer
@@ -79,6 +77,28 @@ class NormalizationUtils:
     def get_reward_normalizer(self):
         return self.reward_manager.normalizer
 
+    def update_advantage(self, advantage):
+        self.advantage_manager._update_normalizer(advantage)
+
+    def normalize_advantage(self, advantage):
+        """Normalize the returns based on the specified normalizer type."""
+        normalizer_type = self.advantage_normalizer
+        if normalizer_type is None:
+            normalized_advantage = advantage
+        elif normalizer_type == 'L1_norm':
+            normalized_advantage = advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
+        elif normalizer_type == 'batch_norm':
+            # Batch normalization - normalizing based on batch mean and std
+            batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
+            batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
+            normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
+        else:
+            normalized_advantage = self.advantage_manager.normalize_data(advantage)
+            self.update_advantage(advantage)
+        return normalized_advantage
+
+    def get_advantage_normalizer(self):
+        return self.advantage_manager.normalizer
 
     def transform_transition(self, trans: BatchTrajectory):
         trans.state = self.normalize_state(trans.state)
@@ -94,4 +114,3 @@ class NormalizationUtils:
         for index in self.reward_indices:
             data = np.stack([sample[index] for sample in samples], axis=0)
             self.reward_manager._update_normalizer(data)
-
