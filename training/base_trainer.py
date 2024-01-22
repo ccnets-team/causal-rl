@@ -35,7 +35,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
-        NormalizationUtils.__init__(self, env_config, self.normalization_params, device)
+        NormalizationUtils.__init__(self, env_config, self.normalization_params, self.max_seq_length, device)
 
     def _init_exploration_utils(self):
         ExplorationUtils.__init__(self, self.exploration_params)
