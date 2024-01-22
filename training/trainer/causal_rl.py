@@ -21,10 +21,9 @@ class CausalRL(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
     def __init__(self, env_config, rl_params, device):
-        self.trainer_name = rl_params.trainer_name
-        self.trainer_variant = rl_params.trainer_variant
+        self.trainer_name = 'causal_rl'
         self.network_names = ["critic", "actor", "rev_env"]
-        network_params, optimization_params = rl_params.network, rl_params.optimization
+        network_params = rl_params.network
         critic_network = network_params.critic_network
         actor_network = network_params.actor_network
         rev_env_network = network_params.rev_env_network
@@ -32,7 +31,7 @@ class CausalRL(BaseTrainer):
         self.critic = SingleInputCritic(critic_network, env_config, network_params.critic_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, network_params.actor_params).to(device)
         self.revEnv = RevEnv(rev_env_network, env_config, network_params.rev_env_params).to(device)
-        self.target_critic = copy.deepcopy(self.critic) if optimization_params.use_target_network else None
+        self.target_critic = copy.deepcopy(self.critic) 
 
         super(CausalRL, self).__init__(env_config, rl_params, 
                                         networks = [self.critic, self.actor, self.revEnv], \

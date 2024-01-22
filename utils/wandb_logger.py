@@ -32,7 +32,7 @@ METRICS_CATEGORY_MAP = {
     'costs': 'TransitionCosts'
 }
 
-def wandb_init(trainer_name, env_config, rl_params):
+def wandb_init(env_config, rl_params):
     if wandb is None:
         raise RuntimeError("wandb is not installed. Please install wandb to use wandb_init.")
     wandb.login()
@@ -50,7 +50,7 @@ def wandb_init(trainer_name, env_config, rl_params):
     
     merged_config_dict = {**env_config_dict, **rl_params_dict}
     
-    
+    trainer_name = 'causal_rl'
     
     wandb.init(
         project='rl-tune-gym',
@@ -74,7 +74,6 @@ def wandb_log_data(trainer, train_reward_per_step, test_reward_per_step, train_a
     if wandb is None:
         print("wandb is not installed. Skipping wandb_log_data.")
         return
-    epsilon = trainer.get_exploration_rate()
     learning_rate = trainer.get_lr()
 
     # Creating a dictionary to log scalar data efficiently
@@ -85,7 +84,6 @@ def wandb_log_data(trainer, train_reward_per_step, test_reward_per_step, train_a
         'Step/TrainReward': train_reward_per_step,
         "Step/Time": time_cost, 
         "Step/LearningRate": learning_rate,
-        "Step/ExplorationRate": epsilon
     }
 
     if metrics is not None:

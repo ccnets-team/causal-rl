@@ -9,7 +9,6 @@ METRICS_CATEGORY_MAP = {
 }
 
 def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards, metrics, step, time_cost):
-    epsilon = trainer.get_exploration_rate()
     learning_rate = trainer.get_lr()
 
     # Creating a dictionary to log scalar data efficiently
@@ -20,7 +19,6 @@ def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train
         "Step/TestReward": test_reward_per_step if test_reward_per_step is not None else None,
         "Step/Time": time_cost,
         "Step/LearningRate": learning_rate,
-        "Step/ExplorationRate": epsilon,
     }
 
     # Log scalar data

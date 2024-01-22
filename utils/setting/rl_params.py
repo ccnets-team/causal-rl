@@ -3,7 +3,7 @@ from nn.utils.network_init import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1):
+    def __init__(self, batch_size=8, replay_ratio=1, train_interval=1):
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
@@ -34,13 +34,12 @@ class OptimizationParameters:
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
 
 class ExplorationParameters:
-    def __init__(self, noise_type=None, max_steps=100000):
-        self.noise_type = noise_type  # Type of exploration noise used to encourage exploration in the agent. This could be any noise algorithm like epsilon-greedy, OU noise strategy, etc.
+    def __init__(self, max_steps=100000):
         self.max_steps = max_steps  # Maximum number of steps for the exploration phase. This defines the period over which the exploration strategy is applied.
         
 class MemoryParameters:
     # Initialize memory parameters
-    def __init__(self, buffer_size=256000):
+    def __init__(self, buffer_size=16000):
         self.buffer_size = int(buffer_size)  # Total size of the memory buffer, impacting how many past experiences can be stored.
         self.early_training_start_step = None  # Optional step count to start training earlier than when replay buffer is full.
         

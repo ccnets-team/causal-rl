@@ -52,7 +52,7 @@ class RLTune:
         if resume_training:
             self.helper.load_model()
 
-        training_method = self.train_on_policy if self.helper.use_on_policy else self.train_off_policy
+        training_method = self.train_off_policy
         for step in tqdm(range(self.max_steps)):
             self._train_step_logic(step, training_method)
 
@@ -90,7 +90,6 @@ class RLTune:
     def train_on_policy(self, step: int) -> None:
         """Train the model with on-policy algorithms."""
         self.process_train_environment(self.train_env)
-        self.trainer.update_exploration_rate()
 
         if self.helper.should_update_strategy(step):
             self._update_strategy_from_samples()
@@ -101,7 +100,6 @@ class RLTune:
     def train_off_policy(self, step: int) -> None:
         """Train the model with off-policy algorithms."""
         self.process_train_environment(self.train_env)
-        self.trainer.update_exploration_rate()
         
         if self.helper.should_update_strategy(step):
             self._update_strategy_from_samples()

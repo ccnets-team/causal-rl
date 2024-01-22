@@ -16,12 +16,13 @@ DEFAULT_SAVE_INTERVAL = 1000
 
 class RLTuneHelper:
     def __init__(self, parent, env_config, rl_params, use_graphics, use_print, use_wandb):
-        self.recorder = RecordManager(rl_params.trainer_name, env_config, rl_params)
+        trainer_name = 'causal_rl'
+        self.recorder = RecordManager(trainer_name, env_config, rl_params)
         self.parent = parent
         self.use_graphics, self.use_print = use_graphics, use_print
         self.env_config, self.rl_params = env_config, rl_params
         if use_wandb:
-            wandb_init(rl_params.trainer_name, env_config, rl_params)
+            wandb_init(env_config, rl_params)
         self.use_wandb = use_wandb
         
         self.use_normalizer = (rl_params.normalization.reward_normalizer) is not None or (rl_params.normalization.state_normalizer is not None) 
@@ -71,7 +72,6 @@ class RLTuneHelper:
 
     def push_trajectories(self, multi_env_trajectories: MultiEnvTrajectories):
         """Pushes trajectories to memory."""
-        exploratoin_rate = self.parent.trainer.get_exploration_rate()
         self.parent.memory.push_trajectory_data(multi_env_trajectories)
 
     def should_update_strategy(self, step: int) -> bool:
@@ -97,7 +97,6 @@ class RLTuneHelper:
         self.max_steps = exploration_params.max_steps
         self.buffer_size = memory_params.buffer_size
         
-        self.use_on_policy = training_params.use_on_policy
         self.batch_size = training_params.batch_size
         self.replay_ratio = training_params.replay_ratio
         self.train_interval = training_params.train_interval

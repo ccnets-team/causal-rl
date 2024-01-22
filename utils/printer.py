@@ -98,17 +98,6 @@ def print_params(obj: object, title: str):
                 print(f"{attr}: {value}", end=', ')
     print("\n")  # to print a newline at the end
 
-def print_rl_params(trainer_name, rl_params: RLParameters):
-    print("Trainer Name:", trainer_name)
-    print_params(rl_params.training, "Training Parameters")
-    print_params(rl_params.algorithm, "Algorithm Parameters")
-    print_params(rl_params.network, "Network Parameters")
-    print_params(rl_params.optimization, "Optimization Parameters")
-    print_params(rl_params.exploration, "Exploration Parameters")
-    print_params(rl_params.memory, "Memory Parameters")
-    print_params(rl_params.normalization, "Normalization Parameters")
-    print("\n")  # to print a newline at the end
-
 def save_params_to_file(obj: object, file, is_nested=False):
     items = []
     for attr, value in obj.__dict__.items():
