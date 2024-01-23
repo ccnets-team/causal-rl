@@ -72,7 +72,9 @@ class NormalizationUtils:
 
     def normalize_advantage(self, advantage):
         """Normalize the returns based on the specified normalizer type."""
-        if self.advantage_normalizer is not None:
+        if self.advantage_normalizer is None:
+            normalized_advantage = advantage
+        else:
             _advantage = advantage.squeeze(-1).unsqueeze(1)
             self.advantage_manager._update_normalizer(_advantage)
             _normalized_advantage = self.advantage_manager._normalize_data(_advantage)

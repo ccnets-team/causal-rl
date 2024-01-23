@@ -52,7 +52,7 @@ class MemoryParameters:
         # Note: Training begins only after the replay buffer is filled to its full capacity.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='exponential_moving_mean_var', reward_normalizer='exponential_moving_mean_var', advantage_normalizer='exponential_moving_mean_var'):
+    def __init__(self, state_normalizer='exponential_moving_mean_var', reward_normalizer='exponential_moving_mean_var', advantage_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std' or 'exponential_moving_mean_var'.
         self.reward_normalizer = reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'exponential_moving_mean_var'.
         self.advantage_normalizer = advantage_normalizer  # Defines the method for normalizing advantage values, using approaches like 'running_mean_std' or 'exponential_moving_mean_var'.
