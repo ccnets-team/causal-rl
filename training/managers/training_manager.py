@@ -1,7 +1,7 @@
 import torch.optim as optim
 from torch.optim.lr_scheduler import _LRScheduler, CyclicLR
 
-CYCLE_SIZE = 20000  # Represents the total size of one full cycle
+LR_CYCLE_SIZE = 20000
 
 class LinearDecayLR(_LRScheduler):
     def __init__(self, optimizer, total_steps, last_epoch=-1):
@@ -17,7 +17,7 @@ def _apply_gradient_clipping(network, clip_range):
             param.grad.data = param.grad.data.clamp(-clip_range, clip_range)
 
 class TrainingManager:
-    def __init__(self, networks, target_networks, lr, lr_decay_ratio, clip_grad_range, tau, total_iterations, scheduler_type):
+    def __init__(self, networks, target_networks, lr, min_lr, clip_grad_range, tau, total_iterations, scheduler_type):
         self._optimizers = []
         self._schedulers = []
         for network in networks:
@@ -28,10 +28,11 @@ class TrainingManager:
             if scheduler_type == 'linear':
                 self._schedulers.append(LinearDecayLR(opt, total_steps=total_iterations))
             elif scheduler_type == 'exponential':
+                lr_decay_ratio = min_lr/lr
                 gamma = pow(lr_decay_ratio, 1.0 / total_iterations)
                 self._schedulers.append(optim.lr_scheduler.StepLR(opt, step_size=1, gamma=gamma))
             elif scheduler_type == 'cyclic':
-                self._schedulers.append(CyclicLR(opt, base_lr=lr_decay_ratio*lr, max_lr=lr, step_size_up=CYCLE_SIZE // 2, mode='triangular', cycle_momentum=False))
+                self._schedulers.append(CyclicLR(opt, base_lr=min_lr, max_lr=lr, step_size_up=LR_CYCLE_SIZE // 2, mode='triangular', cycle_momentum=False))
             else:
                 raise ValueError(f"Unknown scheduler type: {scheduler_type}")
         self._target_networks = target_networks 

@@ -28,7 +28,7 @@ class RLTrainer:
         }
 
         # Mapping of trainer names to use_gae_advantage flag
-        gae_advantage_map = {
+        on_policy_map = {
             'causal_rl': False,
             'ddpg': False,
             'a2c': True,
@@ -37,7 +37,10 @@ class RLTrainer:
             'td3': False,
             'dqn': False
         }
-        self.rl_params.use_gae_advantage = gae_advantage_map.get(self.trainer_name, False)        
+        
+        use_on_policy = on_policy_map.get(self.trainer_name, False)        
+        self.rl_params.use_on_policy = use_on_policy
+        self.rl_params.use_gae_advantage = use_on_policy
         self.saved_trainer = trainer_map[self.trainer_name](env_config, self.rl_params, device)
         return self.saved_trainer
 
