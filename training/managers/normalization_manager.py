@@ -67,7 +67,22 @@ class NormalizationUtils:
         self.advantage_normalizer = normalization_params.advantage_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
-        
+
+    def get_state_normalizer(self):
+        return self.state_manager.normalizer
+
+    def get_reward_normalizer(self):
+        return self.reward_manager.normalizer
+
+    def get_advantage_normalizer(self):
+        return self.advantage_manager.normalizer
+            
+    def normalize_state(self, state):
+        return self.state_manager.normalize_data(state)
+
+    def normalize_reward(self, reward):
+        return self.reward_manager.normalize_data(reward)
+
     def normalize_advantage(self, advantage):
         """Normalize the returns based on the specified normalizer type."""
         normalizer_type = self.advantage_normalizer
@@ -81,40 +96,35 @@ class NormalizationUtils:
             batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
             normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
         else:
-            normalized_advantage = self.advantage_manager.normalize_data(advantage.squeeze(-1)).unsqueeze(-1)
-            self.update_advantage(advantage.squeeze(-1))
+            _advantage = advantage.squeeze(-1)
+            self.advantage_manager._update_normalizer(_advantage)
+            _normalized_advantage = self.advantage_manager.normalize_data(_advantage)
+            normalized_advantage = _normalized_advantage.unsqueeze(-1)
         return normalized_advantage
 
-    def normalize_state(self, state):
-        return self.state_manager.normalize_data(state)
+    def normalize_trajectories(self, trajectories: BatchTrajectory):
+        trajectories.state = self.normalize_state(trajectories.state)
+        trajectories.next_state = self.normalize_state(trajectories.next_state)
+        trajectories.reward = self.normalize_reward(trajectories.reward)
+        return trajectories
 
-    def normalize_reward(self, reward):
-        return self.reward_manager.normalize_data(reward)
+    def update_normalizer(self, trajectories: BatchTrajectory):
+        states, actions, rewards, next_states, dones = trajectories
 
-    def update_advantage(self, advantage):
-        self.advantage_manager._update_normalizer(advantage)
-    
-    def get_state_normalizer(self):
-        return self.state_manager.normalizer
-
-    def get_reward_normalizer(self):
-        return self.reward_manager.normalizer
-
-    def get_advantage_normalizer(self):
-        return self.advantage_manager.normalizer
-
-    def transform_transition(self, trans: BatchTrajectory):
-        trans.state = self.normalize_state(trans.state)
-        trans.next_state = self.normalize_state(trans.next_state)
-        trans.reward = self.normalize_reward(trans.reward)
-        return trans
-
-    def update_normalizer(self, samples):
+        # Update state normalizer
         for index in self.state_indices:
-            data = np.stack([sample[index] for sample in samples], axis=0)
-            self.state_manager._update_normalizer(data)
+            if index == TRANSITION_STATE_IDX:
+                state_data = states
+            elif index == TRANSITION_NEXT_STATE_IDX:
+                state_data = next_states
+            else:
+                raise ValueError("Invalid state index")
+            self.state_manager._update_normalizer(state_data)
 
+        # Update reward normalizer
         for index in self.reward_indices:
-            data = np.stack([sample[index] for sample in samples], axis=0)
-            self.reward_manager._update_normalizer(data)
-
+            if index == TRANSITION_REWARD_IDX:
+                reward_data = rewards
+            else:
+                raise ValueError("Invalid reward index")
+            self.reward_manager._update_normalizer(reward_data)
