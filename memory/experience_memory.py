@@ -4,9 +4,6 @@ import random
 import torch
 from utils.structure.trajectories import BatchTrajectory, MultiEnvTrajectories
 from memory.standard_buffer import StandardBuffer
-from memory.priority_buffer import PriorityBuffer
-from numpy.random import choice
-import copy
 
 class ExperienceMemory:
     def __init__(self, env_config, training_params, algorithm_params, memory_params, device):
@@ -15,10 +12,7 @@ class ExperienceMemory:
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
         self.max_seq_length = algorithm_params.max_seq_length
-        self.max_seq_length = algorithm_params.max_seq_length
-        
         self.batch_size = training_params.batch_size
-        self.gamma = algorithm_params.discount_factor
 
         # Capacity calculation now in a separate method for clarity
         self.capacity_per_agent = self._calculate_capacity_per_agent(memory_params.buffer_size)
@@ -76,7 +70,7 @@ class ExperienceMemory:
             return None
 
         states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
-        return BatchTrajectory(states, actions, rewards, next_states, dones, buffer_indices)
+        return BatchTrajectory(states, actions, rewards, next_states, dones)
     
     def sample_trajectory_data(self):
         sample_sz = self.batch_size

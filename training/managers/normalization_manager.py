@@ -11,12 +11,15 @@ TRANSITION_STATE_IDX = 0
 TRANSITION_NEXT_STATE_IDX = 3
 TRANSITION_REWARD_IDX = 2
 
+EXPONENTIAL_MOVING_ALPHA = 2e-3
+CLIP_NORM_RANGE = 10.0
+
 class NormalizerBase:
     def __init__(self, vector_size, norm_type_key, normalization_params, device):
         self.normalizer = None
         self.vector_size = vector_size
-        self.exponential_moving_alpha = normalization_params.exponential_moving_alpha 
-        self.clip_norm_range = normalization_params.clip_norm_range 
+        self.exponential_moving_alpha = EXPONENTIAL_MOVING_ALPHA  # Alpha value for exponential moving average, used in 'exponential_moving_mean_var' normalizer to determine weighting of recent data.
+        self.clip_norm_range = CLIP_NORM_RANGE  # The range within which normalized values are clipped, preventing excessively high normalization values.
 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
@@ -43,7 +46,7 @@ class NormalizerBase:
             # Update the normalizer with the reshaped data
             self.normalizer.update(reshaped_data)
                 
-    def normalize_data(self, data):
+    def _normalize_data(self, data):
         if self.normalizer is not None:
             # Reshape data: Merge all dimensions except the last into the first dimension
             original_shape = data.shape
@@ -78,27 +81,17 @@ class NormalizationUtils:
         return self.advantage_manager.normalizer
             
     def normalize_state(self, state):
-        return self.state_manager.normalize_data(state)
+        return self.state_manager._normalize_data(state)
 
     def normalize_reward(self, reward):
-        return self.reward_manager.normalize_data(reward)
+        return self.reward_manager._normalize_data(reward)
 
     def normalize_advantage(self, advantage):
         """Normalize the returns based on the specified normalizer type."""
-        normalizer_type = self.advantage_normalizer
-        if normalizer_type is None:
-            normalized_advantage = advantage
-        elif normalizer_type == 'L1_norm':
-            normalized_advantage = advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
-        elif normalizer_type == 'batch_norm':
-            # Batch normalization - normalizing based on batch mean and std
-            batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
-            batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
-            normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
-        else:
+        if self.advantage_normalizer is not None:
             _advantage = advantage.squeeze(-1)
             self.advantage_manager._update_normalizer(_advantage)
-            _normalized_advantage = self.advantage_manager.normalize_data(_advantage)
+            _normalized_advantage = self.advantage_manager._normalize_data(_advantage)
             normalized_advantage = _normalized_advantage.unsqueeze(-1)
         return normalized_advantage
 

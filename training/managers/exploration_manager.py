@@ -8,6 +8,9 @@ def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, de
 
 class ExplorationUtils:
     def __init__(self, exploration_params):
+        # The exploration rate starts at 1 (maximum exploration) and decays over time towards a minimum value (e.g., 0.01) during the training process. 
+        # The specific decay behavior (e.g., linear, exponential) and the rate of decay are managed by the ExplorationUtils class.
+        # By default, the exploration rate decays linearly from 1 to 0.01 over 80% of the max_steps.
         self.initial_exploration = 0.0
         self.min_exploration = 0.0
         self.decay_percentage = None

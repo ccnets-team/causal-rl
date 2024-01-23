@@ -88,22 +88,18 @@ class RLTuneHelper:
 
     # Private Helpers
     def _initialize_training_parameters(self):
-        training_params = self.rl_params.training
-        exploration_params = self.rl_params.exploration
-        memory_params = self.rl_params.memory
-
         self.max_seq_length = self.rl_params.algorithm.max_seq_length
         self.min_seq_length = self.rl_params.algorithm.min_seq_length
         
-        self.max_steps = exploration_params.max_steps
-        self.buffer_size = memory_params.buffer_size
+        self.max_steps = self.rl_params.max_steps
+        self.buffer_size = self.rl_params.buffer_size
         
-        self.use_on_policy = training_params.use_on_policy
-        self.batch_size = training_params.batch_size
-        self.replay_ratio = training_params.replay_ratio
-        self.train_interval = training_params.train_interval
-        self.samples_per_step = training_params.batch_size//training_params.replay_ratio
-        self.training_start_step = self.buffer_size//int(self.batch_size/training_params.replay_ratio) if memory_params.early_training_start_step is None else memory_params.early_training_start_step
+        self.use_on_policy = self.rl_params.use_on_policy
+        self.batch_size = self.rl_params.batch_size
+        self.replay_ratio = self.rl_params.replay_ratio
+        self.train_interval = self.rl_params.train_interval
+        self.samples_per_step = self.rl_params.batch_size//self.rl_params.replay_ratio
+        self.training_start_step = self.buffer_size//int(self.batch_size/self.rl_params.replay_ratio) 
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_interval*self.batch_size))
 
     def _setup_training(self):
