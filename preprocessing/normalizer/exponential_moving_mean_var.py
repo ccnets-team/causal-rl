@@ -29,7 +29,8 @@ class ExponentialMovingMeanVar:
 
         # Convert x to torch.float64 for high precision
         x = x.to(dtype=torch.float64)
-
+        x = x.mean(dim = 0) # 3D -> 2D
+        
         if not self.initialized:
             self.mean = x.mean(dim=0)
             self.squared_mean = (x ** 2).mean(dim=0)
@@ -45,8 +46,8 @@ class ExponentialMovingMeanVar:
     def normalize(self, x):
         if len(x) < 1 or not self.initialized:
             return x
-        mean = self.get_mean()
-        var = self.get_var()
+        mean = self.get_mean().unsqueeze(0)
+        var = self.get_var().unsqueeze(0)
         normalized_x = (x - mean) / (torch.sqrt(var) + 1e-8)
         return normalized_x.to(dtype=x.dtype)
 

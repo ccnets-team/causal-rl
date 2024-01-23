@@ -41,16 +41,17 @@ class NormalizerBase:
 
             # Reshape the data: Merge all dimensions except the last into the first dimension
             # This matches the reshaping logic used in normalize_data
-            reshaped_data = data.view(-1, data.shape[-1])
+            # reshaped_data = data.view(-1, data.shape[-1])
 
             # Update the normalizer with the reshaped data
-            self.normalizer.update(reshaped_data)
+            self.normalizer.update(data)
                 
     def _normalize_data(self, data):
         if self.normalizer is not None:
             # Reshape data: Merge all dimensions except the last into the first dimension
             original_shape = data.shape
             data = data.view(-1, original_shape[-1])
+            # data = data.view(-1, original_shape[-1])
 
             # Normalize and clamp data
             clip = self.clip_norm_range
@@ -89,10 +90,10 @@ class NormalizationUtils:
     def normalize_advantage(self, advantage):
         """Normalize the returns based on the specified normalizer type."""
         if self.advantage_normalizer is not None:
-            _advantage = advantage.squeeze(-1)
+            _advantage = advantage.squeeze(-1).unsqueeze(1)
             self.advantage_manager._update_normalizer(_advantage)
             _normalized_advantage = self.advantage_manager._normalize_data(_advantage)
-            normalized_advantage = _normalized_advantage.unsqueeze(-1)
+            normalized_advantage = _normalized_advantage.squeeze(1).unsqueeze(-1)
         return normalized_advantage
 
     def normalize_trajectories(self, trajectories: BatchTrajectory):

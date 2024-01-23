@@ -13,6 +13,7 @@ class RunningAbsMean:
 
         # Convert x to torch.float64 for high precision
         x = x.to(dtype=torch.float64)
+        x = x.mean(dim = 0) # 3D -> 2D
 
         abs_x = torch.abs(x)
         new_count = self.count + batch_size
@@ -29,7 +30,7 @@ class RunningAbsMean:
     def normalize(self, x):
         if len(x) < 1 or self.count < 1:
             return x
-        abs_mean = self.get_abs_mean()
+        abs_mean = self.get_abs_mean().unsqueeze(0)
         normalized_x = x / (abs_mean + 1e-8)
         return normalized_x
 

@@ -21,6 +21,7 @@ class ExponentialMovingAbsMean:
 
         # Convert x to torch.float64 for high precision
         x = x.to(dtype=torch.float64).abs()
+        x = x.mean(dim = 0) # 3D -> 2D
 
         if not self.initialized:
             self.abs_mean = x.mean(dim=0)
@@ -36,7 +37,7 @@ class ExponentialMovingAbsMean:
     def normalize(self, x):
         if len(x) < 1:
             return x
-        abs_mean = self.get_abs_mean()
+        abs_mean = self.get_abs_mean().unsqueeze(0)
         normalized_x = x / (abs_mean + 1e-8)
         return normalized_x
 
