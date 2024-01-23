@@ -1,8 +1,6 @@
 import torch
 from preprocessing.normalizer.running_mean_std import RunningMeanStd
-from preprocessing.normalizer.running_abs_mean import RunningAbsMean
 from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
-from preprocessing.normalizer.exponential_moving_abs_mean import ExponentialMovingAbsMean
 
 import numpy as np
 from utils.structure.trajectories  import BatchTrajectory
@@ -24,8 +22,6 @@ class NormalizerBase:
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
             self.normalizer = RunningMeanStd(vector_size, device)
-        elif norm_type == "running_abs_mean":
-            self.normalizer = RunningAbsMean(vector_size, device)
         elif norm_type == "exponential_moving_mean_var":
             self.normalizer = ExponentialMovingMeanVar(vector_size, device, alpha = self.exponential_moving_alpha)
             
@@ -38,28 +34,15 @@ class NormalizerBase:
                 data = torch.FloatTensor(data).to(self.device)
             elif data.device != self.device:
                 data = data.to(self.device)
-
-            # Reshape the data: Merge all dimensions except the last into the first dimension
-            # This matches the reshaping logic used in normalize_data
-            # reshaped_data = data.view(-1, data.shape[-1])
-
             # Update the normalizer with the reshaped data
             self.normalizer.update(data)
                 
     def _normalize_data(self, data):
         if self.normalizer is not None:
-            # Reshape data: Merge all dimensions except the last into the first dimension
-            original_shape = data.shape
-            data = data.view(-1, original_shape[-1])
-            # data = data.view(-1, original_shape[-1])
-
             # Normalize and clamp data
             clip = self.clip_norm_range
             data = self.normalizer.normalize(data)
             data.clamp_(-clip, clip)
-
-            # Reshape data back to its original shape
-            data = data.view(*original_shape)
 
         return data
     
