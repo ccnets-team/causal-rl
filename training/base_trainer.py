@@ -19,7 +19,14 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_exploration_utils()
         self.gammas = compute_discounted_future_value(self.discount_factor, self.max_seq_length)
         self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.max_seq_length)
-        self.scaling_factors = torch.sum(self.gammas * self.lambdas, dim=1, keepdim=True).to(self.device)            
+
+        # Calculate the scaling factors by summing the product of gammas and lambdas across the sequence.
+        # The scaling factors are divided by 2 to scale the sum of normalized rewards to the midpoint of the GPT sequence length.
+        # This ensures that the cumulative effect of discounted rewards is centered around the average position in the sequence,
+        # effectively balancing the influence of rewards from the start to the end of the sequence.
+        # This scaling approach enables the value loss to be maintained around 0.5, preventing it from increasing or decreasing easily during training.
+        # Such stabilization is crucial for maintaining a consistent training process and achieving convergence.
+        self.scaling_factors = torch.sum(self.gammas * self.lambdas, dim=1, keepdim=True).to(self.device) / 2
         self.use_discrete = env_config.use_discrete
 
     def _unpack_rl_params(self, rl_params):

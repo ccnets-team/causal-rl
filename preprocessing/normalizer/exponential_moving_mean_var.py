@@ -40,7 +40,7 @@ class ExponentialMovingMeanVar:
 
         # Compute weights for each time step and expand them to match x's shape
         exponential_weights = self.alpha * ((1 - self.alpha) ** torch.arange(sequence_length-1, -1, -1, device=self.device))
-        exponential_weights = exponential_weights.view(1, sequence_length, 1).expand_as(x)/(batch_size * num_features)
+        exponential_weights = exponential_weights.view(1, sequence_length, 1).expand_as(x)/batch_size
 
         # Apply padding mask
         if padding_mask is not None:

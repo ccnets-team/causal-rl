@@ -12,7 +12,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, max_seq_length=16, discount_factor=0.99, advantage_lambda=0.98):
+    def __init__(self, max_seq_length=16, discount_factor=0.99, advantage_lambda=0.99):
         self.min_seq_length = 1  # Minimum sequence length during exploration. Determines the lower bound for the number of consecutive states the model considers while exploring.
         self.max_seq_length = max_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
@@ -31,7 +31,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=5e-5, min_lr=5e-6, scheduler_type='linear', tau=1e-1, use_target_network=True, clip_grad_range=1.0): 
+    def __init__(self, lr=5e-5, min_lr=5e-6, scheduler_type='linear', tau=1e-1, use_target_network=True, clip_grad_range=None): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.min_lr = min_lr  # Minimum learning rate to which the lr will decay.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
@@ -52,7 +52,7 @@ class MemoryParameters:
         # Note: Training begins only after the replay buffer is filled to its full capacity.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='exponential_moving_mean_var', reward_normalizer='exponential_moving_mean_var', advantage_normalizer=None):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std' or 'exponential_moving_mean_var'.
         self.reward_normalizer = reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'exponential_moving_mean_var'.
         self.advantage_normalizer = advantage_normalizer  # Defines the method for normalizing advantage values, using approaches like 'running_mean_std' or 'exponential_moving_mean_var'.
