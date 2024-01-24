@@ -3,16 +3,14 @@ from preprocessing.normalizer.running_mean_std import RunningMeanStd
 from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
 
 class HybridMovingMeanVar:
-    def __init__(self, batch_size, seq_len, num_features, device, alpha=None, window_size=None):
+    def __init__(self, num_features, device, alpha=None, window_size=None):
         self.rms = RunningMeanStd(num_features, device)
         self.emmv = ExponentialMovingMeanVar(num_features, device, alpha=alpha, window_size=window_size)
         self.use_emmv = False
-        self.batch_size = batch_size
-        self.seq_len = seq_len
         self.rms_frac = 1 
 
     def _update_fraction(self):
-        rms_ratio = (self.batch_size * self.seq_len)/max(1, self.rms.count)
+        rms_ratio = 1/max(1, self.rms.count)
         emmv_ratio = self.emmv.alpha
         self.rms_frac = rms_ratio / (rms_ratio + emmv_ratio)
         if self.rms_frac < 1e-8:
@@ -32,8 +30,8 @@ class HybridMovingMeanVar:
             return self.rms.var * self.rms_frac + self.emmv.var * (1 - self.rms_frac)
         
     def update(self, x, padding_mask = None):
+        self.emmv.update(x, padding_mask)
         if self.use_emmv:
-            self.emmv.update(x, padding_mask)
             return 
         self.rms.update(x, padding_mask)
         if not self.use_emmv:
