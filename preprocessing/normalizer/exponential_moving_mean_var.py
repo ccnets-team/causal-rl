@@ -22,7 +22,7 @@ class ExponentialMovingMeanVar:
     def get_var(self):
         return self.var
 
-    def update(self, x):
+    def update(self, x, padding_mask=None):
         batch_size, sequence_length, num_features = x.size()
         if batch_size == 0:
             return self  # Do not update if the batch size is zero
@@ -39,13 +39,18 @@ class ExponentialMovingMeanVar:
             return
 
         # Compute weights for each time step and expand them to match x's shape
-        weights = self.alpha * ((1 - self.alpha) ** torch.arange(sequence_length-1, -1, -1, device=self.device))
-        weights = weights.view(1, sequence_length, 1).expand_as(x)/batch_size
-        
+        exponential_weights = self.alpha * ((1 - self.alpha) ** torch.arange(sequence_length-1, -1, -1, device=self.device))
+        exponential_weights = exponential_weights.view(1, sequence_length, 1).expand_as(x)/(batch_size * num_features)
+
+        # Apply padding mask
+        if padding_mask is not None:
+            weights = exponential_weights * padding_mask.to(dtype=x.dtype)
+        else:
+            weights = exponential_weights
+            
         self.mean = torch.sum(weights * x, dim=(0, 1)) + (1 - torch.sum(weights, dim=(0, 1))) * self.mean
         self.squared_mean = torch.sum(weights * (x**2), dim=(0, 1)) + (1 - torch.sum(weights, dim=(0, 1))) * self.squared_mean
         self.var = self.squared_mean - self.mean**2
-
 
     def normalize(self, x):
         if len(x) < 1 or not self.initialized:

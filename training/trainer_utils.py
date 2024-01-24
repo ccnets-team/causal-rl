@@ -57,6 +57,8 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
 
         # Perform cumulative sum on the reversed tensor
         cumulative_dones_reversed = torch.cumsum(reversed_dones[:,1:], dim=1)
+        
+        cumulative_dones_reversed[cumulative_dones_reversed > 0] = 1
 
         # Reverse the result back to get the cumulative sum in the original order
         cumulative_dones = torch.flip(cumulative_dones_reversed, dims=[1])

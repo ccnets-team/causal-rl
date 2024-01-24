@@ -117,7 +117,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
             
             advantage = (expected_value - estimated_value)
-            normalized_advantage = self.normalize_advantage(advantage)
+            normalized_advantage = self.normalize_advantage(advantage, padding_mask)
         return expected_value, normalized_advantage
 
     def reset_actor_noise(self, reset_noise):

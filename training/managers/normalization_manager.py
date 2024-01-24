@@ -4,6 +4,7 @@ from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovi
 
 import numpy as np
 from utils.structure.trajectories  import BatchTrajectory
+from training.trainer_utils import create_padding_mask_before_dones
 
 TRANSITION_STATE_IDX = 0
 TRANSITION_NEXT_STATE_IDX = 3
@@ -27,7 +28,7 @@ class NormalizerBase:
             
         self.device = device
                     
-    def _update_normalizer(self, data):
+    def _update_normalizer(self, data, padding_mask=None):
         if self.normalizer is not None:
             # Convert to a PyTorch tensor if it's a NumPy array and move to the specified device
             if not isinstance(data, torch.Tensor):
@@ -35,7 +36,7 @@ class NormalizerBase:
             elif data.device != self.device:
                 data = data.to(self.device)
             # Update the normalizer with the reshaped data
-            self.normalizer.update(data)
+            self.normalizer.update(data, padding_mask)
                 
     def _normalize_data(self, data):
         if self.normalizer is not None:
@@ -70,13 +71,13 @@ class NormalizationUtils:
     def normalize_reward(self, reward):
         return self.reward_manager._normalize_data(reward)
 
-    def normalize_advantage(self, advantage):
+    def normalize_advantage(self, advantage, padding_mask=None):
         """Normalize the returns based on the specified normalizer type."""
         if self.advantage_normalizer is None:
             normalized_advantage = advantage
         else:
             _advantage = advantage.squeeze(-1).unsqueeze(1)
-            self.advantage_manager._update_normalizer(_advantage)
+            self.advantage_manager._update_normalizer(_advantage, padding_mask)
             _normalized_advantage = self.advantage_manager._normalize_data(_advantage)
             normalized_advantage = _normalized_advantage.squeeze(1).unsqueeze(-1)
         return normalized_advantage
@@ -89,7 +90,7 @@ class NormalizationUtils:
 
     def update_normalizer(self, trajectories: BatchTrajectory):
         states, actions, rewards, next_states, dones = trajectories
-
+        padding_mask = create_padding_mask_before_dones(dones)
         # Update state normalizer
         for index in self.state_indices:
             if index == TRANSITION_STATE_IDX:
@@ -98,7 +99,7 @@ class NormalizationUtils:
                 state_data = next_states
             else:
                 raise ValueError("Invalid state index")
-            self.state_manager._update_normalizer(state_data)
+            self.state_manager._update_normalizer(state_data, padding_mask)
 
         # Update reward normalizer
         for index in self.reward_indices:
@@ -106,4 +107,4 @@ class NormalizationUtils:
                 reward_data = rewards
             else:
                 raise ValueError("Invalid reward index")
-            self.reward_manager._update_normalizer(reward_data)
+            self.reward_manager._update_normalizer(reward_data, padding_mask)
