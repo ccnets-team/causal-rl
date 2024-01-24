@@ -11,8 +11,10 @@ class RunningMeanStd:
         batch_size = x.size(0)
         if batch_size == 0:
             return self  # Do not update if the batch size is zero
+        
         x = x.to(dtype=torch.float64)
-
+        x = x.view(-1, x.shape[-1]) # 3D -> 2D
+            
         delta = x.mean(dim=0) - self.mean
         new_count = self.count + batch_size
         new_mean = self.mean + delta * batch_size / new_count
@@ -36,8 +38,8 @@ class RunningMeanStd:
     def normalize(self, x):
         if len(x) < 1 or self.count < 1:
             return x
-        mean = self.get_mean()
-        var = self.get_var()
+        mean = self.get_mean().view(1, 1, -1)
+        var = self.get_var().view(1, 1, -1)
         normalized_x = (x - mean) / (torch.sqrt(var) + 1e-8)
         return normalized_x.to(dtype=x.dtype)
 

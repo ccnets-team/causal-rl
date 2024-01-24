@@ -70,7 +70,7 @@ class ExperienceMemory:
             return None
 
         states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
-        return BatchTrajectory(states, actions, rewards, next_states, dones, buffer_indices)
+        return BatchTrajectory(states, actions, rewards, next_states, dones)
     
     def sample_trajectory_data(self):
         sample_sz = self.batch_size

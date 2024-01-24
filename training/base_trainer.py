@@ -2,11 +2,10 @@ import torch
 from training.managers.training_manager import TrainingManager 
 from training.managers.normalization_manager import NormalizationUtils 
 from abc import abstractmethod
-from nn.roles.actor import _BaseActor
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
-from .trainer_utils import calculate_gae_returns, calculate_lambda_returns, compute_discounted_future_value
+from .trainer_utils import calculate_lambda_returns, compute_discounted_future_value
 from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones
 
 class BaseTrainer(TrainingManager, NormalizationUtils):
@@ -28,7 +27,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
     def _init_training_manager(self, networks, target_networks, device):
         training_start_step = self._compute_training_start_step()
         total_iterations = max(self.exploration_params.max_steps - training_start_step, 0)//self.training_params.train_interval
-        TrainingManager.__init__(self, networks, target_networks, self.optimization_params.lr, self.optimization_params.lr_decay_ratio, 
+        TrainingManager.__init__(self, networks, target_networks, self.optimization_params.lr, self.optimization_params.min_lr, 
                                  self.optimization_params.clip_grad_range, self.optimization_params.tau, total_iterations, self.optimization_params.scheduler_type)
         self.device = device
 
@@ -42,10 +41,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
         self.reduction_type = 'cross'
 
     def _compute_training_start_step(self):
-        training_start_step = self.memory_params.early_training_start_step
-        if training_start_step is None:
-            batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
-            training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
+        batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
+        training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
     
     def select_tensor_reduction(self, tensor, mask=None):

@@ -56,7 +56,6 @@ class RLTune:
         for step in tqdm(range(self.max_steps)):
             self._train_step_logic(step, training_method)
 
-
     def test(self, max_episodes: int = 100) -> None:
         self.helper.setup(training=False)
         self.helper.load_model()
@@ -87,31 +86,20 @@ class RLTune:
         self.process_test_environment(self.test_env)
         self.helper.end_step(step)
 
-    def train_on_policy(self, step: int) -> None:
-        """Train the model with on-policy algorithms."""
-        self.process_train_environment(self.train_env)
-
-        if self.helper.should_update_strategy(step):
-            self._update_strategy_from_samples()
-
-        if self.helper.should_reset_memory():
-            self.reset_memory_and_train()
-
     def train_off_policy(self, step: int) -> None:
         """Train the model with off-policy algorithms."""
         self.process_train_environment(self.train_env)
         
+        samples = self.memory.sample_batch_trajectory()
         if self.helper.should_update_strategy(step):
-            self._update_strategy_from_samples()
+            self._update_strategy_from_samples(samples)
         
         if self.helper.should_train_step(step):
-            self.train_step()
+            self.train_step(samples)
 
     # Helpers for Training
-    def _update_strategy_from_samples(self) -> None:
+    def _update_strategy_from_samples(self, samples) -> None:
         """Fetch samples and update strategy."""
-        
-        samples, _ = self.memory.sample_trajectory_data()
         if samples is not None:
             self.trainer.update_normalizer(samples)
 
@@ -121,11 +109,10 @@ class RLTune:
             self.train_step()
         self.memory.reset_buffers()
         
-    def train_step(self) -> None:
+    def train_step(self, samples) -> None:
         """Single step of training."""
-        samples = self.memory.sample_batch_trajectory()
         if samples is not None:
-            self.trainer.transform_transition(samples)
+            self.trainer.normalize_trajectories(samples)
             train_data = self.trainer.train_model(samples)
             self.helper.add_train_metrics(train_data)
 
