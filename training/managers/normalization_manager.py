@@ -15,7 +15,7 @@ EXPONENTIAL_MOVING_ALPHA = 1e-4
 CLIP_NORM_RANGE = 10.0
 
 class NormalizerBase:
-    def __init__(self, feature_size, norm_type_key, normalization_params, device):
+    def __init__(self, batch_size, max_seq_length, feature_size, norm_type_key, normalization_params, device):
         self.normalizer = None
         self.feature_size = feature_size
         self.exponential_moving_alpha = EXPONENTIAL_MOVING_ALPHA  # Alpha value for exponential moving average, used in 'exponential_moving_mean_var' normalizer to determine weighting of recent data.
@@ -27,7 +27,7 @@ class NormalizerBase:
         elif norm_type == "exponential_moving_mean_var":
             self.normalizer = ExponentialMovingMeanVar(feature_size, device, alpha = self.exponential_moving_alpha)
         elif norm_type == "hybrid_moving_mean_var":
-            self.normalizer = HybridMovingMeanVar(feature_size, device, alpha = self.exponential_moving_alpha)
+            self.normalizer = HybridMovingMeanVar(batch_size, max_seq_length, feature_size, device, alpha = self.exponential_moving_alpha)
             
         self.device = device
                     
@@ -51,10 +51,10 @@ class NormalizerBase:
         return data
     
 class NormalizationUtils:
-    def __init__(self, env_config, normalization_params, max_seq_length, device):
-        self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization_params, device=device)
-        self.reward_manager = NormalizerBase(1, 'reward_normalizer', normalization_params, device=device)
-        self.advantage_manager = NormalizerBase(max_seq_length, 'advantage_normalizer', normalization_params, device=device)
+    def __init__(self, env_config, normalization_params, batch_size, max_seq_length, device):
+        self.state_manager = NormalizerBase(batch_size, max_seq_length, env_config.state_size, 'state_normalizer', normalization_params, device=device)
+        self.reward_manager = NormalizerBase(batch_size, max_seq_length, 1, 'reward_normalizer', normalization_params, device=device)
+        self.advantage_manager = NormalizerBase(batch_size, max_seq_length, max_seq_length, 'advantage_normalizer', normalization_params, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
