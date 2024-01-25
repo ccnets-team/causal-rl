@@ -1,3 +1,8 @@
+
+'''
+COPYRIGHT (c) 2022. CCNets, Inc. All Rights reserved.
+'''
+import torch
 from torch import nn
 from collections.abc import Iterable
 
@@ -29,14 +34,6 @@ def add_activation_to_layers(layers, activation_function):
             layers.append(ACTIVATION_FUNCTIONS[activation_function])
         else:
             raise ValueError(f"Unsupported activation function: {activation_function}")
-
-class RepeatTensor(nn.Module):
-    def __init__(self, n_mul):
-        super(RepeatTensor, self).__init__()
-        self.repeats = [1, n_mul]
-        
-    def forward(self, x):
-        return x.repeat(*self.repeats)
     
 def create_layer(input_size = None, output_size = None, act_fn ="none"):
     """Creates a PyTorch layer with optional input and output sizes, and optional activation functions."""
@@ -64,26 +61,32 @@ def init_weights(module):
                     
     for child in module.children():
         init_weights(child)  # Apply recursively to child submodules
-
-
-def init_log_std(module, init_log_std_value=-2.0):
-    """
-    Applies Xavier uniform initialization to certain layers in a module and its submodules.
-    Args:
-        module (nn.Module): The module to initialize.
-    """
-    if hasattr(module, 'log_std_layer'):
-        # Check if log_std_layer is Sequential and contains a Linear layer
-        if isinstance(module.log_std_layer, nn.Linear):
-            # Initialize the first Linear layer in log_std_layer
-            nn.init.zeros_(module.log_std_layer.weight)
-            nn.init.constant_(module.log_std_layer.bias, init_log_std_value)
-        elif isinstance(module.log_std_layer, nn.Sequential):
-            for child in module.log_std_layer.children():
-                if isinstance(child, nn.Linear):
-                    nn.init.zeros_(child.weight)
-                    nn.init.constant_(child.bias, init_log_std_value)    
-                    
-    for child in module.children():
-        init_log_std(child, init_log_std_value)  # Apply recursively to child submodules
         
+class ContinuousFeatureEmbeddingLayer(nn.Module):
+    def __init__(self, num_features, embedding_size, act_fn='tanh'):
+        super(ContinuousFeatureEmbeddingLayer, self).__init__()
+        self.feature_embeddings = nn.Parameter(torch.randn(num_features, embedding_size))
+        self.bias = nn.Parameter(torch.zeros(1, embedding_size))  # Shared bias across features
+        self.act_fn = act_fn
+
+    def forward(self, features):
+        # Input features shape: [B, S, F]
+        # B: Batch size, S: Sequence length, F: Number of features
+        features_expanded = features.unsqueeze(-1)
+        # After unsqueeze, features shape: [B, S, F, 1]
+        
+        # self.feature_embeddings shape: [F, embedding_size]
+        # We broadcast multiply features with embeddings to get a shape: [B, S, F, embedding_size]
+        feature_emb_mul = features_expanded * self.feature_embeddings
+        
+        # Sum across the feature dimension F, resulting shape: [B, S, embedding_size]
+        feature_emb_bias = feature_emb_mul.sum(dim=2) + self.bias  # Sum first, then add bias
+
+        if self.act_fn == "tanh":
+            sequence_embeddings = torch.tanh(feature_emb_bias)
+        elif self.act_fn == "relu":
+            sequence_embeddings = torch.relu(feature_emb_bias)
+        else:
+            sequence_embeddings = feature_emb_bias
+
+        return sequence_embeddings

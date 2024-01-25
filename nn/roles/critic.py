@@ -5,7 +5,7 @@
 '''
 import torch
 import torch.nn as nn
-from ..utils.network_init import init_weights, create_layer
+from ..utils.network_utils import init_weights, create_layer
 from ..utils.embedding_layer import ContinuousFeatureEmbeddingLayer
 
 class BaseCritic(nn.Module):

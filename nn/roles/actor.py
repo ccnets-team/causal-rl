@@ -7,7 +7,7 @@ import torch
 import torch.nn as nn
 
 from torch.distributions import Normal
-from ..utils.network_init import init_weights, create_layer
+from ..utils.network_utils import init_weights, create_layer
 from ..utils.embedding_layer import ContinuousFeatureEmbeddingLayer
 
 class _BaseActor(nn.Module):
