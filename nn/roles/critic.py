@@ -19,7 +19,7 @@ class BaseCritic(nn.Module):
         self.use_discrete = env_config.use_discrete
         self.net = net(self.num_layers, self.d_model, dropout = critic_params.dropout)
 
-    def _forward(self, _value, mask = None):
+    def _compute_forward_pass(self, _value, mask = None):
         value = self.net(_value, mask = mask) 
         value = self.relu(value) 
         value = self.final_layer(value)
@@ -32,7 +32,7 @@ class SingleInputCritic(BaseCritic):
 
     def forward(self, state, mask = None):
         _state = self.embedding_layer(state)
-        return self._forward(_state, mask)
+        return self._compute_forward_pass(_state, mask)
 
 class DualInputCritic(BaseCritic):
     def __init__(self, net, env_config, critic_params):
@@ -43,6 +43,6 @@ class DualInputCritic(BaseCritic):
         if not self.use_discrete:
             action = torch.tanh(action)
         _state = self.embedding_layer(torch.cat([state, action], dim = -1))
-        value = self._forward(_state, mask)
+        value = self._compute_forward_pass(_state, mask)
         return value
     

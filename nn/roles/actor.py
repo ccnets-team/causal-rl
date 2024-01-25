@@ -27,55 +27,14 @@ class _BaseActor(nn.Module):
         self.value_size = 1
         self.softplus = nn.Softplus()
         self.relu = nn.ReLU()
-        self.noise_strategy = None
-        self.use_noise_before_activation = False
-        self.use_deterministic = False
-        # Exploration strategy initialization
 
     def _compute_forward_pass(self, z, mask = None):
         y = self.net(z, mask = mask) 
         y = self.relu(y)
         mu, sigma = self.mean_layer(y), self.softplus(self.log_std_layer(y))
         return mu, sigma 
-
-    def _evaluate_action(self, mean, std):
-        """
-        Sample an action and compute its log probability given the distribution parameters.
-
-        :param mean: Mean of the distribution (either Gaussian for continuous actions or logits for discrete actions)
-        :param std: Standard deviation for continuous actions. Ignored for discrete actions.
-        :return: sampled action and its log probability.
-        """
-
-        # Small constant for numerical stability
-        epsilon = 1e-6  
-
-        if self.use_discrete:
-            # For discrete actions, sample an action using argmax (deterministic policy) 
-            # and then compute its log probability
-            probs = torch.softmax(mean, dim=-1)  # mean must be defined beforehand
-            action_indices = torch.argmax(probs, dim=-1)
-            # Create one-hot encoded tensor without using eye
-            action = torch.zeros_like(mean)
-            action.scatter_(-1, action_indices.unsqueeze(-1), 1)
-
-            log_prob = torch.log(probs.gather(-1, action_indices.unsqueeze(-1)))
-        else:
-            # For continuous actions, sample an action from the Gaussian distribution,
-            # squash it using the tanh function, and then compute its log probability
-            dist = Normal(mean, std)
-            raw_action = dist.rsample()
-            action = torch.tanh(raw_action)
-            unsquashed_log_prob = dist.log_prob(raw_action).sum(dim=-1, keepdim=True)
-            # Correct the log_prob due to the squashing operation
-            log_prob = unsquashed_log_prob - torch.log(1 - action.pow(2) + epsilon).sum(dim=-1, keepdim=True)
-
-        return action, log_prob
         
     def _sample_action(self, mean, std):
-        if self.use_deterministic:
-            return self._select_action(mean)
-
         if self.use_discrete:
             y = mean
             # Get the softmax probabilities from the mean (logits)
@@ -106,7 +65,7 @@ class _BaseActor(nn.Module):
         else:
             action = mean
         return action
-
+    
 class DualInputActor(_BaseActor):
     def __init__(self, net, env_config, network_params):
         value_size = 1
@@ -121,24 +80,24 @@ class DualInputActor(_BaseActor):
     def forward(self, state, value, mask = None):
         z = self.embedding_layer(torch.cat([state, value], dim =-1))
         mean, std = self._compute_forward_pass(z, mask)
-        return mean if self.use_deterministic else Normal(mean, std).rsample()
+        return Normal(mean, std).rsample()
 
-    def _forward(self, state, value, mask = None):
+    def compute_mean_std(self, state, value, mask = None):
         z = self.embedding_layer(torch.cat([state, value], dim =-1))
         mean, std = self._compute_forward_pass(z, mask)
         return mean, std
 
     def predict_action(self, state, value, mask = None):
-        mean, _ = self._forward(state, value, mask)
+        mean, _ = self.compute_mean_std(state, value, mask)
         action = self._predict_action(mean)
         return action
 
     def sample_action(self, state, value, mask = None):
-        mean, std = self._forward(state, value, mask)
+        mean, std = self.compute_mean_std(state, value, mask)
         action = self._sample_action(mean, std)
         return action
     
     def select_action(self, state, value, mask = None):
-        mean, _ = self._forward(state, value, mask)
+        mean, _ = self.compute_mean_std(state, value, mask)
         action = self._select_action(mean)
         return action
