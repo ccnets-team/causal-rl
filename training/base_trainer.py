@@ -5,8 +5,7 @@ from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
-from .trainer_utils import calculate_lambda_returns, compute_discounted_future_value
-from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones
+from .trainer_utils import calculate_lambda_returns, get_discount_sequence, masked_tensor_reduction, create_padding_mask_before_dones
 
 class BaseTrainer(TrainingManager, NormalizationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -14,10 +13,15 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
         self._init_trainer_specific_params()
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
-        self.gammas = compute_discounted_future_value(self.discount_factor, self.gpt_seq_length)
-        self.lambdas = compute_discounted_future_value(self.advantage_lambda, self.gpt_seq_length)
-        self.scaling_factors = torch.sum(self.gammas * self.lambdas, dim=1, keepdim=True).to(self.device)            
-        self.use_discrete = env_config.use_discrete
+        self.gammas = get_discount_sequence(self.discount_factor, self.gpt_seq_length)
+        self.lambdas = get_discount_sequence(self.advantage_lambda, self.gpt_seq_length)
+        # Calculate the scaling factors by summing the product of gammas and lambdas across the sequence.
+        # The scaling factors are divided by 2 to scale the sum of normalized rewards to the midpoint of the GPT sequence length.
+        # This ensures that the cumulative effect of discounted rewards is centered around the average position in the sequence,
+        # effectively balancing the influence of rewards from the start to the end of the sequence.
+        # This scaling approach enables the value loss to be maintained around 0.5, preventing it from increasing or decreasing easily during training.
+        # Such stabilization is crucial for maintaining a consistent training process and achieving convergence.
+        self.scaling_factors = torch.sum(self.gammas * self.lambdas, dim=1, keepdim=True).to(self.device) / 2
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
