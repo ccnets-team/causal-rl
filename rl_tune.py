@@ -52,9 +52,41 @@ class RLTune:
         if resume_training:
             self.helper.load_model()
 
-        training_method = self.train_off_policy
         for step in tqdm(range(self.max_steps)):
-            self._train_step_logic(step, training_method)
+            # Training Logic Methods
+            """Unified training logic for each step."""
+            self.helper.init_step(step)
+            self.interact_environment(self.test_env, training=False)            
+            self.interact_environment(self.train_env, training=True)
+            self.train_off_policy(step)
+            self.helper.end_step(step)            
+
+    def train_off_policy(self, step: int) -> None:
+        """Train the model with off-policy algorithms."""
+        samples = self.memory.sample_batch_trajectory()
+        if self.helper.should_update_strategy(step):
+            """Fetch samples and update strategy."""
+            if samples is not None:
+                self.trainer.update_normalizer(samples)
+        
+        if self.helper.should_train_step(step):
+            """Single step of training."""
+            if samples is not None:
+                self.trainer.normalize_trajectories(samples)
+                train_data = self.trainer.train_model(samples)
+                self.helper.add_train_metrics(train_data)
+        
+    # Environment Interaction
+    def interact_environment(self, env, training=True):
+        """Unified method to interact with environments."""
+        env.step_env()
+        multi_env_trajectories = env.fetch_env()
+        self.helper.record(multi_env_trajectories, training=training)
+
+        if training:
+            self.helper.push_trajectories(multi_env_trajectories)
+
+        env.explore_env(self.trainer, training=training)
 
     def test(self, max_episodes: int = 100) -> None:
         self.helper.setup(training=False)
@@ -67,69 +99,11 @@ class RLTune:
                     break
                 if step >= self.max_steps:
                     break
-                self._test_step_logic(step)
+                
+                """Unified testing logic for each step."""
+                self.helper.init_step(step)
+                self.interact_environment(self.test_env, training=False)
+                self.helper.end_step(step)
                 step += 1  # Increment the global step count after processing
             if step >= self.max_steps:
                 break
-
-    # Training Logic Methods
-    def _train_step_logic(self, step: int, training_method) -> None:
-        """Unified training logic for each step."""
-        self.helper.init_step(step)
-        self.process_test_environment(self.test_env)
-        training_method(step)
-        self.helper.end_step(step)
-
-    def _test_step_logic(self, step: int) -> None:
-        """Unified testing logic for each step."""
-        self.helper.init_step(step)
-        self.process_test_environment(self.test_env)
-        self.helper.end_step(step)
-
-    def train_off_policy(self, step: int) -> None:
-        """Train the model with off-policy algorithms."""
-        self.process_train_environment(self.train_env)
-        
-        samples = self.memory.sample_batch_trajectory()
-        if self.helper.should_update_strategy(step):
-            self._update_strategy_from_samples(samples)
-        
-        if self.helper.should_train_step(step):
-            self.train_step(samples)
-
-    # Helpers for Training
-    def _update_strategy_from_samples(self, samples) -> None:
-        """Fetch samples and update strategy."""
-        if samples is not None:
-            self.trainer.update_normalizer(samples)
-
-    def reset_memory_and_train(self) -> None:
-        """Reset the memory and train the model again."""
-        for _ in range(self.helper.total_on_policy_iterations):
-            self.train_step()
-        self.memory.reset_buffers()
-        
-    def train_step(self, samples) -> None:
-        """Single step of training."""
-        if samples is not None:
-            self.trainer.normalize_trajectories(samples)
-            train_data = self.trainer.train_model(samples)
-            self.helper.add_train_metrics(train_data)
-
-    # Environment Interaction
-    def interact_environment(self, env, training=True):
-        """Unified method to interact with environments."""
-        env.step_env()
-        multi_env_trajectories = env.fetch_env()
-        self.helper.record(multi_env_trajectories, training=training)
-
-        if training:
-            self.helper.push_trajectories(multi_env_trajectories)
-
-        env.explore_env(self.trainer, training=training)
-        
-    def process_train_environment(self, train_env):
-        self.interact_environment(train_env, training=True)
-
-    def process_test_environment(self, test_env):
-        self.interact_environment(test_env, training=False)
