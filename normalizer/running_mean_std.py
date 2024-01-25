@@ -7,7 +7,7 @@ class RunningMeanStd:
         self.var = torch.ones(num_features, device=self.device, dtype=torch.float64)
         self.count = 0
 
-    def update(self, x):
+    def update(self, x, padding_mask=None):
         batch_size = x.size(0)
         if batch_size == 0:
             return self  # Do not update if the batch size is zero
