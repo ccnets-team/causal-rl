@@ -67,7 +67,7 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-def compute_discounted_future_value(discount_factor, max_seq_len):
+def get_discount_sequence(discount_factor, max_seq_len):
     return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
 
 def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
