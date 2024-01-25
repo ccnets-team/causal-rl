@@ -7,7 +7,7 @@
 import torch
 import torch.nn as nn
 from ..utils.network_utils import init_weights, create_layer
-from ..utils.embedding_layer import ContinuousFeatureEmbeddingLayer
+from ..utils.network_utils import ContinuousFeatureEmbeddingLayer
 
 class RevEnv(nn.Module):
     def __init__(self, net, env_config, rev_env_params):
