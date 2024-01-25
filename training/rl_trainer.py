@@ -1,4 +1,4 @@
-from training.trainer.causal_rl import CausalRL
+from training.causal_rl import CausalRL
 
 class RLTrainer:
     def __init__(self, rl_params, trainer_name = "causal_rl"):

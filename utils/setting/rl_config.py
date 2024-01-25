@@ -1,5 +1,5 @@
 from nn.gpt import GPT
-from nn.utils.network_utils import ModelParams
+from nn.network_utils import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.

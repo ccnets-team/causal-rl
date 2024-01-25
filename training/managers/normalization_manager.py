@@ -1,7 +1,7 @@
 import torch
-from preprocessing.normalizer.running_mean_std import RunningMeanStd
-from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
-from preprocessing.normalizer.hybrid_moving_mean_var import HybridMovingMeanVar
+from normalizer.running_mean_std import RunningMeanStd
+from normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
+from normalizer.hybrid_moving_mean_var import HybridMovingMeanVar
 
 from utils.structure.trajectories  import BatchTrajectory
 from training.trainer_utils import create_padding_mask_before_dones
