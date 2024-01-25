@@ -5,7 +5,6 @@ from utils.init import set_seed
 from utils.printer import print_step, print_metrics, print_scores
 from utils.logger import log_data
 from utils.wandb_logger import wandb_log_data, wandb_init
-from utils.structure.trajectories  import MultiEnvTrajectories
 from memory.experience_memory import ExperienceMemory
 from utils.loader import save_trainer, load_trainer
 from training.managers.record_manager import RecordManager
@@ -24,7 +23,6 @@ class RLTuneHelper:
         if use_wandb:
             wandb_init(env_config, rl_params)
         self.use_wandb = use_wandb
-        
         
         self.print_interval = DEFAULT_PRINT_INTERVAL
         self.save_interval = DEFAULT_SAVE_INTERVAL

@@ -1,10 +1,7 @@
 from collections.abc import Iterable
 from utils.setting.rl_params import RLParameters
-
 from utils.structure.env_config import EnvConfig
-
 from datetime import datetime
-from typing import TextIO
 
 def print_iter(epoch, replay_ratio, iters, len_dataloader, et):
     print('[%d/%d][%d/%d][Time %.2f]'

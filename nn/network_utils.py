@@ -4,7 +4,6 @@ COPYRIGHT (c) 2022. CCNets, Inc. All Rights reserved.
 '''
 import torch
 from torch import nn
-from collections.abc import Iterable
 
 class ModelParams:
     def __init__(self, d_model, num_layers, dropout):
