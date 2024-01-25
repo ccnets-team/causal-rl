@@ -49,6 +49,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
         training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
     
+    def scale_rewards(self, rewards):
+        """Scales the given rewards by the scaling factors."""
+        return rewards / self.scaling_factors
+    
     def select_tensor_reduction(self, tensor, mask=None):
         """
         Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
@@ -82,11 +86,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
         return reduced_loss
 
-    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor):
+    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, padding_mask: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
-        scaled_rewards = rewards / self.scaling_factors
-        padding_mask = create_padding_mask_before_dones(dones)
+        scaled_rewards = self.scale_rewards(rewards)
+        
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
             trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)

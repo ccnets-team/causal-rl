@@ -12,15 +12,15 @@ TRANSITION_REWARD_IDX = 2
 
 REWARD_SIZE = 1
 
-EXPONENTIAL_MOVING_ALPHA = 1e-4
 CLIP_NORM_RANGE = 10.0
+EXPONENTIAL_MOVING_ALPHA = 1e-4
 
 class NormalizerBase:
     def __init__(self, feature_size, norm_type_key, normalization_params, device):
         self.normalizer = None
         self.feature_size = feature_size
-        self.exponential_moving_alpha = EXPONENTIAL_MOVING_ALPHA  # Alpha value for exponential moving average, used in 'exponential_moving_mean_var' normalizer to determine weighting of recent data.
         self.clip_norm_range = CLIP_NORM_RANGE  # The range within which normalized values are clipped, preventing excessively high normalization values.
+        self.exponential_moving_alpha = EXPONENTIAL_MOVING_ALPHA  # Alpha value for exponential moving average, used in 'exponential_moving_mean_var' normalizer to determine weighting of recent data.
 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
@@ -42,7 +42,7 @@ class NormalizerBase:
             # Update the normalizer with the reshaped data
             self.normalizer.update(data, padding_mask)
                 
-    def _normalize_data(self, data):
+    def _normalize_feature(self, data):
         if self.normalizer is not None:
             # Normalize and clamp data
             clip = self.clip_norm_range
@@ -69,19 +69,35 @@ class NormalizationUtils:
         return self.advantage_manager.normalizer
             
     def normalize_state(self, state):
-        return self.state_manager._normalize_data(state)
+        return self.state_manager._normalize_feature(state)
 
     def normalize_reward(self, reward):
-        return self.reward_manager._normalize_data(reward)
+        return self.reward_manager._normalize_feature(reward)
 
     def normalize_advantage(self, advantage, padding_mask=None):
-        """Normalize the returns based on the specified normalizer type."""
+        """
+        Normalize advantage per sequence using an advantage normalizer.
+
+        Treats each sequence length as a separate feature and normalizes the advantage
+        for each sequence individually. If a normalizer is set, the advantage tensor 
+        is reshaped to align with the normalizer's format, normalized, and then 
+        reshaped back to its original structure. If no normalizer is set, the 
+        original advantage values are returned.
+
+        Args:
+        - advantage (Tensor): Advantage values, with sequence length treated as a feature.
+        - padding_mask (Tensor, optional): Mask to identify valid data points within each sequence.
+
+        Returns:
+        - Tensor: Advantage values normalized for each sequence if a normalizer is set; 
+        otherwise, returns the unmodified advantage tensor.
+        """
         if self.advantage_normalizer is None:
             normalized_advantage = advantage
         else:
             reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
             self.advantage_manager._update_normalizer(reshaped_advantage, padding_mask)
-            normalized_reshaped_advantage = self.advantage_manager._normalize_data(reshaped_advantage)
+            normalized_reshaped_advantage = self.advantage_manager._normalize_feature(reshaped_advantage)
             normalized_advantage = normalized_reshaped_advantage.squeeze(1).unsqueeze(-1)
         return normalized_advantage
 
