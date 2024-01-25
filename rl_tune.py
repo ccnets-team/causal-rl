@@ -9,7 +9,7 @@ class RLTune:
     """
     Class for tuning and training reinforcement learning models using a specified Trainer.
     """
-    def __init__(self, env_config: EnvConfig, rl_params: RLParameters, device, use_graphics=False, use_print=False, use_wandb = False):
+    def __init__(self, env_config: EnvConfig, rl_params: RLParameters, device, use_graphics=False, use_print=False, use_wandb=False):
         """Initialize an instance of RLTune.
         Args:
             env_config (EnvConfig): Configuration for the environment.
@@ -65,17 +65,15 @@ class RLTune:
         """Train the model with off-policy algorithms."""
         samples = self.memory.sample_batch_trajectory()
 
-        if self.helper.should_update_strategy(step):
+        if self.helper.should_update_strategy(samples, step):
             """Fetch samples and update strategy."""
-            if samples is not None:
-                self.trainer.update_normalizer(samples)
+            self.trainer.update_normalizer(samples)
         
-        if self.helper.should_train_step(step):
+        if self.helper.should_train_step(samples, step):
             """Single step of training."""
-            if samples is not None:
-                self.trainer.normalize_trajectories(samples)
-                train_data = self.trainer.train_model(samples)
-                self.helper.add_train_metrics(train_data)
+            self.trainer.normalize_trajectories(samples)
+            train_data = self.trainer.train_model(samples)
+            self.helper.add_train_metrics(train_data)
         
     # Environment Interaction
     def interact_environment(self, env, training=True):

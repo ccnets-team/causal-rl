@@ -32,8 +32,8 @@ class RecordManager:
         self.max_steps = rl_params.exploration.max_steps
 
         self.metrics_tracker = MetricsTracker(self.tracking_interval)
-        self.train_tracker = RewardTracker(self.tracking_interval)
-        self.test_tracker = RewardTracker(self.tracking_interval)
+        self.train_reward_tracker = RewardTracker(self.tracking_interval)
+        self.test_reward_tracker = RewardTracker(self.tracking_interval)
 
     def init_logger(self):
         if self.tensor_board_logger is None:
@@ -46,13 +46,13 @@ class RecordManager:
 
     def compute_records(self):
         self.init_logger()
-        self.test_reward_per_step = self.test_tracker.compute_average()
-        self.train_reward_per_step = self.train_tracker.compute_average()
+        self.test_reward_per_step = self.test_reward_tracker.compute_average_reward()
+        self.train_reward_per_step = self.train_reward_tracker.compute_average_reward()
         
-        self.test_accumulative_rewards = self.test_tracker.compute_accumulative_rewards()
-        self.train_accumulative_rewards = self.train_tracker.compute_accumulative_rewards()
+        self.test_accumulative_rewards = self.test_reward_tracker.compute_accumulative_rewards()
+        self.train_accumulative_rewards = self.train_reward_tracker.compute_accumulative_rewards()
 
-        self.avg_metrics = self.metrics_tracker.compute_average()
+        self.avg_metrics = self.metrics_tracker.compute_average_metrics()
         
     def get_records(self):
         return self.train_reward_per_step , self.test_reward_per_step, self.train_accumulative_rewards, self.test_accumulative_rewards, self.avg_metrics
@@ -64,9 +64,9 @@ class RecordManager:
         dones_terminated = trajectories.dones_terminated
         dones_truncated = trajectories.dones_truncated
         if training:
-            self.train_tracker._add_rewards(env_ids, agent_ids, rewards, dones_terminated, dones_truncated)
+            self.train_reward_tracker._add_rewards(env_ids, agent_ids, rewards, dones_terminated, dones_truncated)
         else:
-            self.test_tracker._add_rewards(env_ids, agent_ids, rewards, dones_terminated, dones_truncated)
+            self.test_reward_tracker._add_rewards(env_ids, agent_ids, rewards, dones_terminated, dones_truncated)
 
     def is_best_period(self):
-        return self.test_tracker.is_best_record_period()
+        return self.test_reward_tracker.is_best_record_period()

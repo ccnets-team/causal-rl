@@ -48,11 +48,11 @@ class RLTuneHelper:
         load_trainer(self.parent.trainer, self.recorder.save_path)
 
     def get_test_episode_counts(self):
-        return self.recorder.test_tracker.get_episode_counts()
+        return self.recorder.test_reward_tracker.get_episode_counts()
 
     def add_train_metrics(self, train_data):
         """Add training metrics to the recorder."""
-        self.recorder.metrics_tracker.add_step(train_data)
+        self.recorder.metrics_tracker.add_metrics(train_data)
 
     def init_step(self, step):
         """Initializes the training/testing step."""        
@@ -71,17 +71,13 @@ class RLTuneHelper:
         """Records environment transitions."""        
         self.recorder.record_trajectories(multi_env_trajectories, training=training)
 
-    def should_update_strategy(self, step: int) -> bool:
+    def should_update_strategy(self, samples, step: int) -> bool:
         """Checks if the strategy should be updated."""
-        return (step % self.train_interval == 0) and self.use_normalizer
-    
-    def should_reset_memory(self) -> bool:
-        """Checks if the memory should be reset."""
-        return self.parent.memory.get_total_data_points() >= self.buffer_size
+        return samples is not None and (step % self.train_interval == 0) and self.use_normalizer
 
-    def should_train_step(self, step: int) -> bool:
+    def should_train_step(self, samples, step: int) -> bool:
         """Checks if the model should be trained on the current step."""
-        return (step % self.train_interval == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
+        return samples is not None and (step % self.train_interval == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
 
     # Private Helpers
     def _initialize_training_parameters(self):

@@ -33,9 +33,6 @@ class GymEnvWrapper(AgentExperienceCollector):
             self.action_low = env_config.action_low
             self.action_high = env_config.action_high
         
-        if use_graphics:
-            self.time_scale = 1.5
-
         env_name = env_config.env_name
         self.env_name = env_name
         self.test_env = test_env
@@ -46,7 +43,6 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, gpt_seq_length)
 
         self.agent_dec = np.ones(self.num_agents, dtype=bool)
-        self.agent_life = np.zeros(self.num_agents, dtype=bool)
 
         self.env = gym.make(env_name, render_mode='human') if use_graphics else gym.make_vec(env_name, num_envs=self.num_agents) 
         self.use_graphics = use_graphics
@@ -159,8 +155,6 @@ class GymEnvWrapper(AgentExperienceCollector):
         if self.use_graphics and np_done.any():
             self.reset_environment()
 
-        self.agent_life[~np_done] = True 
-        self.agent_life[np_done] = False
         return False
 
     def process_terminated_and_decision_agents(self, done: np.ndarray, next_obs: np.ndarray):

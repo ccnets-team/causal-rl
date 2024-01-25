@@ -79,10 +79,10 @@ class NormalizationUtils:
         if self.advantage_normalizer is None:
             normalized_advantage = advantage
         else:
-            _advantage = advantage.squeeze(-1).unsqueeze(1)
-            self.advantage_manager._update_normalizer(_advantage, padding_mask)
-            _normalized_advantage = self.advantage_manager._normalize_data(_advantage)
-            normalized_advantage = _normalized_advantage.squeeze(1).unsqueeze(-1)
+            reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
+            self.advantage_manager._update_normalizer(reshaped_advantage, padding_mask)
+            normalized_reshaped_advantage = self.advantage_manager._normalize_data(reshaped_advantage)
+            normalized_advantage = normalized_reshaped_advantage.squeeze(1).unsqueeze(-1)
         return normalized_advantage
 
     def normalize_trajectories(self, trajectories: BatchTrajectory):
