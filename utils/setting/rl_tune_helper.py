@@ -25,7 +25,6 @@ class RLTuneHelper:
             wandb_init(env_config, rl_params)
         self.use_wandb = use_wandb
         
-        self.use_normalizer = (rl_params.normalization.reward_normalizer) is not None or (rl_params.normalization.state_normalizer is not None) 
         
         self.print_interval = DEFAULT_PRINT_INTERVAL
         self.save_interval = DEFAULT_SAVE_INTERVAL
@@ -38,9 +37,13 @@ class RLTuneHelper:
         """Configures environments and other necessary parameters for training/testing."""
         self.use_training = training
         if training:
-            self._setup_training()
+            """Configures the environment and other parameters for training."""
+            self._ensure_train_environment_exists()
+            self._ensure_test_environment_exists()
+            self._ensure_memory_exists()
         else:
-            self._setup_testing()
+            """Configures the environment for testing."""
+            self._ensure_test_environment_exists()
 
     def load_model(self):
         """Loads the RL model."""
@@ -70,10 +73,6 @@ class RLTuneHelper:
         """Records environment transitions."""        
         self.recorder.record_trajectories(multi_env_trajectories, training=training)
 
-    def push_trajectories(self, multi_env_trajectories: MultiEnvTrajectories):
-        """Pushes trajectories to memory."""
-        self.parent.memory.push_trajectory_data(multi_env_trajectories)
-
     def should_update_strategy(self, step: int) -> bool:
         """Checks if the strategy should be updated."""
         return (step % self.train_interval == 0) and self.use_normalizer
@@ -94,23 +93,16 @@ class RLTuneHelper:
         self.batch_size = self.rl_params.batch_size
         self.replay_ratio = self.rl_params.replay_ratio
         self.train_interval = self.rl_params.train_interval
-        self.samples_per_step = self.rl_params.batch_size//self.replay_ratio
+        self.use_normalizer = (self.rl_params.normalization.reward_normalizer) is not None or (self.rl_params.normalization.state_normalizer is not None) 
+        
+        self.samples_per_step = self.batch_size//self.replay_ratio
         self.training_start_step = self.buffer_size//int(self.batch_size/self.replay_ratio) 
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_interval*self.batch_size))
-
-    def _setup_training(self):
-        """Configures the environment and other parameters for training."""
-        self._ensure_train_environment_exists()
-        self._ensure_test_environment_exists()
-        self._ensure_memory_exists()
-
-    def _setup_testing(self):
-        """Configures the environment for testing."""
-        self._ensure_test_environment_exists()
 
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
             self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.gpt_seq_length, self.parent.device)
+            
     def _ensure_test_environment_exists(self):
         if not self.parent.test_env:
             self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.gpt_seq_length, self.parent.device, self.use_graphics)

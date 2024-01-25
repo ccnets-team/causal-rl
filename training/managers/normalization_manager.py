@@ -3,7 +3,6 @@ from preprocessing.normalizer.running_mean_std import RunningMeanStd
 from preprocessing.normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
 from preprocessing.normalizer.hybrid_moving_mean_var import HybridMovingMeanVar
 
-import numpy as np
 from utils.structure.trajectories  import BatchTrajectory
 from training.trainer_utils import create_padding_mask_before_dones
 
@@ -49,14 +48,13 @@ class NormalizerBase:
             clip = self.clip_norm_range
             data = self.normalizer.normalize(data)
             data.clamp_(-clip, clip)
-
         return data
     
 class NormalizationUtils:
-    def __init__(self, env_config, normalization_params, max_seq_length, device):
-        self.state_manager = NormalizerBase(env_config.state_size, 'state_normalizer', normalization_params, device=device)
+    def __init__(self, state_size, normalization_params, seq_length, device):
+        self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, device=device)
         self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, device=device)
-        self.advantage_manager = NormalizerBase(max_seq_length, 'advantage_normalizer', normalization_params, device=device)
+        self.advantage_manager = NormalizerBase(seq_length, 'advantage_normalizer', normalization_params, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]

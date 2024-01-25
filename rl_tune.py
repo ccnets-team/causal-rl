@@ -64,6 +64,7 @@ class RLTune:
     def train_off_policy(self, step: int) -> None:
         """Train the model with off-policy algorithms."""
         samples = self.memory.sample_batch_trajectory()
+
         if self.helper.should_update_strategy(step):
             """Fetch samples and update strategy."""
             if samples is not None:
@@ -84,7 +85,7 @@ class RLTune:
         self.helper.record(multi_env_trajectories, training=training)
 
         if training:
-            self.helper.push_trajectories(multi_env_trajectories)
+            self.memory.push_trajectory_data(multi_env_trajectories)
 
         env.explore_env(self.trainer, training=training)
 

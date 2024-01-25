@@ -54,7 +54,6 @@ def configure_parameters(env_name: str, use_gym: bool = False) -> Tuple[Optional
     env_name, num_agents, obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high = env_config
 
     rl_params = RLParameters()
-    apply_configuration_to_parameters(env_specific_args, env_name, rl_params)
 
     min_samples_per_step = calculate_min_samples_per_step(rl_params.training)
     if use_gym:

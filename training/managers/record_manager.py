@@ -46,7 +46,6 @@ class RecordManager:
 
     def compute_records(self):
         self.init_logger()
-        
         self.test_reward_per_step = self.test_tracker.compute_average()
         self.train_reward_per_step = self.train_tracker.compute_average()
         
