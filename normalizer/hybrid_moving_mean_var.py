@@ -30,8 +30,8 @@ class HybridMovingMeanVar:
 
         # Convert x to torch.float64 for high precision
         x = x.to(dtype=torch.float64)
-        new_adding = int(batch_size*sequence_length)
-        new_count = self.count + new_adding
+        total_elements = int(batch_size*sequence_length)
+        new_count = self.count + total_elements
 
         if not self.initialized:
             # Compute the mean and variance across both batch and sequence dimensions
@@ -44,7 +44,7 @@ class HybridMovingMeanVar:
         
         # Compute weights for each time step and expand them to match x's shape
         exponential_weights = self.alpha * ((1 - self.alpha) ** torch.arange(sequence_length-1, -1, -1, device=self.device))
-        exponential_weights = exponential_weights.view(1, sequence_length, 1).expand_as(x)/batch_size
+        exponential_weights = exponential_weights.view(1, sequence_length, 1).expand_as(x)/total_elements
 
         # Compute an adjustment factor based on batch size and total count
         hybrid_weights = exponential_weights + (1 / new_count)
@@ -55,8 +55,8 @@ class HybridMovingMeanVar:
         # Apply padding mask
         if padding_mask is not None:
             weights = hybrid_weights * padding_mask.to(dtype=x.dtype)
-            missing = new_adding - padding_mask.sum()
-            new_count -= missing
+            missing_elements = total_elements - padding_mask.sum()
+            new_count -= missing_elements
         else:
             weights = hybrid_weights
 
