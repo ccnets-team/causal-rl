@@ -100,7 +100,7 @@ class NormalizationUtils:
             # Batch normalization - normalizing based on batch mean and std
             batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
             batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
-            normalized_advantage = advantage.size(0) * (advantage - batch_mean_estimated) / batch_std_estimated
+            normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
         else:
             reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
             self.advantage_manager._update_normalizer(reshaped_advantage, padding_mask)
