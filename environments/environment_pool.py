@@ -13,6 +13,7 @@ class EnvironmentPool:
         w_id += 100
         self.device = device
         self.gpt_seq_length = gpt_seq_length
+        self.sample_seq_gradient = 10.0
          
         if env_config.env_type == "gym":
             self.env_list = [GymEnvWrapper(env_config, gpt_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
@@ -45,13 +46,21 @@ class EnvironmentPool:
 
     def sample_sequence_length(self, batch_size, min_seq_length, max_seq_length):
         # Create an array of possible sequence lengths
-        min_seq_length = 1
         possible_lengths = np.arange(min_seq_length, max_seq_length + 1)
         
-        # Set the weights proportional to the sequence length
-        weights = possible_lengths / possible_lengths.sum()
+        # Calculate a linearly changing ratio across the sequence lengths
+        bias_ratio = np.arange(0, max_seq_length) / (max_seq_length - 1)
+        
+        # Apply the gradient weight to the ratio, starting from 1 when gradient weight is zero
+        weighted_gradient = bias_ratio * max(self.sample_seq_gradient-1, 0) + 1
+        
+        # Adjust the weights of sequence lengths based on the weighted gradient
+        gradient_biased_weights = possible_lengths * weighted_gradient
 
-        # Sample sequence lengths based on these weights
+        # Normalize the weights to sum to 1
+        weights = gradient_biased_weights / gradient_biased_weights.sum()
+
+        # Sample sequence lengths based on these normalized weights
         sampled_lengths = np.random.choice(possible_lengths, size=batch_size, p=weights)
         return sampled_lengths
     
