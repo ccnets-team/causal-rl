@@ -1,5 +1,6 @@
 import torch
 from normalizer.running_mean_std import RunningMeanStd
+from normalizer.running_abs_mean import RunningAbsMean
 from normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
 from normalizer.hybrid_moving_mean_var import HybridMovingMeanVar
 
@@ -25,6 +26,8 @@ class NormalizerBase:
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
             self.normalizer = RunningMeanStd(feature_size, device)
+        elif norm_type == "running_abs_mean":
+            self.normalizer = RunningAbsMean(feature_size, device)
         elif norm_type == "exponential_moving_mean_var":
             self.normalizer = ExponentialMovingMeanVar(feature_size, device, alpha = self.exponential_moving_alpha)
         elif norm_type == "hybrid_moving_mean_var":
