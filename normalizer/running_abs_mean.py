@@ -12,6 +12,7 @@ class RunningAbsMean:
             return self  # Do not update if the batch size is zero
         
         x = x.to(dtype=torch.float64)
+        x = x.view(-1, x.shape[-1]) # 3D -> 2D
         
         delta = x.abs().mean(dim=0) - self.abs_mean
         new_count = self.count + batch_size
