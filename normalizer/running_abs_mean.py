@@ -1,8 +1,9 @@
 import torch
 
 class RunningAbsMean:
-    def __init__(self, num_features, device):
+    def __init__(self, num_features, device, use_min_threshold=True):
         self.device = device
+        self.use_min_threshold = use_min_threshold
         self.abs_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.count = 0
 
@@ -24,13 +25,16 @@ class RunningAbsMean:
         return self
 
     def get_abs_mean(self):
-        return self.abs_mean
+        if self.use_min_threshold:
+            return torch.min(self.abs_mean + 1e-8, torch.ones_like(self.abs_mean))
+        else:
+            return self.abs_mean + 1e-8
 
     def normalize(self, x):
         if len(x) < 1 or self.count < 1:
             return x
         abs_mean = self.get_abs_mean().view(1, 1, -1)
-        normalized_x = x / (abs_mean + 1e-8)
+        normalized_x = x / abs_mean
         return normalized_x.to(dtype=x.dtype)
 
     def save(self, path):
