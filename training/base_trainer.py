@@ -21,8 +21,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
         # effectively balancing the influence of rewards from the start to the end of the sequence.
         # This scaling approach enables the value loss to be maintained around 0.5, preventing it from increasing or decreasing easily during training.
         # Such stabilization is crucial for maintaining a consistent training process and achieving convergence.
-        self.scaling_factors = torch.sum(self.gammas * self.lambdas, dim=1, keepdim=True).to(self.device) / 2
-
+        accumulative_factors = (self.gammas * self.lambdas).to(self.device)
+        scaling_cumsum = torch.cumsum(accumulative_factors, dim=1)
+        self.scaling_factors = scaling_cumsum.mean()
+        
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
          self.optimization_params, self.exploration_params, 
@@ -60,21 +62,17 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
 
         :param tensor: The input tensor to be reduced.
         :param mask: The mask tensor indicating the elements to consider in the reduction.
-        :reduction_type: Type of reduction to apply ('adaptive', 'batch', 'seq', 'all', or 'cross').
+        :reduction_type: Type of reduction to apply ('batch', 'seq', or 'all').
         :length_weight_exponent: The exponent used in adaptive reduction.
         :return: The reduced tensor.
         """
         if mask is not None:
             if self.reduction_type in ['batch', 'seq', 'all']:
                 return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
-            elif self.reduction_type == 'cross':
-                batch_dim_reduction = masked_tensor_reduction(tensor, mask, reduction="batch")/2
-                seq_dim_reduction = masked_tensor_reduction(tensor, mask, reduction="seq")/2
-                return torch.concat([batch_dim_reduction, seq_dim_reduction], dim=0)
             elif self.reduction_type == 'none':
                 return tensor[mask>0].flatten()
             else:
-                raise ValueError("Invalid reduction type. Choose 'adaptive', 'batch', 'seq', 'all', or 'cross'.")
+                raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
         else:
             if self.reduction_type == 'none':
                 return tensor
