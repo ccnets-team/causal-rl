@@ -51,7 +51,7 @@ class EnvironmentPool:
         bias_ratio = np.arange(0, max_seq_length + 1) / max_seq_length
         
         # Adjust the gradient weight based on the exploration rate
-        adjusted_gradient = bias_ratio[1:] / (exploration_rate + 1e-8)
+        adjusted_gradient = bias_ratio[1:] *max(1/(exploration_rate + 1e-8) - 1, 0) + 1
         
         # Adjust the weights of sequence lengths based on the adjusted gradient
         gradient_biased_weights = possible_lengths * adjusted_gradient
