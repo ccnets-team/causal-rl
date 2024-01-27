@@ -63,7 +63,6 @@ def wandb_init(env_config, rl_params):
     artifact = wandb.Artifact(f'{trainer_name}-{env_config.env_name}', type='model')
     artifact.add_dir(f'./saved/{env_config.env_name}/{trainer_name}', name="saved/")
     wandb.log_artifact(artifact)
-
     
 def wandb_end():
     if wandb is None:
@@ -74,6 +73,7 @@ def wandb_log_data(trainer, train_reward_per_step, test_reward_per_step, train_a
     if wandb is None:
         print("wandb is not installed. Skipping wandb_log_data.")
         return
+    epsilon = trainer.get_exploration_rate()
     learning_rate = trainer.get_lr()
 
     # Creating a dictionary to log scalar data efficiently
@@ -84,6 +84,7 @@ def wandb_log_data(trainer, train_reward_per_step, test_reward_per_step, train_a
         'Step/TrainReward': train_reward_per_step,
         "Step/Time": time_cost, 
         "Step/LearningRate": learning_rate,
+        "Step/ExplorationRate": epsilon
     }
 
     if metrics is not None:
