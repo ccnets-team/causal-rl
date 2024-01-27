@@ -13,7 +13,7 @@ class EnvironmentPool:
         w_id += 100
         self.device = device
         self.gpt_seq_length = gpt_seq_length
-        self.sample_seq_gradient = 10.0
+        self.sample_seq_gradient = 2.0
          
         if env_config.env_type == "gym":
             self.env_list = [GymEnvWrapper(env_config, gpt_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
