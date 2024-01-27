@@ -6,7 +6,7 @@ from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
-from .trainer_utils import calculate_lambda_returns, get_discount_sequence, masked_tensor_reduction, create_padding_mask_before_dones
+from .trainer_utils import calculate_lambda_returns, get_discount_sequence, masked_tensor_reduction
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -15,19 +15,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils(rl_params.max_steps)
-        self.gammas = get_discount_sequence(self.discount_factor, self.gpt_seq_length)
-        self.lambdas = get_discount_sequence(self.advantage_lambda, self.gpt_seq_length)
-        # Calculate the scaling factors by summing the product of gammas and lambdas across the sequence.
-        # This step aggregates the influence of both discounting (gammas) and temporal credit assignment (lambdas),
-        # yielding a cumulative weight that reflects the importance of each step in the sequence.
-        # the scale of the sum of normalized rewards, especially at the last sequence, to ensure a moderate scale of value loss.
-        # Moderating the scale of value loss is critical to prevent it from becoming too large or too small, which could
-        # destabilize the training process. By adjusting the scaling factor, we aim to maintain the value loss within a range
-        # that is conducive to stable and effective learning. This approach helps in achieving a balanced impact of rewards 
-        # across the sequence and is essential for consistent training progress and convergence towards optimal policies.
-        accumulative_factors = (self.gammas * self.lambdas).to(self.device)
-        self.scaling_factors = accumulative_factors.sum()
-        
+                
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
          self.optimization_params, self.exploration_params, 
@@ -56,10 +44,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
         training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
-    
-    def scale_rewards(self, rewards):
-        """Scales the given rewards by the scaling factors."""
-        return rewards / self.scaling_factors
     
     def select_tensor_reduction(self, tensor, mask=None):
         """
@@ -93,12 +77,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, padding_mask: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
-        scaled_rewards = self.scale_rewards(rewards)
         
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
             trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
-            expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
+            expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
             
             advantage = (expected_value - estimated_value)
             normalized_advantage = self.normalize_advantage(advantage)
