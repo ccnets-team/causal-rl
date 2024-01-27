@@ -74,6 +74,7 @@ class RLTune:
             self.trainer.normalize_trajectories(samples)
             train_data = self.trainer.train_model(samples)
             self.helper.add_train_metrics(train_data)
+        self.trainer.update_exploration_rate()
         
     # Environment Interaction
     def interact_environment(self, env, training=True):

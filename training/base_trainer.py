@@ -1,29 +1,32 @@
 import torch
 from training.managers.training_manager import TrainingManager 
 from training.managers.normalization_manager import NormalizationUtils 
+from training.managers.exploration_manager import ExplorationUtils 
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.trajectories  import BatchTrajectory
 from .trainer_utils import calculate_lambda_returns, get_discount_sequence, masked_tensor_reduction, create_padding_mask_before_dones
 
-class BaseTrainer(TrainingManager, NormalizationUtils):
+class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
         self._unpack_rl_params(rl_params)
         self._init_trainer_specific_params()
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
+        self._init_exploration_utils(rl_params.max_steps)
         self.gammas = get_discount_sequence(self.discount_factor, self.gpt_seq_length)
         self.lambdas = get_discount_sequence(self.advantage_lambda, self.gpt_seq_length)
         # Calculate the scaling factors by summing the product of gammas and lambdas across the sequence.
-        # The scaling factors are divided by 2 to scale the sum of normalized rewards to the midpoint of the GPT sequence length.
-        # This ensures that the cumulative effect of discounted rewards is centered around the average position in the sequence,
-        # effectively balancing the influence of rewards from the start to the end of the sequence.
-        # This scaling approach enables the value loss to be maintained around 0.5, preventing it from increasing or decreasing easily during training.
-        # Such stabilization is crucial for maintaining a consistent training process and achieving convergence.
+        # This step aggregates the influence of both discounting (gammas) and temporal credit assignment (lambdas),
+        # yielding a cumulative weight that reflects the importance of each step in the sequence.
+        # the scale of the sum of normalized rewards, especially at the last sequence, to ensure a moderate scale of value loss.
+        # Moderating the scale of value loss is critical to prevent it from becoming too large or too small, which could
+        # destabilize the training process. By adjusting the scaling factor, we aim to maintain the value loss within a range
+        # that is conducive to stable and effective learning. This approach helps in achieving a balanced impact of rewards 
+        # across the sequence and is essential for consistent training progress and convergence towards optimal policies.
         accumulative_factors = (self.gammas * self.lambdas).to(self.device)
-        scaling_cumsum = torch.cumsum(accumulative_factors, dim=1)
-        self.scaling_factors = scaling_cumsum.mean()
+        self.scaling_factors = accumulative_factors.sum()
         
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -39,6 +42,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils):
 
     def _init_normalization_utils(self, env_config, device):
         NormalizationUtils.__init__(self, env_config.state_size, self.normalization_params, self.gpt_seq_length, device)
+
+    def _init_exploration_utils(self,  max_steps):
+        ExplorationUtils.__init__(self, max_steps)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 

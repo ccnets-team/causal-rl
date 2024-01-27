@@ -13,7 +13,6 @@ class EnvironmentPool:
         w_id += 100
         self.device = device
         self.gpt_seq_length = gpt_seq_length
-        self.sample_seq_gradient = 2.0
          
         if env_config.env_type == "gym":
             self.env_list = [GymEnvWrapper(env_config, gpt_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
@@ -44,18 +43,18 @@ class EnvironmentPool:
         for env in self.env_list:
             env.step_environment()
 
-    def sample_sequence_length(self, batch_size, min_seq_length, max_seq_length):
+    def sample_sequence_length(self, batch_size, min_seq_length, max_seq_length, exploration_rate):
         # Create an array of possible sequence lengths
         possible_lengths = np.arange(min_seq_length, max_seq_length + 1)
         
         # Calculate a linearly changing ratio across the sequence lengths
-        bias_ratio = np.arange(0, max_seq_length) / (max_seq_length - 1)
+        bias_ratio = np.arange(0, max_seq_length + 1) / max_seq_length
         
-        # Apply the gradient weight to the ratio, starting from 1 when gradient weight is zero
-        weighted_gradient = bias_ratio * max(self.sample_seq_gradient-1, 0) + 1
+        # Adjust the gradient weight based on the exploration rate
+        adjusted_gradient = bias_ratio[1:] / (exploration_rate + 1e-8)
         
-        # Adjust the weights of sequence lengths based on the weighted gradient
-        gradient_biased_weights = possible_lengths * weighted_gradient
+        # Adjust the weights of sequence lengths based on the adjusted gradient
+        gradient_biased_weights = possible_lengths * adjusted_gradient
 
         # Normalize the weights to sum to 1
         weights = gradient_biased_weights / gradient_biased_weights.sum()
@@ -64,7 +63,7 @@ class EnvironmentPool:
         sampled_lengths = np.random.choice(possible_lengths, size=batch_size, p=weights)
         return sampled_lengths
     
-    def apply_effective_sequence_mask(self, padding_mask):
+    def apply_effective_sequence_mask(self, padding_mask, exploration_rate):
         """
         Applies an effective sequence mask to the given padding mask based on 
         the exploration rate and random sequence lengths.
@@ -72,7 +71,8 @@ class EnvironmentPool:
         min_seq_length = 1
         max_seq_length = self.gpt_seq_length
         batch_size = padding_mask.size(0)
-        random_seq_lengths = self.sample_sequence_length(batch_size, min_seq_length, max_seq_length)
+        
+        random_seq_lengths = self.sample_sequence_length(batch_size, min_seq_length, max_seq_length, exploration_rate)
 
         effective_seq_length = torch.clamp(torch.tensor(random_seq_lengths, device=self.device), min_seq_length, max_seq_length)
 
@@ -92,7 +92,8 @@ class EnvironmentPool:
 
         # In your training loop or function
         if training:
-            self.apply_effective_sequence_mask(padding_mask)
+            exploration_rate = trainer.get_exploration_rate()
+            self.apply_effective_sequence_mask(padding_mask, exploration_rate)
                         
         state_tensor = trainer.normalize_state(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
