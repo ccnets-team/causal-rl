@@ -13,7 +13,13 @@ class EnvironmentPool:
         w_id += 100
         self.device = device
         self.gpt_seq_length = gpt_seq_length
-         
+        # seq_exploit_factor adjusts the preference for longer sequence lengths during exploration,
+        # with higher values promoting the selection of longer sequences. This factor fine-tunes
+        # the balance between exploration and exploitation, ensuring that the learning process
+        # is optimized for environments that require detailed sequence analysis for better
+        # policy development and value estimation.
+        self.seq_exploit_factor  = 2.0
+        
         if env_config.env_type == "gym":
             self.env_list = [GymEnvWrapper(env_config, gpt_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
                 for i in range(worker_num)]
@@ -48,14 +54,11 @@ class EnvironmentPool:
         possible_lengths = np.arange(min_seq_length, max_seq_length + 1)
         
         # Calculate a linearly changing ratio across the sequence lengths
-        bias_ratio = np.arange(0, max_seq_length + 1) / max_seq_length
+        bias_ratio = possible_lengths/max_seq_length
         
         # Adjust the gradient weight based on the exploration rate
-        adjusted_gradient = bias_ratio[1:] *max(1/(exploration_rate + 1e-8) - 1, 0) + 1
+        gradient_biased_weights = np.power(bias_ratio, self.seq_exploit_factor*(1 - exploration_rate))
         
-        # Adjust the weights of sequence lengths based on the adjusted gradient
-        gradient_biased_weights = possible_lengths * adjusted_gradient
-
         # Normalize the weights to sum to 1
         weights = gradient_biased_weights / gradient_biased_weights.sum()
 
