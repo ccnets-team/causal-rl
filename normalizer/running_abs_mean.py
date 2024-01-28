@@ -21,9 +21,9 @@ class RunningAbsMean:
             new_adding = mask.sum(dim = (0, 1))
             weighted_x = mask * x.abs()  # Apply mask to x if padding mask is provided
                 
-        delta = torch.sum(weighted_x, dim=(0, 1))/new_adding - self.abs_mean
+        delta = torch.where(new_adding > 0, torch.sum(weighted_x, dim=(0, 1))/new_adding, torch.zeros_like(new_adding))- self.abs_mean
         new_count = self.count + new_adding
-        new_mean = self.abs_mean + delta * new_adding / new_count
+        new_mean = self.abs_mean + delta * torch.where(new_adding > 0, new_adding / new_count, torch.zeros_like(new_adding))
 
         self.abs_mean = new_mean
         self.count = new_count
