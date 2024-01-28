@@ -5,6 +5,7 @@ class RunningAbsMean:
         self.device = device
         self.abs_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
+        self.num_features = num_features
 
     def update(self, x, padding_mask=None):
         batch_size, seq_len, feature_size = x.size()
@@ -13,7 +14,7 @@ class RunningAbsMean:
         
         x = x.to(dtype=torch.float64)
         if padding_mask is None:
-            new_adding = batch_size * seq_len
+            new_adding = batch_size * seq_len * torch.ones_like(self.count)
             weighted_x = x.abs()  # Use x directly if there is no padding mask
         else:
             mask = padding_mask.to(dtype=torch.float64)
@@ -30,13 +31,13 @@ class RunningAbsMean:
         return self
 
     def get_abs_mean(self):
-        return self.abs_mean + 1e-8
+        return self.abs_mean
 
     def normalize(self, x):
         if len(x) < 1 or torch.sum(self.count < 1) > 0:
             return x
-        abs_mean = self.get_abs_mean().view(1, 1, -1)
-        normalized_x = x / abs_mean
+        abs_mean = self.get_abs_mean().view(1, 1, self.num_features)
+        normalized_x = x / (abs_mean + 1e-8)
         return normalized_x.to(dtype=x.dtype)
 
     def save(self, path):
