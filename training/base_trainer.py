@@ -15,7 +15,32 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils(rl_params.max_steps)
-                
+        self.gammas = get_discount_sequence(self.discount_factor, self.gpt_seq_length)
+        self.lambdas = get_discount_sequence(self.advantage_lambda, self.gpt_seq_length)
+
+        # Scaling Factor Calculation:
+        # The scaling factors combine discount rates (gammas) and bootstrapping rates (lambdas)
+        # across each sequence. This method captures both discounting and temporal credit assignment effects,
+        # resulting in a cumulative metric that mirrors the variance in normalized rewards' sum.
+        # Averaging these factors ensures reward sums are uniformly scaled across sequences,
+        # making the scale invariant to gamma, lambda, and sequence length changes.
+
+        # Importance of Moderate Value Loss:
+        # Maintaining value loss within a moderate range is crucial to avoid destabilizing the learning process.
+        # Extremely high or low value loss can undermine training stability. Our strategy aims to balance
+        # the impact of rewards across sequences, essential for consistent progress and policy convergence.
+
+        # Fixed Scaling and Training Stability:
+        # We use fixed scaling for rewards, suitable for each sequence's varying reward sums. This method is reinforced
+        # by loss computation that reduces over the batch dimension, treating sequences independently.
+        # Consequently, adaptive reward scaling at the sequence level is unnecessary, streamlining the learning process.
+        # It provides a streamlined and robust learning framework,
+        # emphasizing the algorithm's ability to maintain performance and achieve optimal policy convergence
+        # without needing sequence-specific reward scaling adjustments.
+        accumulative_factors = (self.gammas * self.lambdas).to(self.device)
+        scaling_cumsum = torch.cumsum(accumulative_factors, dim=1)
+        self.scaling_factors = scaling_cumsum.mean()
+
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
          self.optimization_params, self.exploration_params, 
@@ -44,6 +69,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
         training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
         return training_start_step
+    
+    def scale_rewards(self, rewards):
+        """Scales the given rewards by the scaling factors."""
+        return rewards / self.scaling_factors
     
     def select_tensor_reduction(self, tensor, mask=None):
         """
@@ -77,11 +106,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, padding_mask: torch.Tensor):
         """Compute the advantage and expected value."""
         states, actions, rewards, next_states, dones = trajectory 
+        scaled_rewards = self.scale_rewards(rewards)
         
         with torch.no_grad():
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
             trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
-            expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
+            expected_value = calculate_lambda_returns(trajectory_values, scaled_rewards, dones, self.discount_factor, self.advantage_lambda)
             
             advantage = (expected_value - estimated_value)
             normalized_advantage = self.normalize_advantage(advantage)
