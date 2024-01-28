@@ -8,20 +8,32 @@ class RunningMeanStd:
         self.count = 0
 
     def update(self, x, padding_mask=None):
-        batch_size = x.size(0)
+        batch_size, seq_len, feature_size = x.size()
         if batch_size == 0:
             return self  # Do not update if the batch size is zero
-        
+
+        new_adding = 0
         x = x.to(dtype=torch.float64)
-        x = x.view(-1, x.shape[-1]) # 3D -> 2D
-            
+
+        if padding_mask is None:
+            new_adding = batch_size * seq_len
+            x = x.view(-1, feature_size)  # Use x directly if there is no padding mask
+        else:
+            mask = padding_mask.to(dtype=torch.float64)
+            # Ensure the mask is expanded to match x's dimensions for masking
+            expanded_mask = mask.expand_as(x)
+            # Filter x by the mask and then flatten; only include values where mask > 0
+            x = x[expanded_mask > 0]
+            x = x.view(-1, feature_size)
+            new_adding = mask.sum()
+                    
         delta = x.mean(dim=0) - self.mean
-        new_count = self.count + batch_size
-        new_mean = self.mean + delta * batch_size / new_count
+        new_count = self.count + new_adding
+        new_mean = self.mean + delta * new_adding / new_count
 
         m_a = self.var * self.count
-        m_b = x.var(dim=0, unbiased=False) * batch_size
-        M2 = m_a + m_b + delta ** 2 * self.count * batch_size / new_count
+        m_b = x.var(dim=0, unbiased=False) * new_adding
+        M2 = m_a + m_b + delta ** 2 * self.count * new_adding / new_count
 
         self.mean = new_mean
         self.var = M2 / new_count

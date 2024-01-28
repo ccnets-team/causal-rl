@@ -1,23 +1,28 @@
 import torch
 
 class RunningAbsMean:
-    def __init__(self, num_features, device, use_min_threshold=True):
+    def __init__(self, num_features, device):
         self.device = device
-        self.use_min_threshold = use_min_threshold
         self.abs_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
-        self.count = 0
+        self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
 
     def update(self, x, padding_mask=None):
-        batch_size = x.size(0)
+        batch_size, seq_len, feature_size = x.size()
         if batch_size == 0:
             return self  # Do not update if the batch size is zero
         
         x = x.to(dtype=torch.float64)
-        x = x.view(-1, x.shape[-1]) # 3D -> 2D
-        
-        delta = x.abs().mean(dim=0) - self.abs_mean
-        new_count = self.count + batch_size
-        new_mean = self.abs_mean + delta * batch_size / new_count
+        if padding_mask is None:
+            new_adding = batch_size * seq_len
+            weighted_x = x.abs()  # Use x directly if there is no padding mask
+        else:
+            mask = padding_mask.to(dtype=torch.float64)
+            new_adding = mask.sum(dim = (0, 1))
+            weighted_x = mask * x.abs()  # Apply mask to x if padding mask is provided
+                
+        delta = torch.sum(weighted_x, dim=(0, 1))/new_adding - self.abs_mean
+        new_count = self.count + new_adding
+        new_mean = self.abs_mean + delta * new_adding / new_count
 
         self.abs_mean = new_mean
         self.count = new_count
@@ -25,13 +30,10 @@ class RunningAbsMean:
         return self
 
     def get_abs_mean(self):
-        if self.use_min_threshold:
-            return torch.min(self.abs_mean + 1e-8, torch.ones_like(self.abs_mean))
-        else:
-            return self.abs_mean + 1e-8
+        return self.abs_mean + 1e-8
 
     def normalize(self, x):
-        if len(x) < 1 or self.count < 1:
+        if len(x) < 1 or torch.sum(self.count < 1) > 0:
             return x
         abs_mean = self.get_abs_mean().view(1, 1, -1)
         normalized_x = x / abs_mean

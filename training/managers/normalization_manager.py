@@ -106,7 +106,11 @@ class NormalizationUtils:
             normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
         else:
             reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
-            self.advantage_manager._update_normalizer(reshaped_advantage, padding_mask)
+            if padding_mask is None:
+                reshaped_padding_mask = None
+            else:
+                reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
+            self.advantage_manager._update_normalizer(reshaped_advantage, reshaped_padding_mask)
             normalized_reshaped_advantage = self.advantage_manager._normalize_feature(reshaped_advantage)
             normalized_advantage = normalized_reshaped_advantage.squeeze(1).unsqueeze(-1)
         return normalized_advantage
