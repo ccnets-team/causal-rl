@@ -41,12 +41,6 @@ class ExplorationUtils:
         self.decay_mode = "linear"
         self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, max_steps, self.decay_percentage)
         self.exploration_rate = self.initial_exploration
-
-        # The `max_exploit_factor` determines the extent to which longer sequences are favored during the exploration phase of training. 
-        # A higher value of `max_exploit_factor` significantly increases the likelihood of selecting longer sequences as the exploration rate decreases, 
-        # pushing the model towards exploitation by focusing on more extended sequences. This parameter is essential for tailoring the exploration-exploitation 
-        # balance, especially in environments where longer sequences provide more information for policy development and value estimation. 
-        # It enables the model to transition smoothly from initial exploration to focused exploitation, enhancing learning outcomes.
         self.boltzmann_exploration = BoltzmannExploration()
         
     def update_exploration_rate(self):
@@ -72,7 +66,6 @@ class ExplorationUtils:
         # Sample sequence lengths based on Boltzmann probabilities
         sampled_indices = torch.multinomial(probs, batch_size, replacement=True)
         sampled_lengths = possible_lengths[sampled_indices]
-        print(sampled_lengths)
         return sampled_lengths
     
     def apply_exploration_masking(self, padding_mask):
