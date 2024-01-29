@@ -130,7 +130,7 @@ class CausalRLHelper:
         
     def _print_step_details(self, step, metrics):
         """Prints detailed information about the current step."""
-        print_step(self.parent.trainer, self.parent.memory, step, time.time() - self.recorder.pivot_time)
+        print_step(self.parent.trainer, self.parent.memory, step, time.time() - self.recorder.pivot_time, self.max_steps)
         print_metrics(metrics[4])
         print_scores(*metrics[:4])
         
