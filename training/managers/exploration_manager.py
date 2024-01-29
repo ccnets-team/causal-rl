@@ -28,12 +28,12 @@ class ExplorationUtils:
         self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, max_steps, self.decay_percentage)
         self.exploration_rate = self.initial_exploration
 
-        # seq_exploit_factor adjusts the preference for longer sequence lengths during exploration,
-        # with higher values promoting the selection of longer sequences. This factor fine-tunes
-        # the balance between exploration and exploitation, ensuring that the learning process
-        # is optimized for environments that require detailed sequence analysis for better
-        # policy development and value estimation.
-        self.seq_exploit_factor  = 1.0
+        # The `max_exploit_factor` determines the extent to which longer sequences are favored during the exploration phase of training. 
+        # A higher value of `max_exploit_factor` significantly increases the likelihood of selecting longer sequences as the exploration rate decreases, 
+        # pushing the model towards exploitation by focusing on more extended sequences. This parameter is essential for tailoring the exploration-exploitation 
+        # balance, especially in environments where longer sequences provide more information for policy development and value estimation. 
+        # It enables the model to transition smoothly from initial exploration to focused exploitation, enhancing learning outcomes.
+        self.max_exploit_factor = 10.0
         
     def update_exploration_rate(self):
         if self.decay_mode == "linear":
@@ -45,20 +45,29 @@ class ExplorationUtils:
         return self.exploration_rate
         
     def sample_dynamic_sequence_lengths(self, batch_size, min_seq_length, max_seq_length, exploration_rate):
+        """
+        Dynamically samples sequence lengths based on the current exploration rate, leveraging the `max_exploit_factor` to adjust the preference 
+        towards longer sequences as exploration diminishes. Initially, when exploration is high, sequence lengths are sampled more uniformly, allowing the model 
+        to explore a variety of sequence lengths broadly. As exploration decreases, the method increasingly biases the sampling towards longer sequences, 
+        enhancing the model's ability to exploit its accumulated knowledge by focusing on more extended and potentially informative sequences. 
+        This dynamic adjustment of sequence length sampling is instrumental in optimizing the model's performance over time, ensuring it can adapt its focus 
+        based on the ongoing exploration-exploitation trade-off.
+        """
         # Create an array of possible sequence lengths
         possible_lengths = np.arange(min_seq_length, max_seq_length + 1)
         
         # Calculate a linearly changing ratio across the sequence lengths
-        bias_ratio = possible_lengths/max_seq_length
+        bias_ratio = np.arange(0, max_seq_length) / (max_seq_length - 1)
         
         # Adjust the gradient weight based on the exploration rate
-        gradient_biased_weights = np.power(bias_ratio, 1 + self.seq_exploit_factor*(1 - exploration_rate))
+        gradient_biased_weights = possible_lengths * (1 + bias_ratio * (self.max_exploit_factor - 1) * (1 - exploration_rate))
         
         # Normalize the weights to sum to 1
         weights = gradient_biased_weights / gradient_biased_weights.sum()
 
         # Sample sequence lengths based on these normalized weights
         sampled_lengths = np.random.choice(possible_lengths, size=batch_size, p=weights)
+        
         return sampled_lengths
 
     def apply_exploration_masking(self, padding_mask):
