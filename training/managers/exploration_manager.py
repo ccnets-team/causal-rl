@@ -1,5 +1,5 @@
-import numpy as np
 import torch
+import math
 
 def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, decay_percentage):
     decay_steps = decay_percentage * max_steps
@@ -9,6 +9,20 @@ def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, de
     decay_steps = decay_percentage * max_steps
     return (min_exploration / initial_exploration) ** (1/decay_steps)
 
+class BoltzmannExploration:
+    def __init__(self):
+        self.tau = 1.0
+        self.min_temperature = 0.01
+        # Adjusted decay rate as per the derived formula
+        self.decay_rate = -math.log(0.01)
+            
+    def apply(self, x, exploration_rate):
+        # Computing temperature based on the adjusted decay rate
+        temperature = max(self.tau * math.exp(-self.decay_rate * (1 - exploration_rate)), self.min_temperature)
+        # Assuming x has some specific use and computation. Placeholder for actual computation with x.
+        boltzmann_probs = x / temperature
+        return boltzmann_probs
+    
 class ExplorationUtils:
     def __init__(self, max_steps, device):
         self.device = device
@@ -33,7 +47,7 @@ class ExplorationUtils:
         # pushing the model towards exploitation by focusing on more extended sequences. This parameter is essential for tailoring the exploration-exploitation 
         # balance, especially in environments where longer sequences provide more information for policy development and value estimation. 
         # It enables the model to transition smoothly from initial exploration to focused exploitation, enhancing learning outcomes.
-        self.max_exploit_factor = 10.0
+        self.boltzmann_exploration = BoltzmannExploration()
         
     def update_exploration_rate(self):
         if self.decay_mode == "linear":
@@ -44,32 +58,23 @@ class ExplorationUtils:
     def get_exploration_rate(self):
         return self.exploration_rate
         
-    def sample_dynamic_sequence_lengths(self, batch_size, min_seq_length, max_seq_length, exploration_rate):
-        """
-        Dynamically samples sequence lengths based on the current exploration rate, leveraging the `max_exploit_factor` to adjust the preference 
-        towards longer sequences as exploration diminishes. Initially, when exploration is high, sequence lengths are sampled more uniformly, allowing the model 
-        to explore a variety of sequence lengths broadly. As exploration decreases, the method increasingly biases the sampling towards longer sequences, 
-        enhancing the model's ability to exploit its accumulated knowledge by focusing on more extended and potentially informative sequences. 
-        This dynamic adjustment of sequence length sampling is instrumental in optimizing the model's performance over time, ensuring it can adapt its focus 
-        based on the ongoing exploration-exploitation trade-off.
-        """
-        # Create an array of possible sequence lengths
-        possible_lengths = np.arange(min_seq_length, max_seq_length + 1)
+    def sample_dynamic_sequence_lengths(self, batch_size, min_seq_length, max_seq_length):
+        # Dynamically samples sequence lengths based on the current exploration rate
+        possible_lengths = torch.arange(min_seq_length, max_seq_length + 1).to(self.device)
         
-        # Calculate a linearly changing ratio across the sequence lengths
-        bias_ratio = np.arange(0, max_seq_length) / (max_seq_length - 1)
+        sequence_ratios = possible_lengths/max_seq_length
         
-        # Adjust the gradient weight based on the exploration rate
-        gradient_biased_weights = possible_lengths * (1 + bias_ratio * (self.max_exploit_factor - 1) * (1 - exploration_rate))
+        # Apply Boltzmann exploration to adjust the temperature
+        boltzmann_probs = self.boltzmann_exploration.apply(sequence_ratios, self.exploration_rate)
         
-        # Normalize the weights to sum to 1
-        weights = gradient_biased_weights / gradient_biased_weights.sum()
-
-        # Sample sequence lengths based on these normalized weights
-        sampled_lengths = np.random.choice(possible_lengths, size=batch_size, p=weights)
+        probs = torch.softmax(boltzmann_probs, dim=-1)
         
+        # Sample sequence lengths based on Boltzmann probabilities
+        sampled_indices = torch.multinomial(probs, batch_size, replacement=True)
+        sampled_lengths = possible_lengths[sampled_indices]
+        print(sampled_lengths)
         return sampled_lengths
-
+    
     def apply_exploration_masking(self, padding_mask):
         """
         Applies an effective sequence mask to the given padding mask based on 
@@ -77,11 +82,10 @@ class ExplorationUtils:
         """
         batch_size, max_seq_length = padding_mask.size()
         min_seq_length = 1
-        exploration_rate = self.exploration_rate
         
-        random_seq_lengths = self.sample_dynamic_sequence_lengths(batch_size, min_seq_length, max_seq_length, exploration_rate)
+        random_seq_lengths = self.sample_dynamic_sequence_lengths(batch_size, min_seq_length, max_seq_length)
 
-        effective_seq_length = torch.clamp(torch.tensor(random_seq_lengths, device=self.device), min_seq_length, max_seq_length)
+        effective_seq_length = torch.clamp(random_seq_lengths, min_seq_length, max_seq_length)
 
         padding_seq_length = max_seq_length - effective_seq_length
         # Create a range tensor and apply the mask
