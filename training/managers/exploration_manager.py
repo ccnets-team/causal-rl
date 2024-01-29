@@ -56,10 +56,10 @@ class ExplorationUtils:
         # Dynamically samples sequence lengths based on the current exploration rate
         possible_lengths = torch.arange(min_seq_length, max_seq_length + 1).to(self.device)
         
-        sequence_ratios = possible_lengths/max_seq_length
+        sequence_probs = possible_lengths/possible_lengths.sum()
         
         # Apply Boltzmann exploration to adjust the temperature
-        boltzmann_probs = self.boltzmann_exploration.apply(sequence_ratios, self.exploration_rate)
+        boltzmann_probs = self.boltzmann_exploration.apply(sequence_probs, self.exploration_rate)
         
         probs = torch.softmax(boltzmann_probs, dim=-1)
         
