@@ -17,7 +17,7 @@ from utils.structure.trajectories  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from training.trainer_utils import create_padding_mask_before_dones
         
-class CausalRL(BaseTrainer):
+class CausalTrainer(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
     def __init__(self, env_config, rl_params, device):
@@ -33,7 +33,7 @@ class CausalRL(BaseTrainer):
         self.revEnv = RevEnv(rev_env_network, env_config, network_params.rev_env_params).to(device)
         self.target_critic = copy.deepcopy(self.critic) 
 
-        super(CausalRL, self).__init__(env_config, rl_params, 
+        super(CausalTrainer, self).__init__(env_config, rl_params, 
                                         networks = [self.critic, self.actor, self.revEnv], \
                                         target_networks =[self.target_critic, None, None], \
                                         device = device

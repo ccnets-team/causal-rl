@@ -1,11 +1,11 @@
 from tqdm.notebook import tqdm
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from utils.setting.rl_tune_helper import RLTuneHelper
+from utils.setting.causal_rl_helper import CausalRLHelper
 from utils.wandb_logger import wandb_end
-from training.rl_trainer import RLTrainer
+from training.causal_trainer import CausalTrainer
 
-class RLTune:
+class CausalRL:
     """
     Class for tuning and training reinforcement learning models using a specified Trainer.
     """
@@ -19,11 +19,11 @@ class RLTune:
             use_print (bool, optional): Whether to print training/testing logs. Default is False.
         """
         
-        self.trainer = RLTrainer.create(env_config, rl_params, device)
+        self.trainer = CausalTrainer(env_config, rl_params, device)
         self.device = device
         self.max_steps = rl_params.max_steps
         self.train_env, self.test_env, self.memory = None, None, None
-        self.helper = RLTuneHelper(self, env_config, rl_params, use_graphics, use_print, use_wandb)
+        self.helper = CausalRLHelper(self, env_config, rl_params, use_graphics, use_print, use_wandb)
 
     # Context Management
     def __enter__(self):

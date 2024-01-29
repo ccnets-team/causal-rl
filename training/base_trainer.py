@@ -19,8 +19,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
-         self.optimization_params, self.exploration_params, 
-         self.memory_params, self.normalization_params) = rl_params
+         self.optimization_params, self.normalization_params) = rl_params
 
     def _init_training_manager(self, networks, target_networks, device):
         training_start_step = self._compute_training_start_step()

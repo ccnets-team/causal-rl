@@ -1,4 +1,3 @@
-
 import time
 from environments.environment_pool import EnvironmentPool
 from utils.init import set_seed
@@ -13,7 +12,7 @@ import logging
 DEFAULT_PRINT_INTERVAL = 100
 DEFAULT_SAVE_INTERVAL = 1000
 
-class RLTuneHelper:
+class CausalRLHelper:
     def __init__(self, parent, env_config, rl_params, use_graphics, use_print, use_wandb):
         trainer_name = 'causal_rl'
         self.recorder = RecordManager(trainer_name, env_config, rl_params)
