@@ -26,10 +26,10 @@ class RecordManager:
         self.train_accumulative_rewards = -np.inf
         self.test_accumulative_rewards = -np.inf
 
-        self.tracking_interval = int(rl_params.memory.buffer_size/env_config.samples_per_step) 
+        self.tracking_interval = int(rl_params.buffer_size/env_config.samples_per_step) 
         self.pivot_time = None
         self.time_cost = None
-        self.max_steps = rl_params.exploration.max_steps
+        self.max_steps = rl_params.max_steps
 
         self.metrics_tracker = MetricsTracker(self.tracking_interval)
         self.train_reward_tracker = RewardTracker(self.tracking_interval)

@@ -24,7 +24,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def _init_training_manager(self, networks, target_networks, device):
         training_start_step = self._compute_training_start_step()
-        total_iterations = max(self.exploration_params.max_steps - training_start_step, 0)//self.training_params.train_interval
+        total_iterations = max(self.training_params.max_steps - training_start_step, 0)//self.training_params.train_interval
         TrainingManager.__init__(self, networks, target_networks, self.optimization_params.lr, self.optimization_params.min_lr, 
                                  self.optimization_params.clip_grad_range, self.optimization_params.tau, total_iterations, self.optimization_params.scheduler_type)
         self.device = device
@@ -33,7 +33,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         NormalizationUtils.__init__(self, env_config.state_size, self.normalization_params, self.gpt_seq_length, device)
 
     def _init_exploration_utils(self,  max_steps):
-        ExplorationUtils.__init__(self, max_steps)
+        ExplorationUtils.__init__(self, max_steps, self.device)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
@@ -43,7 +43,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def _compute_training_start_step(self):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
-        training_start_step = self.memory_params.buffer_size // int(batch_size_ratio)
+        training_start_step = self.training_params.buffer_size // int(batch_size_ratio)
         return training_start_step
     
     def scale_normalized_rewards(self, rewards):

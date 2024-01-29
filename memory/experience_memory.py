@@ -6,7 +6,7 @@ from utils.structure.trajectories import BatchTrajectory, MultiEnvTrajectories
 from memory.standard_buffer import StandardBuffer
 
 class ExperienceMemory:
-    def __init__(self, env_config, training_params, algorithm_params, memory_params, device):
+    def __init__(self, env_config, training_params, algorithm_params, device):
         self.device = device
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
@@ -16,7 +16,7 @@ class ExperienceMemory:
         self.batch_size = training_params.batch_size
 
         # Capacity calculation now in a separate method for clarity
-        self.capacity_per_agent = self._calculate_capacity_per_agent(memory_params.buffer_size)
+        self.capacity_per_agent = self._calculate_capacity_per_agent(training_params.buffer_size)
 
         # Buffer initialization now in a separate method for clarity
         self.multi_buffers = self._initialize_buffers()

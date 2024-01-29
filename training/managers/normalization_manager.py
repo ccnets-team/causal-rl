@@ -1,8 +1,6 @@
 import torch
 from normalizer.running_mean_std import RunningMeanStd
 from normalizer.running_abs_mean import RunningAbsMean
-from normalizer.exponential_moving_mean_var import ExponentialMovingMeanVar
-from normalizer.hybrid_moving_mean_var import HybridMovingMeanVar
 
 from utils.structure.trajectories  import BatchTrajectory
 from training.trainer_utils import create_padding_mask_before_dones
@@ -14,24 +12,18 @@ TRANSITION_REWARD_IDX = 2
 REWARD_SIZE = 1
 
 CLIP_NORM_RANGE = 10.0
-EXPONENTIAL_MOVING_ALPHA = 1e-4
 
 class NormalizerBase:
     def __init__(self, feature_size, norm_type_key, normalization_params, device):
         self.normalizer = None
         self.feature_size = feature_size
         self.clip_norm_range = CLIP_NORM_RANGE  # The range within which normalized values are clipped, preventing excessively high normalization values.
-        self.exponential_moving_alpha = EXPONENTIAL_MOVING_ALPHA  # Alpha value for exponential moving average, used in 'exponential_moving_mean_var' normalizer to determine weighting of recent data.
 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
             self.normalizer = RunningMeanStd(feature_size, device)
         elif norm_type == "running_abs_mean":
             self.normalizer = RunningAbsMean(feature_size, device)
-        elif norm_type == "exponential_moving_mean_var":
-            self.normalizer = ExponentialMovingMeanVar(feature_size, device, alpha = self.exponential_moving_alpha)
-        elif norm_type == "hybrid_moving_mean_var":
-            self.normalizer = HybridMovingMeanVar(feature_size, device, alpha = self.exponential_moving_alpha)
             
         self.device = device
                     
@@ -71,10 +63,10 @@ class NormalizationUtils:
     def get_advantage_normalizer(self):
         return self.advantage_manager.normalizer
             
-    def normalize_state(self, state):
+    def normalize_states(self, state):
         return self.state_manager._normalize_feature(state)
 
-    def normalize_reward(self, reward):
+    def normalize_rewards(self, reward):
         return self.reward_manager._normalize_feature(reward)
 
     def normalize_advantage(self, advantage, padding_mask=None):
@@ -116,9 +108,9 @@ class NormalizationUtils:
         return normalized_advantage
 
     def normalize_trajectories(self, trajectories: BatchTrajectory):
-        trajectories.state = self.normalize_state(trajectories.state)
-        trajectories.next_state = self.normalize_state(trajectories.next_state)
-        trajectories.reward = self.normalize_reward(trajectories.reward)
+        trajectories.state = self.normalize_states(trajectories.state)
+        trajectories.next_state = self.normalize_states(trajectories.next_state)
+        trajectories.reward = self.normalize_rewards(trajectories.reward)
         return trajectories
 
     def update_normalizer(self, trajectories: BatchTrajectory):
