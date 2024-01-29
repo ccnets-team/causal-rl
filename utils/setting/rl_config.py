@@ -19,7 +19,7 @@ class AlgorithmParameters:
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) or GAE (Generalized Advantage Estimation) lambda parameter for weighting advantages in policy optimization.
 
 class NetworkParameters:
-    def __init__(self, num_layers=6, d_model=256, dropout=0.01, network_type=GPT):
+    def __init__(self, num_layers=5, d_model=256, dropout=0.01, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
