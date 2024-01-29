@@ -2,33 +2,30 @@
 import torch
 import torch.nn.functional as F
 
-def masked_tensor_reduction(tensor, mask, reduction="batch"):
-    # Dictionary mapping for reduction type to dimension
-    reduction_to_dim = {"batch": 0, "seq": 1}
+def get_discount_sequence(discount_factor, max_seq_len):
+    return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
 
-    # Handle the 'all' reduction case separately
-    if reduction == "all":
-        return tensor[mask > 0].flatten().mean()
+def calculate_normalized_reward_scale(gamma, td_lambda, gpt_seq_length, device):
+    gammas = get_discount_sequence(gamma, gpt_seq_length)
+    lambdas = get_discount_sequence(td_lambda, gpt_seq_length)
 
-    # Get the dimension for reduction from the dictionary
-    dim = reduction_to_dim.get(reduction)
-    if dim is None:
-        raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
+    # Combining discount rates (gammas) and bootstrapping rates (lambdas)
+    # to create a combined temporal scaling factor for reward adjustment
+    temporal_scaling_factors = (gammas * lambdas).to(device)
 
-    # Ensure mask is a boolean tensor
-    mask_bool = mask.bool()
-    # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
-    masked_tensor = tensor * mask_bool
-    # Sum the masked tensor across the batch dimension (dim=0)
-    sum_per_sequence = torch.sum(masked_tensor, dim=dim)
-    # Count the number of True entries in the mask per sequence for normalization
-    count_per_sequence = torch.sum(mask_bool, dim=dim)
-    # Handle potential division by zero in case some sequences are fully masked
-    # If count_per_sequence is 0, replace it with 1 to prevent division by zero
-    count_per_sequence = torch.clamp(count_per_sequence, min=1)
-    # Calculate the mean by dividing the sum by the number of unmasked entries
-    mean_per_sequence = sum_per_sequence / count_per_sequence
-    return mean_per_sequence
+    # Calculating the cumulative sum of temporal scaling factors across sequences
+    accumulative_scaling_factors = torch.cumsum(temporal_scaling_factors, dim=1)
+
+    # Determining the factors for calculating the variance in value estimates
+    value_variance_factors = gamma * td_lambda * temporal_scaling_factors
+
+    # Calculating the cumulative variance in rewards based on scaling and variance factors
+    cumulative_reward_variance = accumulative_scaling_factors * value_variance_factors
+
+    # Determining the normalized scale for rewards to ensure consistent adjustment across sequences
+    normalized_reward_scale = cumulative_reward_variance.mean()
+    
+    return normalized_reward_scale
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -67,9 +64,6 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-def get_discount_sequence(discount_factor, max_seq_len):
-    return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
-
 def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
     # Determine the batch size and sequence length from the rewards shape
     batch_size, seq_len, _ = rewards.shape
@@ -90,3 +84,31 @@ def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
     lambda_returns = lambda_returns[:, :-1, :]
 
     return lambda_returns
+
+def masked_tensor_reduction(tensor, mask, reduction="batch"):
+    # Dictionary mapping for reduction type to dimension
+    reduction_to_dim = {"batch": 0, "seq": 1}
+
+    # Handle the 'all' reduction case separately
+    if reduction == "all":
+        return tensor[mask > 0].flatten().mean()
+
+    # Get the dimension for reduction from the dictionary
+    dim = reduction_to_dim.get(reduction)
+    if dim is None:
+        raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
+
+    # Ensure mask is a boolean tensor
+    mask_bool = mask.bool()
+    # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
+    masked_tensor = tensor * mask_bool
+    # Sum the masked tensor across the batch dimension (dim=0)
+    sum_per_sequence = torch.sum(masked_tensor, dim=dim)
+    # Count the number of True entries in the mask per sequence for normalization
+    count_per_sequence = torch.sum(mask_bool, dim=dim)
+    # Handle potential division by zero in case some sequences are fully masked
+    # If count_per_sequence is 0, replace it with 1 to prevent division by zero
+    count_per_sequence = torch.clamp(count_per_sequence, min=1)
+    # Calculate the mean by dividing the sum by the number of unmasked entries
+    mean_per_sequence = sum_per_sequence / count_per_sequence
+    return mean_per_sequence
