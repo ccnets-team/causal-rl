@@ -18,7 +18,7 @@ class EnvironmentPool:
         # the balance between exploration and exploitation, ensuring that the learning process
         # is optimized for environments that require detailed sequence analysis for better
         # policy development and value estimation.
-        self.seq_exploit_factor  = 2.0
+        self.seq_exploit_factor  = 1.0
         
         if env_config.env_type == "gym":
             self.env_list = [GymEnvWrapper(env_config, gpt_seq_length, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
@@ -57,7 +57,7 @@ class EnvironmentPool:
         bias_ratio = possible_lengths/max_seq_length
         
         # Adjust the gradient weight based on the exploration rate
-        gradient_biased_weights = np.power(bias_ratio, self.seq_exploit_factor*(1 - exploration_rate))
+        gradient_biased_weights = np.power(bias_ratio, 1 + self.seq_exploit_factor*(1 - exploration_rate))
         
         # Normalize the weights to sum to 1
         weights = gradient_biased_weights / gradient_biased_weights.sum()
