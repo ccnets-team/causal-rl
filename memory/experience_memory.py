@@ -2,7 +2,7 @@ from collections import defaultdict
 import numpy as np
 import random
 import torch
-from utils.structure.trajectories import BatchTrajectory, MultiEnvTrajectories
+from utils.structure.trajectories import BatchTrajectory, MultiTrajectories
 from memory.standard_buffer import StandardBuffer
 
 class ExperienceMemory:
@@ -52,7 +52,7 @@ class ExperienceMemory:
         agent_id = buffer_id % self.num_agents
         return env_id, agent_id
             
-    def push_trajectory_data(self, multi_env_trajectories: MultiEnvTrajectories):
+    def push_trajectory_data(self, multi_env_trajectories: MultiTrajectories):
         if multi_env_trajectories.env_ids is None:
             return
 

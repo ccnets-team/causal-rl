@@ -4,12 +4,13 @@ from utils.setting.rl_params import RLParameters
 from utils.setting.causal_rl_helper import CausalRLHelper
 from utils.wandb_logger import wandb_end
 from training.causal_trainer import CausalTrainer
+from utils.printer import print_rl_params
 
 class CausalRL:
     """
     Class for tuning and training reinforcement learning models using a specified Trainer.
     """
-    def __init__(self, env_config: EnvConfig, rl_params: RLParameters, device, use_graphics=False, use_print=False, use_wandb=False):
+    def __init__(self, env_config: EnvConfig, rl_params: RLParameters, device, use_print=False, use_wandb=False):
         """Initialize an instance of RLTune.
         Args:
             env_config (EnvConfig): Configuration for the environment.
@@ -19,11 +20,12 @@ class CausalRL:
             use_print (bool, optional): Whether to print training/testing logs. Default is False.
         """
         
-        self.trainer = CausalTrainer(env_config, rl_params, device)
+        print_rl_params('causal_rl', rl_params)
         self.device = device
         self.max_steps = rl_params.max_steps
-        self.train_env, self.test_env, self.memory = None, None, None
-        self.helper = CausalRLHelper(self, env_config, rl_params, use_graphics, use_print, use_wandb)
+        self.train_env, self.eval_env, self.test_env, self.memory = None, None, None, None
+        self.trainer = CausalTrainer(env_config, rl_params, device)
+        self.helper = CausalRLHelper(self, env_config, rl_params, use_print, use_wandb)
 
     # Context Management
     def __enter__(self):
@@ -36,6 +38,7 @@ class CausalRL:
 
     def _close_environments(self):
         self._end_environment(self.train_env)
+        self._end_environment(self.eval_env)
         self._end_environment(self.test_env)
 
     def _end_environment(self, env):
@@ -43,11 +46,11 @@ class CausalRL:
             env.end()
 
     # Main Public Methods
-    def train(self, resume_training: bool = False) -> None:
+    def train(self, resume_training: bool = False, use_graphics=False) -> None:
         """
         Train the model based on the provided policy.
         """
-        self.helper.setup(training=True)
+        self.helper.setup(use_graphics, training=True)
         
         if resume_training:
             self.helper.load_model()
@@ -56,11 +59,15 @@ class CausalRL:
             # Training Logic Methods
             """Unified training logic for each step."""
             self.helper.init_step(step)
-            self.interact_environment(self.test_env, training=False)            
+            self.interact_environment(self.eval_env, training=False)            
             self.interact_environment(self.train_env, training=True)
             self.train_off_policy(step)
-            self.helper.end_step(step)            
-
+            self.helper.end_step(step)  
+            
+        self.helper.save_model()
+        self._end_environment(self.train_env)
+        self._end_environment(self.eval_env)
+        
     def train_off_policy(self, step: int) -> None:
         """Train the model with off-policy algorithms."""
         samples = self.memory.sample_batch_trajectory()
@@ -88,8 +95,8 @@ class CausalRL:
 
         env.explore_env(self.trainer, training=training)
 
-    def test(self, max_episodes: int = 100) -> None:
-        self.helper.setup(training=False)
+    def test(self, max_episodes: int = 100, use_graphics=True) -> None:
+        self.helper.setup(use_graphics, training=False)
         self.helper.load_model()
         
         step = 0
@@ -97,13 +104,8 @@ class CausalRL:
             while True:  # This loop will run until broken by a condition inside
                 if self.helper.get_test_episode_counts() > episode:
                     break
-                if step >= self.max_steps:
-                    break
-                
                 """Unified testing logic for each step."""
                 self.helper.init_step(step)
                 self.interact_environment(self.test_env, training=False)
                 self.helper.end_step(step)
                 step += 1  # Increment the global step count after processing
-            if step >= self.max_steps:
-                break

@@ -1,9 +1,9 @@
 import time
 from environments.environment_pool import EnvironmentPool
 from utils.init import set_seed
-from utils.printer import print_step, print_metrics, print_scores
-from utils.logger import log_data
-from utils.wandb_logger import wandb_log_data, wandb_init
+from utils.printer import print_step, print_metrics, print_train_scores, print_test_scores
+from utils.logger import log_train_data, log_test_data
+from utils.wandb_logger import wandb_init, wandb_log_train_data, wandb_log_test_data 
 from memory.experience_memory import ExperienceMemory
 from utils.loader import save_trainer, load_trainer
 from training.managers.record_manager import RecordManager
@@ -13,11 +13,11 @@ DEFAULT_PRINT_INTERVAL = 100
 DEFAULT_SAVE_INTERVAL = 1000
 
 class CausalRLHelper:
-    def __init__(self, parent, env_config, rl_params, use_graphics, use_print, use_wandb):
+    def __init__(self, parent, env_config, rl_params, use_print, use_wandb):
         trainer_name = 'causal_rl'
         self.recorder = RecordManager(trainer_name, env_config, rl_params)
         self.parent = parent
-        self.use_graphics, self.use_print = use_graphics, use_print
+        self.use_print = use_print
         self.env_config, self.rl_params = env_config, rl_params
         if use_wandb:
             wandb_init(env_config, rl_params)
@@ -30,17 +30,22 @@ class CausalRLHelper:
         self._initialize_training_parameters()
 
     # Setup Methods
-    def setup(self, training: bool):
+    def setup(self, use_graphics, training: bool):
         """Configures environments and other necessary parameters for training/testing."""
         self.use_training = training
+        
         if training:
             """Configures the environment and other parameters for training."""
             self._ensure_train_environment_exists()
-            self._ensure_test_environment_exists()
+            self._ensure_eval_environment_exists(use_graphics)
             self._ensure_memory_exists()
         else:
             """Configures the environment for testing."""
-            self._ensure_test_environment_exists()
+            self._ensure_test_environment_exists(use_graphics)
+
+    def save_model(self):
+        """Saves the RL model."""
+        save_trainer(self.parent.trainer, self.recorder.save_path)
 
     def load_model(self):
         """Loads the RL model."""
@@ -67,8 +72,8 @@ class CausalRLHelper:
         self._log_step_info_conditional(step)
 
     def record(self, multi_env_trajectories, training):
-        """Records environment transitions."""        
-        self.recorder.record_trajectories(multi_env_trajectories, training=training)
+        """Records environment transitions."""      
+        self.recorder.record_trajectories(multi_env_trajectories, self.use_training, training=training)
 
     def should_update_strategy(self, samples, step: int) -> bool:
         """Checks if the strategy should be updated."""
@@ -96,9 +101,13 @@ class CausalRLHelper:
         if not self.parent.train_env:
             self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.gpt_seq_length, self.parent.device)
             
-    def _ensure_test_environment_exists(self):
+    def _ensure_eval_environment_exists(self, use_graphics):
+        if not self.parent.eval_env:
+            self.parent.eval_env = EnvironmentPool.create_eval_environments(self.env_config, self.gpt_seq_length, self.parent.device, use_graphics)
+
+    def _ensure_test_environment_exists(self, use_graphics):
         if not self.parent.test_env:
-            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.gpt_seq_length, self.parent.device, self.use_graphics)
+            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.gpt_seq_length, self.parent.device, use_graphics)
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
@@ -115,24 +124,34 @@ class CausalRLHelper:
     def _log_step_info_conditional(self, step: int):
         """Logs step info if conditions are met."""
         if step > 0 and step % self.print_interval == 0:
-            self._log_step_info(step)
+            """Logs information related to the given step."""    
+            if self.use_training:    
+                self.recorder.compute_train_records()
+                metrics = self.recorder.get_train_records()
+                log_train_data(self.parent.trainer, self.recorder.tensor_board_logger, *metrics, step, time.time() - self.recorder.pivot_time)
 
-    def _log_step_info(self, step: int):
-        """Logs information related to the given step."""        
-        self.recorder.compute_records()
-        metrics = self.recorder.get_records()
-        log_data(self.parent.trainer, self.recorder.tensor_board_logger, *metrics, step, time.time() - self.recorder.pivot_time)
-        if self.use_wandb:
-            wandb_log_data(self.parent.trainer, *metrics, step, time.time() - self.recorder.pivot_time)
-        if self.use_print:
-            self._print_step_details(step, metrics)
-        self.recorder.pivot_time = None
+                if self.use_wandb:
+                    wandb_log_train_data(self.parent.trainer, *metrics, step, time.time() - self.recorder.pivot_time)
+            else:    
+                self.recorder.compute_test_records()
+                metrics = self.recorder.get_test_records()
+                log_test_data(self.parent.trainer, self.recorder.tensor_board_logger, *metrics, step, time.time() - self.recorder.pivot_time)
+
+                if self.use_wandb:
+                    wandb_log_test_data(self.parent.trainer, *metrics, step, time.time() - self.recorder.pivot_time)
+
+            if self.use_print:
+                self._print_step_details(step, metrics)
+            self.recorder.pivot_time = None
         
     def _print_step_details(self, step, metrics):
         """Prints detailed information about the current step."""
         print_step(self.parent.trainer, self.parent.memory, step, time.time() - self.recorder.pivot_time, self.max_steps)
-        print_metrics(metrics[4])
-        print_scores(*metrics[:4])
+        if self.use_training:
+            print_metrics(metrics[-1])
+            print_train_scores(*metrics[:-1])
+        else:
+            print_test_scores(*metrics[:-1])
         
     def _should_print(self, step: int) -> bool:
        """Determines if logs should be printed for a given step."""        

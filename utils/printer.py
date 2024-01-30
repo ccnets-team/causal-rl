@@ -56,13 +56,18 @@ def print_step(trainer, memory, episode, time_cost, max_steps):
     # Display time info
     print(f"Time for steps is {time_cost:.2f} sec")
     
-        
-def print_scores(train_reward_per_step, test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards):
-    if (train_reward_per_step is not None) and (test_reward_per_step is not None):
-        print(f"TrainStepReward: {train_reward_per_step:.4f} \tTestStepReward: {test_reward_per_step:.4f}")
-    if (train_accumulative_rewards is not None) and (test_accumulative_rewards is not None):
-        print(f"TrainEpisodeRewards: {train_accumulative_rewards:.4f} \tTestEpisodeRewards: {test_accumulative_rewards:.4f}")
-        
+def print_train_scores(train_reward_per_step, eval_reward_per_step, train_accumulative_rewards, eval_accumulative_rewards):
+    if (train_reward_per_step is not None) and (eval_reward_per_step is not None):
+        print(f"TrainStepReward: {train_reward_per_step:.4f} \tEvalStepReward: {eval_reward_per_step:.4f}")
+    if (train_accumulative_rewards is not None) and (eval_accumulative_rewards is not None):
+        print(f"TrainEpisodeRewards: {train_accumulative_rewards:.4f} \tEvalEpisodeRewards: {eval_accumulative_rewards:.4f}")
+
+def print_test_scores(test_reward_per_step, test_accumulative_rewards):
+    if (test_reward_per_step is not None):
+        print(f"TestStepReward: {test_reward_per_step:.4f}")
+    if (test_accumulative_rewards is not None):
+        print(f"TestEpisodeRewards: {test_accumulative_rewards:.4f}")
+
 def print_metrics(metrics):
     # Display training and testing details
     if metrics is not None:
@@ -92,6 +97,15 @@ def print_params(obj: object, title: str):
             # Filter out unnecessary attributes for the main object as well
             if attr not in ['__module__', '__init__', 'forward', '__doc__']:
                 print(f"{attr}: {value}", end=', ')
+    print("\n")  # to print a newline at the end
+
+def print_rl_params(trainer_name, rl_params: RLParameters):
+    print("Trainer Name:", trainer_name)
+    print_params(rl_params.training, "Training Parameters")
+    print_params(rl_params.algorithm, "Algorithm Parameters")
+    print_params(rl_params.network, "Network Parameters")
+    print_params(rl_params.optimization, "Optimization Parameters")
+    print_params(rl_params.normalization, "Normalization Parameters")
     print("\n")  # to print a newline at the end
 
 def save_params_to_file(obj: object, file, is_nested=False):

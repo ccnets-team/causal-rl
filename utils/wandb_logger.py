@@ -69,23 +69,10 @@ def wandb_end():
         raise RuntimeError("wandb is not installed. Please install wandb to use wandb_end.")
     wandb.finish()
 
-def wandb_log_data(trainer, train_reward_per_step, test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards, metrics, step, time_cost):
+def _wandb_log_data(log_data, metrics, step):
     if wandb is None:
         print("wandb is not installed. Skipping wandb_log_data.")
         return
-    epsilon = trainer.get_exploration_rate()
-    learning_rate = trainer.get_lr()
-
-    # Creating a dictionary to log scalar data efficiently
-    log_data = {
-        "Episode/TestRewards": test_accumulative_rewards, 
-        'Episode/TrainRewards': train_accumulative_rewards, 
-        'Step/TestReward': test_reward_per_step, 
-        'Step/TrainReward': train_reward_per_step,
-        "Step/Time": time_cost, 
-        "Step/LearningRate": learning_rate,
-        "Step/ExplorationRate": epsilon
-    }
 
     if metrics is not None:
         # Loop over each metrics category and log each metric with a specific prefix
@@ -96,13 +83,40 @@ def wandb_log_data(trainer, train_reward_per_step, test_reward_per_step, train_a
             for metric_name, metric_value in category_metrics.items():
                 if metric_value is not None:
                     components = metric_name.split('_')
-
-                    if len(components) > 1:  # if there is more than one word in metric_name
-                        new_metric_name = components[-2].title()  # select only the previous of the last word and capitalize it
-                    else:  # if there is only one word in metric_name
-                        new_metric_name = components[0].title()                         
-                        
+                    new_metric_name = components[-2].title() if len(components) > 1 else components[0].title()                         
                     log_name = f"{mapped_category_name}/{new_metric_name}"
                     log_data[log_name] = metric_value  # Add the metric to the logging dictionary
 
-    wandb.log(log_data, step=step)  # Log all data including the metrics                    
+    wandb.log(log_data, step=step)  # Log all data including the metrics
+
+def wandb_log_train_data(trainer, train_reward_per_step, eval_reward_per_step, train_accumulative_rewards, eval_accumulative_rewards, metrics, step, time_cost):
+    epsilon = trainer.get_exploration_rate()
+    learning_rate = trainer.get_lr()
+
+    # Creating a dictionary to log scalar data efficiently
+    log_data = {
+        "Episode/EvalRewards": eval_accumulative_rewards, 
+        'Episode/TrainRewards': train_accumulative_rewards, 
+        'Step/EvalReward': eval_reward_per_step, 
+        'Step/TrainReward': train_reward_per_step,
+        "Step/Time": time_cost, 
+        "Step/LearningRate": learning_rate,
+        "Step/ExplorationRate": epsilon
+    }
+
+    _wandb_log_data(log_data, metrics, step)
+
+def wandb_log_test_data(trainer, test_reward_per_step, test_accumulative_rewards, metrics, step, time_cost):
+    epsilon = trainer.get_exploration_rate()
+    learning_rate = trainer.get_lr()
+
+    # Creating a dictionary to log scalar data efficiently
+    log_data = {
+        'Episode/TrainRewards': test_accumulative_rewards, 
+        'Step/TrainReward': test_reward_per_step,
+        "Step/Time": time_cost, 
+        "Step/LearningRate": learning_rate,
+        "Step/ExplorationRate": epsilon
+    }
+
+    _wandb_log_data(log_data, metrics, step)
