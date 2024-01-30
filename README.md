@@ -92,7 +92,6 @@ device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else 
 ### 2. Initializing and Running Causal RL Training Process
 
 ```python
-from training.rl_trainer import RLTrainer  
 from causal_rl import CausalRL
 
 trainer = RLTrainer(rl_params, trainer_name='causal_rl')  
@@ -112,7 +111,7 @@ from utils.setting.env_settings import analyze_env
 env_config, rl_params = analyze_env(env_name = "HumanoidStandup-v4")
 
 rl_params.algorithm.num_td_steps = 5
-rl_params.normalization.state_normalizer = "running_z_standardizer"
+rl_params.normalization.state_normalizer = "running_mean_std"
 ```
 
 **2. Flexible Network Role Assignments**
