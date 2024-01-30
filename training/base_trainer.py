@@ -5,7 +5,7 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from utils.structure.trajectories  import BatchTrajectory
+from utils.structure.data_structures  import BatchTrajectory
 from .trainer_utils import calculate_lambda_returns, calculate_normalized_reward_scale, masked_tensor_reduction
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
@@ -39,7 +39,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
-        self.reduction_type = 'batch'
+        self.reduction_type = 'cross'
 
     def _compute_training_start_step(self):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
@@ -64,6 +64,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         if mask is not None:
             if self.reduction_type in ['batch', 'seq', 'all']:
                 return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
+            elif self.reduction_type == 'cross':
+                batch_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='batch')
+                seq_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='seq')
+                return torch.cat([batch_wise_reduction, seq_wise_reduction], dim = 0)
             elif self.reduction_type == 'none':
                 return tensor[mask>0].flatten()
             else:
