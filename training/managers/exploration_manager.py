@@ -11,8 +11,8 @@ def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, de
 
 class BoltzmannExploration:
     def __init__(self):
-        self.tau = 10.0
-        self.min_temperature = 0.01
+        self.tau = 1.0
+        self.min_temperature = 0.1
         # Adjusted decay rate as per the derived formula
         self.decay_rate = -math.log(self.min_temperature/self.tau)
             
@@ -20,7 +20,7 @@ class BoltzmannExploration:
         # Computing temperature based on the adjusted decay rate
         temperature = max(self.tau * math.exp(-self.decay_rate * (1 - exploration_rate)), self.min_temperature)
         # Assuming x has some specific use and computation. Placeholder for actual computation with x.
-        boltzmann_probs = x / temperature
+        boltzmann_probs = torch.softmax(x / temperature, dim=-1)
         return boltzmann_probs
     
 class ExplorationUtils:
@@ -46,7 +46,7 @@ class ExplorationUtils:
         self.exploration_rate = self.initial_exploration
         self.boltzmann_exploration = BoltzmannExploration()
         
-    def update_exploration_rate(self):
+    def update_exploration_rate(self):  
         if self.decay_mode == "linear":
             self.exploration_rate = max(self.exploration_rate + self.decay_factor, self.min_exploration)
         elif self.decay_mode == "exponential":
@@ -64,10 +64,14 @@ class ExplorationUtils:
         # Apply Boltzmann exploration to adjust the temperature
         boltzmann_probs = self.boltzmann_exploration.apply(sequence_probs, self.exploration_rate)
         
-        probs = torch.softmax(boltzmann_probs, dim=-1)
+        adjustment_factors = sequence_probs/torch.softmax(sequence_probs, dim=-1)
+        
+        adjustment_ratios = boltzmann_probs* adjustment_factors
+        
+        adjustment_probs = adjustment_ratios/adjustment_ratios.sum()
         
         # Sample sequence lengths based on Boltzmann probabilities
-        sampled_indices = torch.multinomial(probs, batch_size, replacement=True)
+        sampled_indices = torch.multinomial(adjustment_probs, batch_size, replacement=True)
         sampled_lengths = possible_lengths[sampled_indices]
         return sampled_lengths
     
