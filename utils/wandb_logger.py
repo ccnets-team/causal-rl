@@ -95,10 +95,10 @@ def wandb_log_train_data(trainer, train_reward_per_step, eval_reward_per_step, t
 
     # Creating a dictionary to log scalar data efficiently
     log_data = {
-        "Episode/EvalRewards": eval_accumulative_rewards, 
         'Episode/TrainRewards': train_accumulative_rewards, 
-        'Step/EvalReward': eval_reward_per_step, 
+        "Episode/EvalRewards": eval_accumulative_rewards, 
         'Step/TrainReward': train_reward_per_step,
+        'Step/EvalReward': eval_reward_per_step, 
         "Step/Time": time_cost, 
         "Step/LearningRate": learning_rate,
         "Step/ExplorationRate": epsilon
@@ -112,8 +112,8 @@ def wandb_log_test_data(trainer, test_reward_per_step, test_accumulative_rewards
 
     # Creating a dictionary to log scalar data efficiently
     log_data = {
-        'Episode/TrainRewards': test_accumulative_rewards, 
-        'Step/TrainReward': test_reward_per_step,
+        'Episode/TestRewards': test_accumulative_rewards, 
+        'Step/TestReward': test_reward_per_step,
         "Step/Time": time_cost, 
         "Step/LearningRate": learning_rate,
         "Step/ExplorationRate": epsilon
