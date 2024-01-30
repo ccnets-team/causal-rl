@@ -42,13 +42,13 @@ Causal RL is an innovative Reinforcement Learning framework that utilizes three 
 
 2. **Language Model Training with Reverse Causal Mask**: Causal RL utilizes a reverse mask during training to enhance its understanding of causal relationships between states and actions, leading to improved learning efficiency and strategic effectiveness.
 
-3. **Efficient Parameter Tuning**: RLTune offers a preset pipeline for parameter tuning for benchmarking, reducing the effort required in initial setups.
+3. **Efficient Parameter Tuning**: CausalRL offers a preset pipeline for parameter tuning for benchmarking, reducing the effort required in initial setups.
 
 # ❗️ ****Dependencies****
 
 ```python
-conda create -name rl_tune python=3.9.18
-conda activate rl_tune
+conda create -name crl python=3.9.18
+conda activate crl
 conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
 pip install mlagents==0.30
 pip install protobuf==3.20
@@ -67,13 +67,13 @@ pip install transformers==4.34.1
 1. Clone the repository:
     
     ```bash
-    git clone https://github.com/ccnets-team/rl-tune.git
+    git clone https://github.com/ccnets-team/causal-rl.git
     ```
     
 2. Navigate to the directory and install the required packages:
     
     ```bash
-    cd RL-Tune
+    cd causal-rl
     pip install -r requirements.txt
     ```
 
@@ -93,18 +93,18 @@ device = torch.device("cuda:0" if (torch.cuda.is_available() and ngpu > 0) else 
 
 ```python
 from training.rl_trainer import RLTrainer  
-from rl_tune import RLTune
+from causal_rl import CausalRL
 
 trainer = RLTrainer(rl_params, trainer_name='causal_rl')  
-with RLTune(env_config, trainer, device, use_graphics = False, use_print = True, use_wandb = False) as rl_tune:
-    rl_tune.train(on_policy=False, resume_training = False)
+with CausalRL(env_config, trainer, device, use_graphics = False, use_print = True, use_wandb = False) as causal_rl:
+    causal_rl.train(on_policy=False, resume_training = False)
 ```
 
 # 📖 **Features**
 
 **1. Manageable RL Parameters**
 
-RL-Tune facilitates structured management of RL Parameters, allowing users to easily organize, store, and compare parameters, which provides more coherent configurations for diverse RL problems.
+CausalRL facilitates structured management of RL Parameters, allowing users to easily organize, store, and compare parameters, which provides more coherent configurations for diverse RL problems.
 
 ```python
 from utils.setting.env_settings import analyze_env
@@ -117,7 +117,7 @@ rl_params.normalization.state_normalizer = "running_z_standardizer"
 
 **2. Flexible Network Role Assignments**
 
-RL-Tune’s flexible architecture facilitates distinct role assignments to different networks, optimizing the processes of development and management for various network configurations.
+CausalRL’s flexible architecture facilitates distinct role assignments to different networks, optimizing the processes of development and management for various network configurations.
 
 ```python
 from nn.super_net import SuperNet
@@ -272,7 +272,7 @@ Thank you for helping improve our project! Your feedback and contributions are i
 Facing issues or have questions about our framework? We're here to help!
 
 1. **Issue Tracker**:
-    - If you've encountered a bug or have a feature request, please open an issue on our **[GitHub Issues page](https://github.com/ccnets-team/rl-tune/issues)**. Be sure to check existing issues to avoid duplicates.
+    - If you've encountered a bug or have a feature request, please open an issue on our **[GitHub Issues page](https://github.com/ccnets-team/causal-rl/issues)**. Be sure to check existing issues to avoid duplicates.
 2. **Social Media**:
     - Stay updated with announcements and news by following us on **[LinkedIn](https://www.linkedin.com/company/ccnets)**.
 3. **Emergency Contact**:
