@@ -39,7 +39,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
-        self.reduction_type = 'cross'
+        self.reduction_type = 'batch'
 
     def _compute_training_start_step(self):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
