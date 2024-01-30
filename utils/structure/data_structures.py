@@ -15,7 +15,7 @@ class BatchTrajectory:
         yield self.next_state
         yield self.done
         
-class MultiTrajectories:
+class AgentTransitions:
     def __init__(self, env_ids=None, agent_ids=None, states=None, actions=None, rewards=None, next_states=None, dones_terminated=None, dones_truncated=None):
         self.env_ids = env_ids 
         self.agent_ids = agent_ids 

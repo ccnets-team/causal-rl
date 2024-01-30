@@ -66,7 +66,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         self.agent_life[term_agents] = False
         self.agent_life[dec_agents] = True
     
-    def step_environment(self):
+    def step(self):
         # Retrieve and process environment steps
         agent_ids, state, action = self.init_variables()
         term_agents, dec_agents, term_reward, dec_reward, term_next_obs, dec_next_obs = self.get_steps()

@@ -2,7 +2,7 @@ import torch
 from normalizer.running_mean_std import RunningMeanStd
 from normalizer.running_abs_mean import RunningAbsMean
 
-from utils.structure.trajectories  import BatchTrajectory
+from utils.structure.data_structures  import BatchTrajectory
 from training.trainer_utils import create_padding_mask_before_dones
 
 TRANSITION_STATE_IDX = 0

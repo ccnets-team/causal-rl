@@ -88,7 +88,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         self.observations.reset()
         self.format_and_assign_observations(obs, self.observations)
         
-    def step_environment(self) -> bool:
+    def step(self) -> bool:
         """
         Steps the environment with the given action input.
         

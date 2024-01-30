@@ -71,9 +71,9 @@ class CausalRLHelper:
 
         self._log_step_info_conditional(step)
 
-    def record(self, multi_env_trajectories, training):
+    def record_data(self, multi_trajectories, training):
         """Records environment transitions."""      
-        self.recorder.record_trajectories(multi_env_trajectories, self.use_training, training=training)
+        self.recorder.record_trajectories(multi_trajectories, self.use_training, training=training)
 
     def should_update_strategy(self, samples, step: int) -> bool:
         """Checks if the strategy should be updated."""

@@ -1,7 +1,7 @@
 import numpy as np
 from .mlagents_wrapper import MLAgentsEnvWrapper
 from .gym_wrapper import GymEnvWrapper
-from utils.structure.trajectories  import MultiTrajectories
+from utils.structure.data_structures  import AgentTransitions
 import torch
 
 class EnvironmentPool: 
@@ -29,19 +29,19 @@ class EnvironmentPool:
         for it in self.env_list:
             it.env.close()
 
-    def step_env(self):
+    def step_environments(self):
         for env in self.env_list:
-            env.step_environment()
+            env.step()
             
-    def fetch_env(self):
-        combined_transition = MultiTrajectories()
+    def fetch_transitions(self):
+        transitions = AgentTransitions()
 
         for env_idx, env in enumerate(self.env_list):
             agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated = env.output_transitions()
-            combined_transition.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated)
-        return combined_transition
+            transitions.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated)
+        return transitions
         
-    def explore_env(self, trainer, training):
+    def explore_environments(self, trainer, training):
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
         np_mask = np.concatenate([env.observations.mask for env in self.env_list], axis=0)

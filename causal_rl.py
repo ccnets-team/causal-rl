@@ -81,19 +81,20 @@ class CausalRL:
             self.trainer.normalize_trajectories(samples)
             train_data = self.trainer.train_model(samples)
             self.helper.add_train_metrics(train_data)
+            
         self.trainer.update_exploration_rate()
         
     # Environment Interaction
     def interact_environment(self, env, training=True):
         """Unified method to interact with environments."""
-        env.step_env()
-        multi_env_trajectories = env.fetch_env()
-        self.helper.record(multi_env_trajectories, training=training)
+        env.step_environments()
+        transitions = env.fetch_transitions()
+        self.helper.record_data(transitions, training=training)
 
         if training:
-            self.memory.push_trajectory_data(multi_env_trajectories)
+            self.memory.push_transitions(transitions)
 
-        env.explore_env(self.trainer, training=training)
+        env.explore_environments(self.trainer, training=training)
 
     def test(self, max_episodes: int = 100, use_graphics=True) -> None:
         self.helper.setup(use_graphics, training=False)

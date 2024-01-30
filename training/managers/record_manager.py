@@ -3,7 +3,7 @@ from utils.logger import get_log_name
 from pathlib import Path
 import os
 from utils.structure.metrics_recorder import MetricsTracker, RewardTracker
-from utils.structure.trajectories import MultiTrajectories
+from utils.structure.data_structures import AgentTransitions
 from utils.printer import save_training_parameters_to_file
 from torch.utils.tensorboard import SummaryWriter
 
@@ -70,7 +70,7 @@ class RecordManager:
     def get_test_records(self):
         return self.test_reward_per_step, self.test_accumulative_rewards, self.avg_metrics
         
-    def record_trajectories(self, trajectories: MultiTrajectories, use_training: bool, training: bool):        
+    def record_trajectories(self, trajectories: AgentTransitions, use_training: bool, training: bool):        
         env_ids = trajectories.env_ids
         agent_ids = trajectories.agent_ids
         rewards = trajectories.rewards
