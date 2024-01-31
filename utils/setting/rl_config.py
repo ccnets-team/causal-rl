@@ -38,7 +38,7 @@ class OptimizationParameters:
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer='L1_norm'):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std' or 'running_abs_mean'.
         self.reward_normalizer = reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'running_abs_mean'.
         self.advantage_normalizer = advantage_normalizer  # Defines the method for normalizing advantage values, using approaches like 'running_mean_std' or 'running_abs_mean'.
