@@ -53,7 +53,7 @@ conda install pytorch torchvision torchaudio pytorch-cuda=12.1 -c pytorch -c nvi
 pip install mlagents==0.30
 pip install protobuf==3.20
 pip install gymnasium==0.29.1
-pip install mujoco==3.1.0
+pip install mujoco==2.3.7
 pip install jupyter
 pip install transformers==4.34.1
 ```
