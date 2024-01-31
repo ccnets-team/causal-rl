@@ -1,5 +1,6 @@
 # Causal Reinforcement Learning Framework by CCNets
 
+[![Static Badge](https://img.shields.io/badge/Release-v1.0.1-%#00FF00)](https://patents.google.com/patent/WO2023167576A2/)
 [![Static Badge](https://img.shields.io/badge/Python-3.9.18-%233776AB)](https://www.python.org/)
 [![Static Badge](https://img.shields.io/badge/PyTorch-2.1.2-%23EE4C2C)](https://pytorch.org/get-started/locally/)
 [![Static Badge](https://img.shields.io/badge/OpenAI%20Gym-0.29.1-%230081A5)](https://gymnasium.farama.org/environments/mujoco/)
