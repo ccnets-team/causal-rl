@@ -33,7 +33,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def _init_exploration_utils(self, max_steps):
         self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationUtils.__init__(self, self.decay_mode, max_steps, self.device)
+        ExplorationUtils.__init__(self, max_steps, self.device)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
