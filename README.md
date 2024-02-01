@@ -279,3 +279,9 @@ Facing issues or have questions about our framework? We're here to help!
     - If there are security concerns or critical issues, contact our emergency team at support@ccnets.org.
 
 *Please be respectful and constructive in all interactions.*
+
+
+# LICENSE
+CAUSALRL is dual-licensed under the GNU General Public License version 3(GPLv3) and a separate Commercial License.
+
+Please consult the [LICENSE](./LICENSE/) files in the repository for more detailed information on the licensing of CAUSALRL.
