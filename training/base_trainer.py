@@ -39,7 +39,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
-        self.reduction_type = 'batch'
+        self.reduction_type = 'cross'
 
     def _compute_training_start_step(self):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
@@ -67,7 +67,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             elif self.reduction_type == 'cross':
                 batch_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='batch')
                 seq_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='seq')
-                return torch.cat([batch_wise_reduction, seq_wise_reduction], dim = 0)
+                return torch.cat([batch_wise_reduction, seq_wise_reduction], dim = 0)/2.0
             elif self.reduction_type == 'none':
                 return tensor[mask>0].flatten()
             else:
