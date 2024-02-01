@@ -1,21 +1,22 @@
-# CausalRL Commercial License
+CausalRL Commercial License
+Copyright (C) 2024 CCNETS, Inc. All rights reserved.
 
-## 1. License Overview
+1. License Overview
 
 This document outlines the terms and conditions for the commercial use of CausalRL. This license is provided by CCNets, Inc. and applies to individuals or organizations intending to use CausalRL for commercial purposes.
 
-## 2. Grant of License
+2. Grant of License
 
 CCNets, Inc. hereby grants the licensee a non-exclusive, non-transferable right to use CausalRL for commercial purposes in accordance with the terms of this license.
 
-## 3. Usage Rights and Restrictions
+3. Usage Rights and Restrictions
 
 The licensee is authorized to use, copy, and modify CausalRL under the terms of this license, subject to the following restrictions:
 
 Redistribution or re-licensing is not permitted.
 Commercial sale of the original CausalRL is prohibited.
 
-## 4. Fees and Payment Terms
+4. Fees and Payment Terms
 
 For commercial license usage, specific terms, fees, and other conditions for the commercial use of CausalRL must be agreed upon separately with CCNets, Inc..
 
@@ -23,17 +24,17 @@ The specific terms, fees, payment methods, and duration for commercial use will 
 
 Using CausalRL for commercial purposes without consultation with CCNets, Inc. constitutes a breach of this license and may lead to its automatic termination and legal liabilities.
 
-## 5. Patents and Intellectual Property Rights
+5. Patents and Intellectual Property Rights
 
 CausalRL includes patented technology owned by CCNets, Inc., and this patent is used under the conditions of this license.
 
 All copyrights, trademarks, patents, and other intellectual property rights in CausalRL belong to CCNets, Inc..
 
-## 6. Warranty and Disclaimer
+6. Warranty and Disclaimer
 
 CCNets, Inc. makes no express or implied warranties regarding the suitability of CausalRL for any specific purpose. All risks arising from its use are borne by the licensee.
 
-## 7. Amendment and Termination of Agreement
+7. Amendment and Termination of Agreement
 
 CCNets, Inc. reserves the right to amend the terms of this license at any time, and the license will automatically terminate in the event of a breach of its conditions.
 
