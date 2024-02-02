@@ -13,9 +13,10 @@ class LinearDecayLR(_LRScheduler):
         return [base_lr * (1 - self.last_epoch / self.total_steps) for base_lr in self.base_lrs]
 
 def _apply_gradient_clipping(network, clip_range):
-    for param in network.parameters():
-        if param.grad is not None:
-            param.grad.data = param.grad.data.clamp(-clip_range, clip_range)
+    if clip_range is not None:  
+        for param in network.parameters():
+            if param.grad is not None:
+                param.grad.data = param.grad.data.clamp(-clip_range, clip_range)
 
 def _apply_l2_gradient_normalization(network, max_norm):
     """
@@ -74,10 +75,9 @@ class TrainingManager:
         return self._schedulers
 
     def clip_gradients(self):
-        if self._clip_grad_range is not None:  
-            for net in self._networks:  
-                _apply_l2_gradient_normalization(net, self._grad_max_norm)
-                _apply_gradient_clipping(net, self._clip_grad_range)
+        for net in self._networks:  
+            _apply_l2_gradient_normalization(net, self._max_grad_norm)
+            _apply_gradient_clipping(net, self._clip_grad_range)
 
     def update_optimizers(self):
         for opt in self._optimizers:
