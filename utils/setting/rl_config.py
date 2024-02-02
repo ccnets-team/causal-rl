@@ -29,13 +29,14 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=5e-5, min_lr=5e-6, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=2.0): 
+    def __init__(self, lr=1e-4, min_lr=1e-5, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=0.5): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.min_lr = min_lr  # Minimum learning rate to which the lr will decay.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
         self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
+        self.max_grad_norm = max_grad_norm  
 
 class NormalizationParameters:
     def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
