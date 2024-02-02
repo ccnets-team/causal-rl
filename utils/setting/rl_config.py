@@ -36,7 +36,7 @@ class OptimizationParameters:
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
         self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
         self.clip_grad_range = clip_grad_range  # Range for clipping gradients, preventing exploding gradients.
-        self.max_grad_norm = max_grad_norm  
+        self.max_grad_norm = max_grad_norm  # L2 norm threshold for gradient clipping to prevent exploding gradients.
 
 class NormalizationParameters:
     def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
