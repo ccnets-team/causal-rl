@@ -115,7 +115,6 @@ class NormalizationUtils:
 
     def update_normalizer(self, trajectories: BatchTrajectory):
         states, actions, rewards, next_states, dones = trajectories
-        padding_mask = create_padding_mask_before_dones(dones)
         # Update state normalizer
         for index in self.state_indices:
             if index == TRANSITION_STATE_IDX:
@@ -124,7 +123,7 @@ class NormalizationUtils:
                 state_data = next_states
             else:
                 raise ValueError("Invalid state index")
-            self.state_manager._update_normalizer(state_data, padding_mask)
+            self.state_manager._update_normalizer(state_data)
 
         # Update reward normalizer
         for index in self.reward_indices:
@@ -132,4 +131,4 @@ class NormalizationUtils:
                 reward_data = rewards
             else:
                 raise ValueError("Invalid reward index")
-            self.reward_manager._update_normalizer(reward_data, padding_mask)
+            self.reward_manager._update_normalizer(reward_data)

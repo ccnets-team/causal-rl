@@ -13,20 +13,10 @@ class RunningMeanStd:
         if batch_size == 0:
             return self  # Do not update if the batch size is zero
 
-        new_adding = 0
+        new_adding = batch_size * seq_len
+        
         x = x.to(dtype=torch.float64)
-
-        if padding_mask is None:
-            new_adding = batch_size * seq_len
-            x = x.view(-1, feature_size)  # Use x directly if there is no padding mask
-        else:
-            mask = padding_mask.to(dtype=torch.float64)
-            # Ensure the mask is expanded to match x's dimensions for masking
-            expanded_mask = mask.expand_as(x)
-            # Filter x by the mask and then flatten; only include values where mask > 0
-            x = x[expanded_mask > 0]
-            x = x.view(-1, feature_size)
-            new_adding = mask.sum(dim=(0,1))
+        x = x.view(-1, feature_size)  # Use x directly if there is no padding mask
                     
         delta = x.mean(dim=0) - self.mean
         new_count = self.count + new_adding

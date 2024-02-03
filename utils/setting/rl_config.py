@@ -19,7 +19,7 @@ class AlgorithmParameters:
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) or GAE (Generalized Advantage Estimation) lambda parameter for weighting advantages in policy optimization.
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.01, network_type=GPT):
+    def __init__(self, num_layers=5, d_model=256, dropout=0.02, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
@@ -29,7 +29,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=1e-4, min_lr=1e-5, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=0.5): 
+    def __init__(self, lr=5e-5, min_lr=5e-6, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=1.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.min_lr = min_lr  # Minimum learning rate to which the lr will decay.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
@@ -39,7 +39,7 @@ class OptimizationParameters:
         self.max_grad_norm = max_grad_norm  # L2 norm threshold for gradient clipping to prevent exploding gradients.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer=None):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', advantage_normalizer='running_abs_mean'):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std' or 'running_abs_mean'.
         self.reward_normalizer = reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'running_abs_mean'.
         self.advantage_normalizer = advantage_normalizer  # Defines the method for normalizing advantage values, using approaches like 'running_mean_std' or 'running_abs_mean'.
