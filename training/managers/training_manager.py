@@ -12,37 +12,6 @@ class LinearDecayLR(_LRScheduler):
     def get_lr(self):
         return [base_lr * (1 - self.last_epoch / self.total_steps) for base_lr in self.base_lrs]
 
-def _apply_gradient_clipping(network, clip_range):
-    if clip_range is not None:  
-        for param in network.parameters():
-            if param.grad is not None:
-                param.grad.data = param.grad.data.clamp(-clip_range, clip_range)
-
-def _apply_l2_gradient_normalization(network, max_norm):
-    """
-    Scales gradients for all parameters in the network based on L2 norm.
-    This ensures the norm of the gradients does not exceed the specified max_norm.
-
-    Args:
-        network (torch.nn.Module): The neural network whose gradients will be normalized.
-        max_norm (float): The maximum allowable L2 norm of the gradients for the parameters.
-
-    Returns:
-        Total norm of the parameters (before clipping).
-    """
-    # Calculate the L2 norm of all gradients.
-    if max_norm is not None:
-        total_norm = torch.sqrt(sum(torch.sum(param.grad.data ** 2) for param in network.parameters() if param.grad is not None))
-        
-        # Scale factor to keep the gradient norm at max_norm.
-        scale_factor = max_norm / (total_norm + 1e-8)  # Adding epsilon to prevent division by zero.
-        
-        # If the total norm is larger than the max_norm, scale down gradients
-        if scale_factor < 1:
-            for param in network.parameters():
-                if param.grad is not None:
-                    param.grad.data.mul_(scale_factor)
-
 class TrainingManager:
     def __init__(self, networks, target_networks, lr, min_lr, clip_grad_range, max_grad_norm, tau, total_iterations, scheduler_type):
         self._optimizers = []
@@ -76,8 +45,10 @@ class TrainingManager:
 
     def clip_gradients(self):
         for net in self._networks:  
-            _apply_l2_gradient_normalization(net, self._max_grad_norm)
-            _apply_gradient_clipping(net, self._clip_grad_range)
+            if self._max_grad_norm is not None:
+                torch.nn.utils.clip_grad_norm_(net.parameters(), self._max_grad_norm)
+            if self._clip_grad_range is not None:
+                torch.nn.utils.clip_grad_value_(net.parameters(), self._clip_grad_range)
 
     def update_optimizers(self):
         for opt in self._optimizers:

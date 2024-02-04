@@ -5,28 +5,6 @@ import torch.nn.functional as F
 def get_discount_sequence(discount_factor, max_seq_len):
     return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
 
-def calculate_normalized_reward_scale(gamma, td_lambda, gpt_seq_length, device):
-    gammas = get_discount_sequence(gamma, gpt_seq_length)
-    lambdas = get_discount_sequence(td_lambda, gpt_seq_length)
-
-    # Combining discount rates (gammas) and bootstrapping rates (lambdas)
-    # to create a combined temporal scaling factor for reward adjustment
-    temporal_scaling_factors = (gammas * lambdas).to(device)
-
-    # Calculating the cumulative sum of temporal scaling factors across sequences
-    accumulative_scaling_factors = torch.cumsum(temporal_scaling_factors, dim=1)
-
-    # Determining the factors for calculating the variance in value estimates
-    value_variance_factors = gamma * td_lambda * temporal_scaling_factors
-
-    # Calculating the cumulative variance in rewards based on scaling and variance factors
-    cumulative_reward_variance = accumulative_scaling_factors * value_variance_factors
-
-    # Determining the normalized scale for rewards to ensure consistent adjustment across sequences
-    normalized_reward_scale = cumulative_reward_variance.mean()
-    
-    return normalized_reward_scale
-
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 
