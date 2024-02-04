@@ -15,15 +15,32 @@ class StandardBuffer(BaseBuffer):
         self._reset_buffer()
     
     def reindex_indices(self, indices):
-        ordered_valid_set = list(self.valid_set)
+        np_indices = np.array(indices, dtype=np.int32)
+
+        # Calculate the start and end of the excluded range
+        excluded_range_start = self.index
         
-        actual_indices = [ordered_valid_set[idx] for idx in indices]
+        excluded_range_end = (self.index + self.seq_len - 1) % self.capacity
+
+        # Check if the range wraps around
+        if excluded_range_end < excluded_range_start:
+            # Identify indices that are either after the start or before the end of the range
+            need_reindexing = (np_indices >= excluded_range_start) | (np_indices <= excluded_range_end)
+        else:
+            # Identify indices that are within the continuous range
+            need_reindexing = (np_indices >= excluded_range_start) & (np_indices <= excluded_range_end)
+
+        # Reindex these indices
+        np_indices[need_reindexing] += (self.seq_len - 1)
+
+        # Ensure indices are within bounds
+        actual_indices = np_indices % self.capacity
         
         return actual_indices
         
     def add_transition(self, state, action, reward, next_state, terminated, truncated):
         
-        self._exclude_from_sampling(self.index)
+        self._reset_sample_prob(self.index)
         
         # Update the buffer with the new transition data
         self.states[self.index] = state
@@ -33,7 +50,7 @@ class StandardBuffer(BaseBuffer):
         self.terminated[self.index] = terminated
         self.truncated[self.index] = truncated
         
-        self._include_for_sampling(self.index, terminated or truncated)
+        self._assign_sample_prob(self.index)
         
         # Increment the buffer index and wrap around if necessary
         self.index = (self.index + 1) % self.capacity

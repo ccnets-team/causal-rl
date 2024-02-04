@@ -82,9 +82,12 @@ class ExperienceMemory:
             return None, None
         samples, buffer_indices = self.balanced_sample_trajectory_data(sample_sz, td_steps, cumulative_sizes, total_buffer_size)
         return samples, buffer_indices  
-    
+        
     def balanced_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes, total_buffer_size):
-        sampled_indices = random.sample(range(total_buffer_size), sample_size)
+        sampling_probabilities = self._calculate_sampling_probabilities()
+        
+        sampled_indices = np.random.choice(range(total_buffer_size), size=sample_size, p=sampling_probabilities)
+        # sampled_indices = random.sample(range(total_buffer_size), sample_size)
         buffer_indices = defaultdict(list)
         for idx in sampled_indices:
             buffer_id = next(i for i, cum_size in enumerate(cumulative_sizes) if idx < cum_size)
@@ -115,3 +118,12 @@ class ExperienceMemory:
             samples.extend(batch)
 
         return samples
+    
+    def _calculate_sampling_probabilities(self):
+        # Accumulate TD errors using NumPy arrays for memory efficiency
+        buffer_sample_probs = np.concatenate([buf.sample_probs[:buf.size] for env in self.multi_buffers for buf in env])
+
+        sum_adjusted_td_errors = buffer_sample_probs.sum()
+        
+        probabilities = buffer_sample_probs / sum_adjusted_td_errors
+        return probabilities

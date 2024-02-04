@@ -11,47 +11,30 @@ class BaseBuffer:
         self.seq_len = seq_len
         self.state_size = state_size
         self.action_size = action_size
-        self.valid_indices = np.zeros(capacity, dtype=bool)
-        self.valid_set = set()
+        self.sample_probs = np.zeros(capacity, dtype=np.float32)
 
     def __len__(self):
-        return len(self.valid_set)
+        return self.size
 
-    def _include_for_sampling(self, index, done):
+    def _assign_sample_prob(self, index):
         # Ensure buffer has enough samples for a sequence.
-        if self.size < self.seq_len:
-            return  # Early exit if buffer size is less than required sequence length.
+        sample_prob = 1.0  # Default to including the index.
 
-        if self.valid_indices[index]:
-            return 
+        # Calculate the starting and ending index for the search, considering wrap-around in a circular buffer.
+        start_idx = index - self.seq_len + 1 + self.capacity
+        end_idx = index + self.capacity
+        # Check each index in the range for termination or truncation, indicating invalid for sampling.
+        for i in reversed(range(start_idx, end_idx)):            
+            idx = i % self.capacity  # Adjust for circular buffer wrap-around.
+            if self.terminated[idx] or self.truncated[idx]:
+                sample_prob = (end_idx - i) / self.seq_len 
+                break  # Stop checking if any index in the sequence is terminated or truncated.
 
-        should_include = True  # Default to including the index.
+        self.sample_probs[index] = sample_prob
 
-        if not done:
-            # Check the immediate previous index for validity without being terminated or truncated.
-            previous_idx = (index - 1 + self.capacity) % self.capacity
-            previous_done = self.terminated[previous_idx] or self.truncated[previous_idx]
-            if not self.valid_indices[previous_idx] or previous_done:
-                # Calculate the starting and ending index for the search, considering wrap-around in a circular buffer.
-                start_idx = index - self.seq_len + 1 + self.capacity
-                end_idx = index + self.capacity
-                # Check each index in the range for termination or truncation, indicating invalid for sampling.
-                for i in range(start_idx, end_idx):
-                    idx = i % self.capacity  # Adjust for circular buffer wrap-around.
-                    if self.terminated[idx] or self.truncated[idx]:
-                        should_include = False
-                        break  # Stop checking if any index in the sequence is terminated or truncated.
-
-        # Update validity if the index is determined to be included.
-        if should_include:
-            self.valid_indices[index] = True
-            self.valid_set.add(index)
-
-    def _exclude_from_sampling(self, index):
+    def _reset_sample_prob(self, index):
         end_idx = (index + self.seq_len - 1) % self.capacity
-        if self.valid_indices[end_idx]:
-            self.valid_indices[end_idx] = False
-            self.valid_set.remove(end_idx)
+        self.sample_probs[end_idx] = 0.0
                 
     def _reset_buffer(self):
         self.size = 0  
@@ -62,8 +45,7 @@ class BaseBuffer:
         self.next_states = np.empty((self.capacity, self.state_size))
         self.terminated = np.empty(self.capacity)       
         self.truncated = np.empty(self.capacity)       
-        self.valid_indices.fill(False)  # Reset all indices to invalid
-        self.valid_set.clear() 
+        self.sample_probs.fill(0.0)  # Reset all indices to invalid
         
     def _fetch_trajectory_slices(self, indices, td_steps):
         batch_size = len(indices)
