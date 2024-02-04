@@ -11,37 +11,20 @@ class StandardBuffer(BaseBuffer):
         super().__init__("standard", capacity, state_size, action_size, seq_len)
         self.reset_buffer()
 
-    def __len__(self):
-        return max(self.size - self.seq_len + 1, 0)
-
     def reset_buffer(self):
         self._reset_buffer()
     
     def reindex_indices(self, indices):
-        np_indices = np.array(indices, dtype=np.int32)
-
-        # Calculate the start and end of the excluded range
-        excluded_range_start = self.index
-        excluded_range_end = (self.index + self.seq_len - 1) % self.capacity
-
-        # Check if the range wraps around
-        if excluded_range_end < excluded_range_start:
-            # Identify indices that are either after the start or before the end of the range
-            need_reindexing = (np_indices >= excluded_range_start) | (np_indices <= excluded_range_end)
-        else:
-            # Identify indices that are within the continuous range
-            need_reindexing = (np_indices >= excluded_range_start) & (np_indices <= excluded_range_end)
-
-        # Reindex these indices
-        np_indices[need_reindexing] += (self.seq_len - 1)
-
-        # Ensure indices are within bounds
-        actual_indices = np_indices % self.capacity
-
+        ordered_valid_set = list(self.valid_set)
+        
+        actual_indices = [ordered_valid_set[idx] for idx in indices]
+        
         return actual_indices
         
     def add_transition(self, state, action, reward, next_state, terminated, truncated):
-
+        
+        self._exclude_from_sampling(self.index)
+        
         # Update the buffer with the new transition data
         self.states[self.index] = state
         self.actions[self.index] = action
@@ -49,6 +32,8 @@ class StandardBuffer(BaseBuffer):
         self.next_states[self.index] = next_state
         self.terminated[self.index] = terminated
         self.truncated[self.index] = truncated
+        
+        self._include_for_sampling(self.index, terminated or truncated)
         
         # Increment the buffer index and wrap around if necessary
         self.index = (self.index + 1) % self.capacity

@@ -4,7 +4,6 @@
         PARK, JunHo
 '''
 import numpy as np
-
 class BaseBuffer:
     def __init__(self, buffer_type, capacity, state_size, action_size, seq_len):
         self.buffer_type = buffer_type
@@ -12,7 +11,53 @@ class BaseBuffer:
         self.seq_len = seq_len
         self.state_size = state_size
         self.action_size = action_size
+        self.valid_indices = np.zeros(capacity, dtype=bool)
+        self.valid_set = set()
 
+    def __len__(self):
+        return len(self.valid_set)
+
+    def _include_for_sampling(self, index, done):
+        # Ensure buffer has enough samples for a sequence.
+        if self.size < self.seq_len:
+            return  # Early exit if buffer size is less than required sequence length.
+
+        if self.valid_indices[index]:
+            return 
+
+        should_include = False  # Default to not including the index.
+
+        # Directly include 'done' indices or evaluate 'not done' indices for potential inclusion.
+        if done:
+            should_include = True
+        else:
+            # Check the immediate previous index for validity without being terminated or truncated.
+            previous_idx = (index - 1 + self.capacity) % self.capacity
+            previous_done = self.terminated[previous_idx] or self.truncated[previous_idx]
+            if self.valid_indices[previous_idx] and not previous_done:
+                should_include = True
+            else:
+                # Calculate the starting and ending index for the search, considering wrap-around in a circular buffer.
+                start_idx = (index - self.seq_len + 1 + self.capacity) % self.capacity
+                end_idx = index + self.capacity
+                # Check each index in the range for termination or truncation, indicating invalid for sampling.
+                for i in range(start_idx, end_idx):
+                    idx = i % self.capacity  # Adjust for circular buffer wrap-around.
+                    if self.terminated[idx] or self.truncated[idx]:
+                        should_include = True
+                        break  # Stop checking if any index in the sequence is terminated or truncated.
+
+        # Update validity if the index is determined to be included.
+        if should_include:
+            self.valid_indices[index] = True
+            self.valid_set.add(index)
+
+    def _exclude_from_sampling(self, index):
+        end_idx = (index + self.seq_len - 1) % self.capacity
+        if self.valid_indices[end_idx]:
+            self.valid_indices[end_idx] = False
+            self.valid_set.remove(end_idx)
+                
     def _reset_buffer(self):
         self.size = 0  
         self.index = 0
@@ -22,7 +67,9 @@ class BaseBuffer:
         self.next_states = np.empty((self.capacity, self.state_size))
         self.terminated = np.empty(self.capacity)       
         self.truncated = np.empty(self.capacity)       
-
+        self.valid_indices.fill(False)  # Reset all indices to invalid
+        self.valid_set.clear() 
+        
     def _fetch_trajectory_slices(self, indices, td_steps):
         batch_size = len(indices)
         buffer_size = self.capacity
