@@ -38,7 +38,7 @@ class BaseBuffer:
                 should_include = True
             else:
                 # Calculate the starting and ending index for the search, considering wrap-around in a circular buffer.
-                start_idx = (index - self.seq_len + 1 + self.capacity) % self.capacity
+                start_idx = index - self.seq_len + 1 + self.capacity
                 end_idx = index + self.capacity
                 # Check each index in the range for termination or truncation, indicating invalid for sampling.
                 for i in range(start_idx, end_idx):
