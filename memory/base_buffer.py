@@ -25,18 +25,13 @@ class BaseBuffer:
         if self.valid_indices[index]:
             return 
 
-        should_include = False  # Default to not including the index.
+        should_include = True  # Default to including the index.
 
-        # Directly include 'done' indices or evaluate 'not done' indices for potential inclusion.
-        if done:
-            should_include = True
-        else:
+        if not done:
             # Check the immediate previous index for validity without being terminated or truncated.
             previous_idx = (index - 1 + self.capacity) % self.capacity
             previous_done = self.terminated[previous_idx] or self.truncated[previous_idx]
-            if self.valid_indices[previous_idx] and not previous_done:
-                should_include = True
-            else:
+            if not self.valid_indices[previous_idx] or previous_done:
                 # Calculate the starting and ending index for the search, considering wrap-around in a circular buffer.
                 start_idx = index - self.seq_len + 1 + self.capacity
                 end_idx = index + self.capacity
@@ -44,7 +39,7 @@ class BaseBuffer:
                 for i in range(start_idx, end_idx):
                     idx = i % self.capacity  # Adjust for circular buffer wrap-around.
                     if self.terminated[idx] or self.truncated[idx]:
-                        should_include = True
+                        should_include = False
                         break  # Stop checking if any index in the sequence is terminated or truncated.
 
         # Update validity if the index is determined to be included.
