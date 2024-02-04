@@ -85,9 +85,16 @@ class ExperienceMemory:
         
     def balanced_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes, total_buffer_size):
         sampling_probabilities = self._calculate_sampling_probabilities()
+
+        # Ensure sampling_probabilities is a PyTorch tensor
+        sampling_probabilities_torch = torch.tensor(sampling_probabilities, dtype=torch.float).to(self.device)
+
+        # Use torch.multinomial to sample indices
+        sampled_indices_torch = torch.multinomial(sampling_probabilities_torch, sample_size, replacement=True)
+
+        # Convert sampled_indices_torch to a numpy array if necessary
+        sampled_indices = sampled_indices_torch.detach().cpu().numpy()
         
-        sampled_indices = np.random.choice(range(total_buffer_size), size=sample_size, p=sampling_probabilities)
-        # sampled_indices = random.sample(range(total_buffer_size), sample_size)
         buffer_indices = defaultdict(list)
         for idx in sampled_indices:
             buffer_id = next(i for i, cum_size in enumerate(cumulative_sizes) if idx < cum_size)
