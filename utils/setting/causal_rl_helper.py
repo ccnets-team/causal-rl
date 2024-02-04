@@ -30,14 +30,16 @@ class CausalRLHelper:
         self._initialize_training_parameters()
 
     # Setup Methods
-    def setup(self, use_graphics, training: bool):
+    def setup(self, setup_train = True, use_graphics = False, use_eval = False):
         """Configures environments and other necessary parameters for training/testing."""
-        self.use_training = training
+        self.setup_train = setup_train
+        self.use_eval = use_eval
         
-        if training:
+        if setup_train:
             """Configures the environment and other parameters for training."""
             self._ensure_train_environment_exists()
-            self._ensure_eval_environment_exists(use_graphics)
+            if use_eval:
+                self._ensure_eval_environment_exists(use_graphics)
             self._ensure_memory_exists()
         else:
             """Configures the environment for testing."""
@@ -66,14 +68,14 @@ class CausalRLHelper:
 
     def end_step(self, step):
         """Finalizes the step and performs save or log operations if conditions are met."""
-        if self.use_training:
+        if self.setup_train:
             self._save_rl_model_conditional(step)
 
         self._log_step_info_conditional(step)
 
     def record_data(self, multi_trajectories, training):
         """Records environment transitions."""      
-        self.recorder.record_trajectories(multi_trajectories, self.use_training, training=training)
+        self.recorder.record_trajectories(multi_trajectories, self.setup_train, training=training)
 
     def should_update_strategy(self, samples, step: int) -> bool:
         """Checks if the strategy should be updated."""
@@ -125,7 +127,7 @@ class CausalRLHelper:
         """Logs step info if conditions are met."""
         if step > 0 and step % self.print_interval == 0:
             """Logs information related to the given step."""    
-            if self.use_training:    
+            if self.setup_train:    
                 self.recorder.compute_train_records()
                 metrics = self.recorder.get_train_records()
                 log_train_data(self.parent.trainer, self.recorder.tensor_board_logger, *metrics, step, time.time() - self.recorder.pivot_time)
@@ -147,7 +149,7 @@ class CausalRLHelper:
     def _print_step_details(self, step, metrics):
         """Prints detailed information about the current step."""
         print_step(self.parent.trainer, self.parent.memory, step, time.time() - self.recorder.pivot_time, self.max_steps)
-        if self.use_training:
+        if self.setup_train:
             print_metrics(metrics[-1])
             print_train_scores(*metrics[:-1])
         else:

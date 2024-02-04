@@ -21,6 +21,7 @@ class CausalRL:
         """
         
         print_rl_params('causal_rl', rl_params)
+        self.step = 0
         self.device = device
         self.max_steps = rl_params.max_steps
         self.train_env, self.eval_env, self.test_env, self.memory = None, None, None, None
@@ -46,23 +47,25 @@ class CausalRL:
             env.end()
 
     # Main Public Methods
-    def train(self, resume_training: bool = False, use_graphics=False) -> None:
+    def train(self, resume_training: bool = False, use_eval = False, use_graphics=False) -> None:
         """
         Train the model based on the provided policy.
         """
-        self.helper.setup(use_graphics, training=True)
+        self.helper.setup(setup_train = True, use_graphics = use_graphics, use_eval = use_eval)
         
         if resume_training:
             self.helper.load_model()
 
-        for step in tqdm(range(self.max_steps)):
+        for _ in tqdm(range(self.max_steps)):
             # Training Logic Methods
             """Unified training logic for each step."""
-            self.helper.init_step(step)
-            self.interact_environment(self.eval_env, training=False)            
+            self.helper.init_step(self.step)
+            if use_eval:
+                self.interact_environment(self.eval_env, training=False)            
             self.interact_environment(self.train_env, training=True)
-            self.train_off_policy(step)
-            self.helper.end_step(step)  
+            self.train_off_policy(self.step)
+            self.helper.end_step(self.step)  
+            self.step += 1 
             
         self.helper.save_model()
         self._end_environment(self.train_env)
@@ -97,16 +100,15 @@ class CausalRL:
         env.explore_environments(self.trainer, training=training)
 
     def test(self, max_episodes: int = 100, use_graphics=True) -> None:
-        self.helper.setup(use_graphics, training=False)
+        self.helper.setup(setup_train = False, use_graphics = use_graphics)
         self.helper.load_model()
         
-        step = 0
         for episode in tqdm(range(max_episodes), desc="Testing"):
             while True:  # This loop will run until broken by a condition inside
                 if self.helper.get_test_episode_counts() > episode:
                     break
                 """Unified testing logic for each step."""
-                self.helper.init_step(step)
+                self.helper.init_step(self.step)
                 self.interact_environment(self.test_env, training=False)
-                self.helper.end_step(step)
-                step += 1  # Increment the global step count after processing
+                self.helper.end_step(self.step)
+                self.step += 1  # Increment the global step count after processing

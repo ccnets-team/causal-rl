@@ -70,13 +70,13 @@ class RecordManager:
     def get_test_records(self):
         return self.test_reward_per_step, self.test_accumulative_rewards, self.avg_metrics
         
-    def record_trajectories(self, trajectories: AgentTransitions, use_training: bool, training: bool):        
+    def record_trajectories(self, trajectories: AgentTransitions, setup_train: bool, training: bool):        
         env_ids = trajectories.env_ids
         agent_ids = trajectories.agent_ids
         rewards = trajectories.rewards
         dones_terminated = trajectories.dones_terminated
         dones_truncated = trajectories.dones_truncated
-        if use_training:
+        if setup_train:
             if training:
                 self.train_reward_tracker._add_rewards(env_ids, agent_ids, rewards, dones_terminated, dones_truncated)
             else:
