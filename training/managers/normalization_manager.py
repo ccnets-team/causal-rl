@@ -13,6 +13,37 @@ REWARD_SIZE = 1
 
 CLIP_NORM_RANGE = 10.0
 
+def _normalize_l1_norm(advantage, padding_mask=None):
+    if padding_mask is not None:
+        valid_advantages = advantage * padding_mask
+        sum_padding = padding_mask.sum(dim=0, keepdim=True).clamp(min=1)
+        norm = valid_advantages.abs().sum(dim=0, keepdim=True) / sum_padding
+    else:
+        norm = advantage.abs().mean(dim=0, keepdim=True) + 1e-8
+    normalized_advantage = advantage / norm
+    return normalized_advantage
+
+def _normalize_batch_norm(advantage, padding_mask=None):
+    if padding_mask is not None:
+        valid_advantages = advantage * padding_mask
+        sum_padding = _calculate_sum_padding(padding_mask)
+        batch_mean_estimated, batch_std_estimated = _estimate_batch_mean_and_std(valid_advantages, sum_padding)
+        normalized_advantage = (valid_advantages - batch_mean_estimated) / batch_std_estimated
+    else:
+        batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
+        batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
+        normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
+    return normalized_advantage
+
+def _calculate_sum_padding(padding_mask):
+    return padding_mask.sum(dim=0, keepdim=True).clamp(min=1)
+
+def _estimate_batch_mean_and_std(advantages, sum_padding):
+    batch_mean_estimated = advantages.sum(dim=0, keepdim=True) / sum_padding
+    batch_var_estimated = ((advantages - batch_mean_estimated) ** 2).sum(dim=0, keepdim=True) / sum_padding
+    batch_std_estimated = batch_var_estimated.sqrt() + 1e-8
+    return batch_mean_estimated, batch_std_estimated
+
 class NormalizerBase:
     def __init__(self, feature_size, norm_type_key, normalization_params, device):
         self.normalizer = None
@@ -90,34 +121,23 @@ class NormalizationUtils:
         if self.advantage_normalizer is None:
             return advantage
         elif self.advantage_normalizer == 'L1_norm':
-            if padding_mask is not None:
-                valid_advantages = advantage * padding_mask
-                sum_padding =padding_mask.sum(dim=0, keepdim=True).clamp(min=1)
-                norm = valid_advantages.abs().sum(dim=0, keepdim=True) /sum_padding
-            else:
-                norm = advantage.abs().mean(dim=0, keepdim=True) + 1e-8
-            normalized_advantage = advantage / norm
+            return _normalize_l1_norm(advantage, padding_mask)
         elif self.advantage_normalizer == 'batch_norm':
-            if padding_mask is not None:
-                valid_advantages = advantage * padding_mask
-                sum_padding = padding_mask.sum(dim=0, keepdim=True).clamp(min=1)
-                batch_mean_estimated = valid_advantages.sum(dim=0, keepdim=True) / sum_padding
-                batch_var_estimated = ((valid_advantages - batch_mean_estimated) ** 2 ).sum(dim=0, keepdim=True) / sum_padding
-                batch_std_estimated = batch_var_estimated.sqrt() + 1e-8
-                normalized_advantage = (valid_advantages - batch_mean_estimated) / batch_std_estimated
-            else:
-                batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
-                batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
-                normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
+            return _normalize_batch_norm(advantage, padding_mask)
+        elif self.advantage_normalizer == 'running_abs_mean':
+            return self._normalize_abs_mean(advantage, padding_mask)
         else:
-            reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
-            if padding_mask is None:
-                reshaped_padding_mask = None
-            else:
-                reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
-            self.advantage_manager._update_normalizer(reshaped_advantage, reshaped_padding_mask)
-            normalized_reshaped_advantage = self.advantage_manager._normalize_feature(reshaped_advantage)
-            normalized_advantage = normalized_reshaped_advantage.squeeze(1).unsqueeze(-1)
+            assert False, "Invalid advantage normalizer type"
+
+    def _normalize_abs_mean(self, advantage, padding_mask=None):
+        reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
+        if padding_mask is None:
+            reshaped_padding_mask = None
+        else:
+            reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
+        self.advantage_manager._update_normalizer(reshaped_advantage, reshaped_padding_mask)
+        normalized_reshaped_advantage = self.advantage_manager._normalize_feature(reshaped_advantage)
+        normalized_advantage = normalized_reshaped_advantage.squeeze(1).unsqueeze(-1)
         return normalized_advantage
 
     def normalize_trajectories(self, trajectories: BatchTrajectory):
