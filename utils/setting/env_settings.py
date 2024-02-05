@@ -31,13 +31,12 @@ GYM_ENV_SPECIFIC_ARGS = {
 GYM_NUM_ENVIRONMENTS = 1
 
 def analyze_env(env_name):
-    env_config, rl_params = None, None
+    rl_params = None
     use_gym = False
     if "-v" in env_name:
         use_gym = True
-    env_config, rl_params = configure_parameters(env_name, use_gym=use_gym)
-    print_env_specs(env_config)
-    return env_config, rl_params
+    rl_params = configure_parameters(env_name, use_gym=use_gym)
+    return rl_params
 
 def calculate_min_samples_per_step(training_params):
     # Calculate minimum samples per step
@@ -65,10 +64,13 @@ def configure_parameters(env_name: str, use_gym: bool = False) -> Tuple[Optional
     env_config = create_environment_config(
         env_name, 'gym' if use_gym else 'mlagents', num_environments, num_agents,
         obs_shapes, continuous_action_size, discrete_action_size, state_low, state_high, action_low, action_high)
-
+    
     apply_configuration_to_parameters(env_specific_args, env_name, rl_params)
+    
+    print_env_specs(env_config)
+    rl_params.init_env_config(env_config)
 
-    return env_config, rl_params
+    return rl_params
 
 def setup_environment(env_name: str, use_gym: bool = False) -> Optional[Type[EnvConfig]]:
     try:

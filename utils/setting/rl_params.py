@@ -14,6 +14,10 @@ class RLParameters:
         self.network = NetworkParameters() if network is None else network
         self.optimization = OptimizationParameters() if optimization is None else optimization
         self.normalization = NormalizationParameters() if normalization is None else normalization
+        self.env_config = None 
+        
+    def init_env_config(self, env_config):
+        self.env_config = env_config
 
     def __getattr__(self, name):
         # Check if the attribute is part of any of the parameter classes

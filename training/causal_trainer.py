@@ -20,13 +20,14 @@ from training.trainer_utils import create_padding_mask_before_dones
 class CausalTrainer(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
-    def __init__(self, env_config, rl_params, device):
+    def __init__(self, rl_params, device):
         self.trainer_name = 'causal_rl'
         self.network_names = ["critic", "actor", "rev_env"]
         network_params = rl_params.network
         critic_network = network_params.critic_network
         actor_network = network_params.actor_network
         rev_env_network = network_params.rev_env_network
+        env_config = rl_params.env_config
         
         self.critic = SingleInputCritic(critic_network, env_config, network_params.critic_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, network_params.actor_params).to(device)

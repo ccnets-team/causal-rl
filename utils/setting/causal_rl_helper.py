@@ -13,8 +13,9 @@ DEFAULT_PRINT_INTERVAL = 100
 DEFAULT_SAVE_INTERVAL = 1000
 
 class CausalRLHelper:
-    def __init__(self, parent, env_config, rl_params, use_print, use_wandb):
+    def __init__(self, parent, rl_params, use_print, use_wandb):
         trainer_name = 'causal_rl'
+        env_config = rl_params.env_config
         self.recorder = RecordManager(trainer_name, env_config, rl_params)
         self.parent = parent
         self.use_print = use_print

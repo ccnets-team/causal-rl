@@ -10,7 +10,7 @@ class CausalRL:
     """
     Class for tuning and training reinforcement learning models using a specified Trainer.
     """
-    def __init__(self, env_config: EnvConfig, rl_params: RLParameters, device, use_print=False, use_wandb=False):
+    def __init__(self, rl_params: RLParameters, device, use_print=False, use_wandb=False):
         """Initialize an instance of RLTune.
         Args:
             env_config (EnvConfig): Configuration for the environment.
@@ -25,8 +25,8 @@ class CausalRL:
         self.device = device
         self.max_steps = rl_params.max_steps
         self.train_env, self.eval_env, self.test_env, self.memory = None, None, None, None
-        self.trainer = CausalTrainer(env_config, rl_params, device)
-        self.helper = CausalRLHelper(self, env_config, rl_params, use_print, use_wandb)
+        self.trainer = CausalTrainer(rl_params, device)
+        self.helper = CausalRLHelper(self, rl_params, use_print, use_wandb)
 
     # Context Management
     def __enter__(self):
