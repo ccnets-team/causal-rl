@@ -80,17 +80,14 @@ class ExperienceMemory:
         cumulative_sizes, total_buffer_size = self._calculate_cumulative_sizes()
         if sample_sz > total_buffer_size:
             return None, None
-        samples, buffer_indices = self.balanced_sample_trajectory_data(sample_sz, td_steps, cumulative_sizes, total_buffer_size)
+        samples, buffer_indices = self.balanced_sample_trajectory_data(sample_sz, td_steps, cumulative_sizes)
         return samples, buffer_indices  
         
-    def balanced_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes, total_buffer_size):
+    def balanced_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes):
         sampling_probabilities = self._calculate_sampling_probabilities()
 
-        # Ensure sampling_probabilities is a PyTorch tensor
-        sampling_probabilities_torch = torch.tensor(sampling_probabilities, dtype=torch.float).to(self.device)
-
         # Use torch.multinomial to sample indices
-        sampled_indices_torch = torch.multinomial(sampling_probabilities_torch, sample_size, replacement=True)
+        sampled_indices_torch = torch.multinomial(sampling_probabilities, sample_size, replacement=True)
 
         # Convert sampled_indices_torch to a numpy array if necessary
         sampled_indices = sampled_indices_torch.detach().cpu().numpy()
@@ -127,8 +124,10 @@ class ExperienceMemory:
         return samples
     
     def _calculate_sampling_probabilities(self):
-        # Accumulate TD errors using NumPy arrays for memory efficiency
-        buffer_sample_probs = np.concatenate([buf.sample_probs[:buf.size] for env in self.multi_buffers for buf in env])
+        buffer_sample_probs = torch.cat([
+            torch.tensor(buf.sample_probs[:buf.size], dtype=torch.float).to(self.device) 
+            for env in self.multi_buffers for buf in env
+        ], dim = 0)
 
         sum_adjusted_td_errors = buffer_sample_probs.sum()
         
