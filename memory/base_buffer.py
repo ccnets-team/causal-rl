@@ -64,18 +64,6 @@ class BaseBuffer:
         terminated_slices = self.terminated[expanded_indices]
         truncated_slices = self.truncated[expanded_indices]
 
-        if self.size < self.capacity:
-            # Create a mask to identify valid indices within the current buffer size
-            valid_mask = expanded_indices < self.size 
-                    
-            # Zero out the data at invalid indices
-            states_slices[~valid_mask] = 0
-            actions_slices[~valid_mask] = 0
-            rewards_slices[~valid_mask] = 0
-            next_states_slices[~valid_mask] = 0
-            terminated_slices[~valid_mask] = True
-            truncated_slices[~valid_mask] = True
-        
         states_slices = states_slices.reshape(batch_size, td_steps, -1)
         actions_slices = actions_slices.reshape(batch_size, td_steps, -1)
         rewards_slices = rewards_slices.reshape(batch_size, td_steps, -1)

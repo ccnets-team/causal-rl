@@ -38,7 +38,12 @@ class StandardBuffer(BaseBuffer):
         
     def sample_trajectories(self, indices, td_steps):
             
+        indices = np.array(indices, dtype=np.int32)
+        
+        # reindex the indices to the actual indices in the buffer
+        actual_indices = indices + self.size - len(self)
+        
         # Retrieve trajectories for the given actual indices
-        samples = self._fetch_trajectory_slices(indices, td_steps)
+        samples = self._fetch_trajectory_slices(actual_indices, td_steps)
             
         return samples
