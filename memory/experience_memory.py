@@ -125,7 +125,7 @@ class ExperienceMemory:
     
     def _calculate_sampling_probabilities(self):
         buffer_sample_probs = torch.cat([
-            torch.tensor(buf.sample_probs[:buf.size], dtype=torch.float).to(self.device) 
+            torch.tensor(buf.sample_probs[buf.size - len(buf):buf.size], dtype=torch.float).to(self.device) 
             for env in self.multi_buffers for buf in env
         ], dim = 0)
 

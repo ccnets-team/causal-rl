@@ -17,8 +17,9 @@ class RunningMeanStd:
 
         new_adding = batch_size * seq_len
         x_mean = x.mean(dim=(0, 1)) 
+        x_var = x.var(dim=0, unbiased=False).mean(dim=0)
         x_var = x.var(dim=(0, 1), unbiased=False)
-                    
+        
         delta = x_mean - self.mean
         new_count = self.count + new_adding
         new_mean = self.mean + delta * new_adding / new_count

@@ -14,7 +14,9 @@ class BaseBuffer:
         self.sample_probs = np.zeros(capacity, dtype=np.float32)
 
     def __len__(self):
-        return self.size
+        if self.size >= self.capacity:
+            return self.size
+        return max(self.size - self.seq_len + 1, 0)
 
     def _assign_sample_prob(self, index):
         # Ensure buffer has enough samples for a sequence.
