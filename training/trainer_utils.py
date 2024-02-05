@@ -6,26 +6,40 @@ def get_discount_sequence(discount_factor, max_seq_len):
     return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
 
 def calculate_normalized_reward_scale(gamma, td_lambda, gpt_seq_length, device):
-    gammas = get_discount_sequence(gamma, gpt_seq_length)
-    lambdas = get_discount_sequence(td_lambda, gpt_seq_length)
+    """
+    Calculates a normalized reward scale that ensures consistent variance in value loss across sequences.
+    This approach accounts for the cumulative impact of discount rates (gamma) and bootstrapping rates (lambda),
+    providing a stable reward scaling mechanism adaptable to different sequence lengths and temporal dynamics.
 
-    # Combining discount rates (gammas) and bootstrapping rates (lambdas)
-    # to create a combined temporal scaling factor for reward adjustment
-    temporal_scaling_factors = (gammas * lambdas).to(device)
+    Args:
+        gamma (float): The discount factor gamma, influencing the importance of future rewards.
+        td_lambda (float): The lambda parameter for TD(lambda) returns, balancing immediate and future rewards.
+        gpt_seq_length (int): The maximum sequence length for the GPT model.
+        device (torch.device): The computational device (CPU or GPU).
 
-    # Calculating the cumulative sum of temporal scaling factors across sequences
+    Returns:
+        torch.Tensor: The normalized reward scale to be used for consistent reward adjustment across sequences.
+    """
+    # Obtain discount sequences for gamma and lambda, shaping them for sequence-wide application.
+    gammas = get_discount_sequence(gamma, gpt_seq_length).to(device)
+    lambdas = get_discount_sequence(td_lambda, gpt_seq_length).to(device)
+
+    # Calculate temporal scaling factors by combining gammas and lambdas, reflecting both discounting and bootstrapping effects.
+    temporal_scaling_factors = gammas * lambdas
+
+    # Compute the cumulative sum of these factors to understand their aggregate effect over sequences.
     accumulative_scaling_factors = torch.cumsum(temporal_scaling_factors, dim=1)
 
-    # Determining the factors for calculating the variance in value estimates
-    value_variance_factors = gamma * td_lambda * temporal_scaling_factors
+    # The square of the normalized reward scale is determined by the mean of accumulative scaling factors,
+    # ensuring adjustments are uniformly applied across varying sequence dynamics.
+    normalized_reward_scale_square = accumulative_scaling_factors.mean()
 
-    # Calculating the cumulative variance in rewards based on scaling and variance factors
-    cumulative_reward_variance = accumulative_scaling_factors * value_variance_factors
+    # Applying a square root to the mean provides a reward scale that compensates for the squared increase in TD error or advantage,
+    # facilitating a consistent variance in value loss irrespective of sequence length, gamma, or lambda.
+    normalized_reward_scale = torch.sqrt(normalized_reward_scale_square)
 
-    # Determining the normalized scale for rewards to ensure consistent adjustment across sequences
-    normalized_reward_scale = cumulative_reward_variance.mean()
-    
     return normalized_reward_scale
+
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
