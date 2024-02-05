@@ -90,12 +90,25 @@ class NormalizationUtils:
         if self.advantage_normalizer is None:
             return advantage
         elif self.advantage_normalizer == 'L1_norm':
-            normalized_advantage = advantage / (advantage.abs().mean(dim=0, keepdim=True) + 1e-8)
+            if padding_mask is not None:
+                valid_advantages = advantage * padding_mask
+                sum_padding =padding_mask.sum(dim=0, keepdim=True).clamp(min=1)
+                norm = valid_advantages.abs().sum(dim=0, keepdim=True) /sum_padding
+            else:
+                norm = advantage.abs().mean(dim=0, keepdim=True) + 1e-8
+            normalized_advantage = advantage / norm
         elif self.advantage_normalizer == 'batch_norm':
-            # Batch normalization - normalizing based on batch mean and std
-            batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
-            batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
-            normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
+            if padding_mask is not None:
+                valid_advantages = advantage * padding_mask
+                sum_padding = padding_mask.sum(dim=0, keepdim=True).clamp(min=1)
+                batch_mean_estimated = valid_advantages.sum(dim=0, keepdim=True) / sum_padding
+                batch_var_estimated = ((valid_advantages - batch_mean_estimated) ** 2 ).sum(dim=0, keepdim=True) / sum_padding
+                batch_std_estimated = batch_var_estimated.sqrt() + 1e-8
+                normalized_advantage = (valid_advantages - batch_mean_estimated) / batch_std_estimated
+            else:
+                batch_mean_estimated = advantage.mean(dim=0, keepdim=True)
+                batch_std_estimated = advantage.std(dim=0, keepdim=True) + 1e-8
+                normalized_advantage = (advantage - batch_mean_estimated) / batch_std_estimated
         else:
             reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
             if padding_mask is None:
