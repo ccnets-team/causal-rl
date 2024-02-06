@@ -98,9 +98,9 @@ class CausalTrainer(BaseTrainer):
         self.update_step()
         
         metrics = create_training_metrics(
-            estimated_value=estimated_value,
-            expected_value=expected_value,
-            advantage=advantage,
+            estimated_value=normalized_estimated_value,
+            expected_value=normalized_expected_value,
+            advantage=normalized_advantage,
             value_loss=value_loss,
             critic_loss=critic_loss,
             actor_loss=actor_loss,
