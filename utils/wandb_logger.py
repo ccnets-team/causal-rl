@@ -35,25 +35,39 @@ METRICS_CATEGORY_MAP = {
 def wandb_init(env_config, rl_params):
     if wandb is None:
         raise RuntimeError("wandb is not installed. Please install wandb to use wandb_init.")
-    wandb.login()
+    wandb.login(key="066a13f2f59d5503ffc0ff3e7e18f5a7990d8505")
     
     env_config_dict = convert_to_dict(env_config)
+
+    env_config_dict = {
+        "env_name" : env_config_dict["env_name"],
+        "num_environments" : env_config_dict["num_environments"],
+        "num_agents" : env_config_dict["num_agents"],
+        "samples_per_step" : env_config_dict["samples_per_step"],
+        "state_size" : env_config_dict["state_size"],
+        "action_size" : env_config_dict["action_size"],
+        "use_discrete" : env_config_dict["use_discrete"]
+                       }
     rl_params_net_actor, rl_params_net_critic, rl_params_net_rev = convert_to_dict(rl_params.network.actor_params),convert_to_dict(rl_params.network.critic_params),convert_to_dict(rl_params.network.rev_env_params)
     rl_params_dict = convert_to_dict(rl_params)
     rl_params_dict['network']['actor_params'] = rl_params_net_actor
     rl_params_dict['network']['critic_params'] = rl_params_net_critic
     rl_params_dict['network']['rev_env_params'] = rl_params_net_rev
+    rl_params_dict.pop("env_config")
     
     env_config_dict = {k: v for k, v in env_config_dict.items() if isinstance(v, (int, float, str, bool))}
     env_config_dict = dict(sorted(env_config_dict.items(), key=sort_key))
     env_config_dict = {'env_config':env_config_dict}
     
-    merged_config_dict = {**env_config_dict, **rl_params_dict}
+    rl_params_dict['env_config'] = env_config_dict['env_config']
+    
+    merged_config_dict = {** rl_params_dict}
+    print(rl_params_dict)
     
     trainer_name = 'causal_rl'
     
     wandb.init(
-        project='causal-rl',
+        project='tut_test',
         name= f'{trainer_name}-{env_config.env_name} : {formatted_date}',
         save_code = True,
         monitor_gym = False, 
