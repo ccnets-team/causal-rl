@@ -33,8 +33,10 @@ def calculate_normalized_value_variance_scale(gamma, td_lambda, gpt_seq_length, 
     # Establish a variance scale based on the average of accumulative scaling factors,
     # facilitating consistent adjustment of value estimates across diverse sequence conditions.
     normalized_value_variance_scale = accumulative_scaling_factors.mean()
+    
+    normalized_value_variance_scale_sqrt = normalized_value_variance_scale.sqrt()
 
-    return normalized_value_variance_scale
+    return normalized_value_variance_scale_sqrt
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
