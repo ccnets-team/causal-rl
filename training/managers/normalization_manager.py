@@ -101,14 +101,13 @@ class NormalizationUtils:
     def normalize_rewards(self, reward):
         return self.reward_manager._normalize_feature(reward)
     
-    def normalize_values(self, estimated_value, expected_value, padding_mask=None, normalized_value_scale = 1.0):
+    def normalize_values(self, expected_value, padding_mask=None, normalized_value_scale = 1.0):
         """
         Applies normalization to estimated and expected values using the specified value normalizer,
         adjusting for sequence length variability. This function enhances model stability and performance by
         ensuring consistent value scaling across different sequences and environments.
 
         Args:
-            estimated_value (torch.Tensor): The model's estimated values for each sequence.
             expected_value (torch.Tensor): The calculated expected values (returns) for each sequence.
             padding_mask (torch.Tensor, optional): A mask indicating valid entries for normalization.
             normalized_value_scale (float, optional): A scaling factor applied post-normalization to adjust the scale of normalized values.
@@ -117,16 +116,13 @@ class NormalizationUtils:
             tuple[torch.Tensor, torch.Tensor]: Tuple containing normalized estimated and expected values.
         """
         if self.value_normalizer is None:
-            return estimated_value, expected_value
+            return expected_value
 
         if self.value_normalizer == 'L1_norm':
-            normalized_estimated_value = _normalize_l1_norm(estimated_value, padding_mask)
             normalized_expected_value = _normalize_l1_norm(expected_value, padding_mask)
         elif self.value_normalizer == 'batch_norm':
-            normalized_estimated_value = _normalize_batch_norm(estimated_value, padding_mask)
             normalized_expected_value = _normalize_batch_norm(expected_value, padding_mask)
         else:
-            reshaped_estimated_value = estimated_value.squeeze(-1).unsqueeze(1)
             reshaped_expected_value = expected_value.squeeze(-1).unsqueeze(1)
             if padding_mask is None:
                 reshaped_padding_mask = None
@@ -134,16 +130,12 @@ class NormalizationUtils:
                 reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
             self.value_manager._update_normalizer(reshaped_expected_value, reshaped_padding_mask)
 
-            normalized_reshaped_estimated_value = self.value_manager._normalize_feature(reshaped_estimated_value)
-            normalized_estimated_value = normalized_reshaped_estimated_value.squeeze(1).unsqueeze(-1)
-
             normalized_reshaped_expected_value = self.value_manager._normalize_feature(reshaped_expected_value)
             normalized_expected_value = normalized_reshaped_expected_value.squeeze(1).unsqueeze(-1)
             
-        normalized_estimated_value *= normalized_value_scale
         normalized_expected_value *= normalized_value_scale
         
-        return normalized_estimated_value, normalized_expected_value
+        return normalized_expected_value
 
     def normalize_advantage(self, advantage, padding_mask=None):
         """

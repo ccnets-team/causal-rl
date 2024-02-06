@@ -6,7 +6,7 @@ from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.data_structures  import BatchTrajectory
-from .trainer_utils import calculate_lambda_returns, masked_tensor_reduction, calculate_normalized_value_variance_scale
+from .trainer_utils import calculate_lambda_returns, masked_tensor_reduction
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -15,7 +15,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils(rl_params.max_steps)
-        self.normalized_value_scale = calculate_normalized_value_variance_scale(self.discount_factor, self.advantage_lambda, self.gpt_seq_length, self.device)
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -88,13 +87,13 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
             expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
         
-        normalized_estimated_value, normalized_expected_value = self.normalize_values(estimated_value, expected_value, padding_mask, self.normalized_value_scale)
+        expected_value = self.normalize_values(expected_value, padding_mask)
             
         with torch.no_grad():
-            advantage = (normalized_expected_value - normalized_estimated_value)
-            normalized_advantage = self.normalize_advantage(advantage, padding_mask)
+            advantage = (expected_value - estimated_value)
+            advantage = self.normalize_advantage(advantage, padding_mask)
     
-        return normalized_estimated_value, normalized_expected_value, normalized_advantage
+        return estimated_value, expected_value, advantage
 
     @abstractmethod
     def trainer_calculate_future_value(self, next_state, mask = None):
