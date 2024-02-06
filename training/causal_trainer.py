@@ -75,16 +75,16 @@ class CausalTrainer(BaseTrainer):
         coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True)
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        estimated_value, expected_value, advantage = self.compute_values(trajectory, estimated_value, padding_mask)
+        normalized_estimated_value, normalized_expected_value, normalized_advantage = self.compute_values(trajectory, estimated_value, padding_mask)
             
         # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
+        value_loss = self.calculate_value_loss(normalized_estimated_value, normalized_expected_value, padding_mask)   
 
         # Derive the critic loss from the cooperative critic error.
         critic_loss = self.select_tensor_reduction(coop_critic_error, padding_mask)
         
         # Calculate the actor loss by multiplying the advantage with the cooperative actor error.
-        actor_loss = self.select_tensor_reduction(advantage * coop_actor_error, padding_mask)       
+        actor_loss = self.select_tensor_reduction(normalized_advantage * coop_actor_error, padding_mask)       
 
         # Derive the reverse-environment loss from the cooperative reverse-environment error.
         revEnv_loss = self.select_tensor_reduction(coop_revEnv_error, padding_mask)

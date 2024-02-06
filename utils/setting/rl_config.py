@@ -39,7 +39,7 @@ class OptimizationParameters:
         self.max_grad_norm = max_grad_norm  # L2 norm threshold for gradient clipping to prevent exploding gradients.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', value_normalizer='running_mean_std', advantage_normalizer='running_abs_mean'):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', value_normalizer='running_mean_std', advantage_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std' or 'None'.
         self.reward_normalizer = reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'None'.
         self.value_normalizer = value_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'None'.
