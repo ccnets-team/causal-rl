@@ -5,35 +5,38 @@ import torch.nn.functional as F
 def get_discount_sequence(discount_factor, max_seq_len):
     return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
 
-def calculate_sum_reward_variance_scale(gamma, td_lambda, gpt_seq_length, device):
+def calculate_normalized_sum_reward_scale(gamma, td_lambda, gpt_seq_length, device):
     """
-    Adjusts the scale for normalizing sum of rewards from lambda returns, enhancing consistency in value loss variance across varying sequence lengths. 
-    This scale modification accounts for the temporal dynamics of discounting and bootstrapping, applying a corrective weight to earlier sequences 
-    to offset the diminishing scale effect due to normalization. It aims to ensure a balanced contribution of rewards throughout the sequence, 
-    particularly emphasizing the significance of initial rewards which are more impacted by discounting factors.
+    Generates a scaling factor to normalize the sum of rewards from lambda returns, 
+    adjusting for consistent value loss variance across sequences of varying lengths. 
+    It compensates for temporal discounting and bootstrapping effects, 
+    ensuring an equitable distribution of reward significance throughout the sequence, 
+    especially for initial rewards affected by gamma and lambda.
 
     Args:
-        gamma (float): Discount factor for future rewards, influencing the reduction in reward value over time.
-        td_lambda (float): Lambda for TD(lambda) returns, determining the balance between immediate and future rewards.
-        gpt_seq_length (int): The maximum sequence length for the GPT model.
-        device (torch.device): The computational device (CPU or GPU) for tensor operations.
+        gamma (float): Discount factor for future rewards.
+        td_lambda (float): Lambda parameter for TD(lambda) returns, adjusting the balance between immediate and future rewards.
+        gpt_seq_length (int): Maximum sequence length for the GPT model.
+        device (torch.device): Computational device (CPU or GPU).
 
     Returns:
-        torch.Tensor: A corrective scale for normalizing the sum of rewards, designed to preserve the influence of initial sequence rewards 
-        by applying an inversely proportional weight against the decay effects of gamma and lambda.
+        torch.Tensor: Scaling factor for each timestep to adjust the normalization of the sum of rewards, 
+        preserving the significance of initial rewards against the decay effects of gamma and lambda.
     """
     # Generate sequences for gamma and lambda, adjusted for sequence-wide application.
     gammas_sequence = get_discount_sequence(gamma, gpt_seq_length).to(device)
     lambdas_sequence = get_discount_sequence(td_lambda, gpt_seq_length).to(device)
 
     # Calculate the combined impact of discounting and bootstrapping for each timestep.
-    combined_temporal_factors = gammas_sequence * lambdas_sequence
+    temporal_scaling_factors = gammas_sequence * lambdas_sequence
 
-    # Apply a weight to each timestep based on the combined temporal factors, giving more weight to earlier sequences.
-    temporal_weights = combined_temporal_factors/combined_temporal_factors[:,-1:]
+    # Accumulate these factors across sequences to gauge their comprehensive impact.
+    rev_cumulative_factors = torch.cumsum(temporal_scaling_factors, dim=1)
     
-    return temporal_weights
-
+    # Apply a weight to each timestep based on the combined temporal factors, giving more weight to earlier sequences.
+    normalized_scale = torch.flip(rev_cumulative_factors, dims=[1])
+    
+    return normalized_scale
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """

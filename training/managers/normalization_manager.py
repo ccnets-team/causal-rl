@@ -67,7 +67,7 @@ class NormalizerBase:
             # Update the normalizer with the reshaped data
             self.normalizer.update(data, padding_mask)
                 
-    def _normalize_feature(self, data):
+    def _normalize_last_dim(self, data):
         if self.normalizer is not None:
             # Normalize and clamp data
             clip = self.clip_norm_range
@@ -96,19 +96,19 @@ class NormalizationUtils:
         return self.advantage_manager.normalizer
             
     def normalize_states(self, state):
-        return self.state_manager._normalize_feature(state)
+        return self.state_manager._normalize_last_dim(state)
 
     def normalize_rewards(self, reward):
-        return self.reward_manager._normalize_feature(reward)
+        return self.reward_manager._normalize_last_dim(reward)
     
-    def normalize_sum_rewards(self, expected_value, padding_mask=None, normalized_value_scale = None):
+    def normalize_sum_rewards(self, sum_rewards, padding_mask=None, normalized_sum_reward_scale = None):
         """
         Applies normalization to estimated and expected values using the specified value normalizer,
         adjusting for sequence length variability. This function enhances model stability and performance by
         ensuring consistent value scaling across different sequences and environments.
 
         Args:
-            expected_value (torch.Tensor): The calculated expected values (returns) for each sequence.
+            sum_rewards (torch.Tensor): The calculated expected values (returns) for each sequence.
             padding_mask (torch.Tensor, optional): A mask indicating valid entries for normalization.
             normalized_value_scale (float, optional): A scaling factor applied post-normalization to adjust the scale of normalized values.
 
@@ -116,27 +116,27 @@ class NormalizationUtils:
             tuple[torch.Tensor, torch.Tensor]: Tuple containing normalized estimated and expected values.
         """
         if self.sum_reward_normalizer is None:
-            return expected_value
+            return sum_rewards
 
         if self.sum_reward_normalizer == 'L1_norm':
-            normalized_expected_value = _normalize_l1_norm(expected_value, padding_mask)
+            normalized_sum_rewards = _normalize_l1_norm(sum_rewards, padding_mask)
         elif self.sum_reward_normalizer == 'batch_norm':
-            normalized_expected_value = _normalize_batch_norm(expected_value, padding_mask)
+            normalized_sum_rewards = _normalize_batch_norm(sum_rewards, padding_mask)
         else:
-            reshaped_expected_value = expected_value.squeeze(-1).unsqueeze(1)
+            reshaped_sum_rewards = sum_rewards.squeeze(-1).unsqueeze(1)
             if padding_mask is None:
                 reshaped_padding_mask = None
             else:
                 reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
-            self.value_manager._update_normalizer(reshaped_expected_value, reshaped_padding_mask)
+            self.value_manager._update_normalizer(reshaped_sum_rewards, reshaped_padding_mask)
 
-            normalized_reshaped_expected_value = self.value_manager._normalize_feature(reshaped_expected_value)
-            normalized_expected_value = normalized_reshaped_expected_value.squeeze(1).unsqueeze(-1)
+            normalized_reshaped_sum_rewards = self.value_manager._normalize_last_dim(reshaped_sum_rewards)
+            normalized_sum_rewards = normalized_reshaped_sum_rewards.squeeze(1).unsqueeze(-1)
         
-        if normalized_value_scale is not None:
-            normalized_expected_value *= normalized_value_scale
+        if normalized_sum_reward_scale is not None:
+            normalized_sum_rewards /= normalized_sum_reward_scale
         
-        return normalized_expected_value
+        return normalized_sum_rewards
 
     def normalize_advantage(self, advantage, padding_mask=None):
         """
@@ -169,7 +169,7 @@ class NormalizationUtils:
             else:
                 reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
             self.advantage_manager._update_normalizer(reshaped_advantage, reshaped_padding_mask)
-            normalized_reshaped_advantage = self.advantage_manager._normalize_feature(reshaped_advantage)
+            normalized_reshaped_advantage = self.advantage_manager._normalize_last_dim(reshaped_advantage)
             normalized_advantage = normalized_reshaped_advantage.squeeze(1).unsqueeze(-1)
             return normalized_advantage
 
