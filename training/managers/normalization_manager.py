@@ -125,10 +125,8 @@ class NormalizationUtils:
             return _normalize_l1_norm(value, padding_mask)
         elif self.value_normalizer == 'batch_norm':
             return _normalize_batch_norm(value, padding_mask)
-        elif self.value_normalizer == 'running_abs_mean':
-            return self._normalize_abs_mean(value, padding_mask)
         else:
-            assert False, "Invalid value normalizer type"
+            return self._normalize_running_norm(value, padding_mask)
 
     def normalize_advantage(self, advantage, padding_mask=None):
         """
@@ -154,12 +152,10 @@ class NormalizationUtils:
             return _normalize_l1_norm(advantage, padding_mask)
         elif self.advantage_normalizer == 'batch_norm':
             return _normalize_batch_norm(advantage, padding_mask)
-        elif self.advantage_normalizer == 'running_abs_mean':
-            return self._normalize_abs_mean(advantage, padding_mask)
         else:
-            assert False, "Invalid advantage normalizer type"
+            return self._normalize_running_norm(advantage, padding_mask)
 
-    def _normalize_abs_mean(self, advantage, padding_mask=None):
+    def _normalize_running_norm(self, advantage, padding_mask=None):
         reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
         if padding_mask is None:
             reshaped_padding_mask = None
