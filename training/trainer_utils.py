@@ -2,54 +2,39 @@
 import torch
 import torch.nn.functional as F
 
-def masked_tensor_reduction(tensor, mask, reduction="batch"):
-    # Dictionary mapping for reduction type to dimension
-    reduction_to_dim = {"batch": 0, "seq": 1}
+def get_discount_sequence(discount_factor, max_seq_len):
+    return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
 
-    # Handle the 'all' reduction case separately
-    if reduction == "all":
-        return tensor[mask > 0].flatten().mean()
+def calculate_normalized_reward_scale(gamma, td_lambda, gpt_seq_length, device):
+    """
+    Calculates a normalized reward scale that ensures consistent variance in value loss across sequences.
+    This approach accounts for the cumulative impact of discount rates (gamma) and bootstrapping rates (lambda),
+    providing a stable reward scaling mechanism adaptable to different sequence lengths and temporal dynamics.
 
-    # Get the dimension for reduction from the dictionary
-    dim = reduction_to_dim.get(reduction)
-    if dim is None:
-        raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
+    Args:
+        gamma (float): The discount factor gamma, influencing the importance of future rewards.
+        td_lambda (float): The lambda parameter for TD(lambda) returns, balancing immediate and future rewards.
+        gpt_seq_length (int): The maximum sequence length for the GPT model.
+        device (torch.device): The computational device (CPU or GPU).
 
-    # Ensure mask is a boolean tensor
-    mask_bool = mask.bool()
-    # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
-    masked_tensor = tensor * mask_bool
-    # Sum the masked tensor across the batch dimension (dim=0)
-    sum_per_sequence = torch.sum(masked_tensor, dim=dim)
-    # Count the number of True entries in the mask per sequence for normalization
-    count_per_sequence = torch.sum(mask_bool, dim=dim)
-    # Handle potential division by zero in case some sequences are fully masked
-    # If count_per_sequence is 0, replace it with 1 to prevent division by zero
-    count_per_sequence = torch.clamp(count_per_sequence, min=1)
-    # Calculate the mean by dividing the sum by the number of unmasked entries
-    mean_per_sequence = sum_per_sequence / count_per_sequence
-    return mean_per_sequence
+    Returns:
+        torch.Tensor: The normalized reward scale to be used for consistent reward adjustment across sequences.
+    """
+    # Obtain discount sequences for gamma and lambda, shaping them for sequence-wide application.
+    gammas = get_discount_sequence(gamma, gpt_seq_length).to(device)
+    lambdas = get_discount_sequence(td_lambda, gpt_seq_length).to(device)
 
-def adaptive_masked_tensor_reduction(tensor, mask, length_weight_exponent = 2):
-    # Ensure mask is a boolean tensor and compatible with tensor dimensions
-    mask_bool = mask.bool()
-    steps_count = mask_bool.sum(dim=1).unsqueeze(-1)
-    total_steps = mask_bool.size(1)
-    steps_proportion = pow(steps_count.float() / total_steps, length_weight_exponent)
+    # Calculate temporal scaling factors by combining gammas and lambdas, reflecting both discounting and bootstrapping effects.
+    temporal_scaling_factors = gammas * lambdas
 
-    count_per_sequence = torch.sum(mask_bool, dim=0)
-    count_per_batch = torch.sum(mask_bool, dim=1)   
+    # Compute the cumulative sum of these factors to understand their aggregate effect over sequences.
+    accumulative_scaling_factors = torch.cumsum(temporal_scaling_factors, dim=1)
 
-    # Apply mask to tensor and calculate the mean for sequences where some steps are masked
-    masked_tensor = tensor * mask_bool.float()
-    mean_full = (masked_tensor * steps_proportion).sum(dim=0) / count_per_sequence.clamp(min=1)
+    # The square of the normalized reward scale is determined by the mean of accumulative scaling factors,
+    # ensuring adjustments are uniformly applied across varying sequence dynamics.
+    normalized_reward_scale = accumulative_scaling_factors.mean()
 
-    # Calculate mean for sequences where steps are not masked (inverse mask)
-    mean_partial = (masked_tensor * (1 - steps_proportion)).sum(dim=1) / count_per_batch.clamp(min=1)
-
-    # Concatenate the means along a new dimension
-    reduced_tensor = torch.cat([mean_full, mean_partial], dim=0)
-    return reduced_tensor
+    return normalized_reward_scale
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -78,6 +63,8 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
 
         # Perform cumulative sum on the reversed tensor
         cumulative_dones_reversed = torch.cumsum(reversed_dones[:,1:], dim=1)
+        
+        cumulative_dones_reversed[cumulative_dones_reversed > 0] = 1
 
         # Reverse the result back to get the cumulative sum in the original order
         cumulative_dones = torch.flip(cumulative_dones_reversed, dims=[1])
@@ -85,32 +72,6 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
         mask[:, :-1, :] = 1 - cumulative_dones
     
     return mask
-
-def compute_discounted_future_value(discount_factor, max_seq_len):
-    # Create a range tensor [0, 1, 2, ..., max_seq_len-1]
-    discount_exponents = torch.arange(max_seq_len).unsqueeze(0)
-
-    # Compute the discount factors by raising to the power of the exponents
-    discount_factors = discount_factor ** discount_exponents
-
-    # Return the discount factors with an additional dimension to match the expected shape
-    return discount_factors.unsqueeze(-1)
-
-def calculate_accumulative_rewards(rewards, discount_factor, mask):
-    batch_size, seq_len, _ = rewards.shape
-    # Initialize a tensor for accumulative rewards with zeros
-    accumulative_rewards = torch.zeros_like(rewards)
-
-    # Loop backwards through the sequence
-    for t in reversed(range(seq_len)):
-        if t == seq_len - 1:
-            # If it's the last step, the accumulative reward is just the immediate reward
-            accumulative_rewards[:, t, :] = rewards[:, t, :]* mask[:, t, :]
-        else:
-            # Accumulate reward at step t with the discounted reward at t+1, but only where the mask is true
-            accumulative_rewards[:, t, :] = (rewards[:, t, :] + discount_factor * accumulative_rewards[:, t+1, :])* mask[:, t, :]
-
-    return accumulative_rewards
 
 def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
     # Determine the batch size and sequence length from the rewards shape
@@ -133,79 +94,30 @@ def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
 
     return lambda_returns
 
-def calculate_gae_returns(values, rewards, dones, gamma, gae_lambda):
-    """
-    Compute Generalized Advantage Estimation (GAE).
-    
-    Args:
-    - values (torch.Tensor): Estimated values with shape [batch_size, train_seq_length+1, 1].
-    - rewards (torch.Tensor): Observed rewards with shape [batch_size, train_seq_length, 1].
-    - dones (torch.Tensor): done flags (1 if terminal state, else 1) with shape [batch_size, train_seq_length, 1].
-    - gamma (float): Discount factor.
-    - tau (float): GAE parameter for bias-variance trade-off.
+def masked_tensor_reduction(tensor, mask, reduction="batch"):
+    # Dictionary mapping for reduction type to dimension
+    reduction_to_dim = {"batch": 0, "seq": 1}
 
-    Returns:
-    - advantages (torch.Tensor): Computed advantages with shape [batch_size, train_seq_length, 1].
-    """
-    # Copy the inputs to avoid modifying original tensors
-    # Prepare tensor for advantages
-    advantages = torch.zeros_like(rewards)
-    gae = 0  # Initialize GAE
+    # Handle the 'all' reduction case separately
+    if reduction == "all":
+        return tensor[mask > 0].flatten().mean()
 
-    # Iterate through timesteps in reverse to calculate GAE
-    for t in reversed(range(rewards.size(1))):
-        # Calculate temporal difference error
-        delta = rewards[:, t] + gamma * values[:, t + 1] * (1 - dones[:, t]) - values[:, t]
-        # Update GAE
-        gae = delta + gamma * gae_lambda * gae * (1 - dones[:, t])
-        # Store computed advantage
-        advantages[:, t] = gae
+    # Get the dimension for reduction from the dictionary
+    dim = reduction_to_dim.get(reduction)
+    if dim is None:
+        raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
 
-    return advantages
-
-def scale_advantage(advantages, norm_type=None):
-    """
-    Scales the advantages based on the L1 norm and specified thresholds.
-
-    :param advantages: Tensor of advantage values to be scaled.
-    :param norm_type: Type of norm to be used for scaling, e.g., 'L1_norm'.
-    :return: Scaled advantages.
-    """
-    if norm_type != 'L1_norm':
-        return advantages
-
-    abs_mean_advantage = advantages.detach().abs().mean()
-    if abs_mean_advantage == 0:
-        return advantages
-
-    return advantages / abs_mean_advantage
-
-def create_train_seq_mask(padding_mask, train_seq_length):
-    """
-    Creates a selection mask for trajectories.
-
-    :param padding_mask: Mask tensor from create_padding_mask_before_dones, shape [B, S, 1].
-    :param train_seq_length: Length of the train sequence to select.
-    :return: Selection mask tensor, shape [B, train_seq_length, 1].
-    """
-    batch_size, seq_len, _ = padding_mask.shape
-
-    # Find the index of the first non-padding point after 'done'
-    first_non_padding_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
-    end_non_padding_idx = first_non_padding_idx + train_seq_length
-    end_select_idx = torch.clamp(end_non_padding_idx, max=seq_len)
-    first_select_idx = end_select_idx - train_seq_length
-
-    # Create a range tensor of shape [S]
-    range_tensor = torch.arange(seq_len, device=padding_mask.device).unsqueeze(0).unsqueeze(-1)
-
-    # Broadcast to shape [B, S, 1] and compare
-    select_mask = (range_tensor >= first_select_idx) & (range_tensor < end_select_idx)
-    
-    return select_mask
-
-# Function to apply selection mask to a trajectory component
-def apply_seq_mask(component, model_seq_mask, model_seq_length):
-    component_shape = component.shape
-    return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
-
+    # Ensure mask is a boolean tensor
+    mask_bool = mask.bool()
+    # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
+    masked_tensor = tensor * mask_bool
+    # Sum the masked tensor across the batch dimension (dim=0)
+    sum_per_sequence = torch.sum(masked_tensor, dim=dim)
+    # Count the number of True entries in the mask per sequence for normalization
+    count_per_sequence = torch.sum(mask_bool, dim=dim)
+    # Handle potential division by zero in case some sequences are fully masked
+    # If count_per_sequence is 0, replace it with 1 to prevent division by zero
+    count_per_sequence = torch.clamp(count_per_sequence, min=1)
+    # Calculate the mean by dividing the sum by the number of unmasked entries
+    mean_per_sequence = sum_per_sequence / count_per_sequence
+    return mean_per_sequence

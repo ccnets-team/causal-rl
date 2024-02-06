@@ -56,16 +56,6 @@ class RLParamsLoader:
                     rl_params[key] = value
 
         return rl_params
-    
-def set_parameters(rl_params, batch_size, train_seq_length, train_frequency, noise_type, network_type, replay_ratio):
-    rl_params.training.batch_size = batch_size
-    rl_params.algorithm.train_seq_length = train_seq_length
-    rl_params.training.train_frequency = train_frequency
-    rl_params.exploration.noise_type = noise_type
-    rl_params.network.critic_network = network_type
-    rl_params.network.actor_network = network_type
-    rl_params.network.rev_env_network = network_type
-    rl_params.training.replay_ratio = replay_ratio
 
 def convert_to_dict(rl_params):
     params_dict = rl_params.__dict__.copy()

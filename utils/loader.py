@@ -22,7 +22,6 @@ def load_trainer(trainer, save_path):
 
     if advantage_normalizer is not None:
         advantage_normalizer.load(save_path + f"advantage_normalizer" + '.pth')
-        
     for idx, it in enumerate(networks):
         it.load_state_dict(torch.load(save_path + f"network_{idx}"+ '.pth', map_location="cuda:0"))
     

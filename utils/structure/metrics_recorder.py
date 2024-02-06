@@ -99,7 +99,6 @@ class TrainingMetrics:
         yield from self.errors.items()
         yield from self.costs.items()
 
-
 class MetricsTracker:
     def __init__(self, n_steps):
         self.n_steps = n_steps
@@ -107,7 +106,7 @@ class MetricsTracker:
         self.valid = np.full(n_steps, False, dtype=np.bool8)  # Boolean array to keep track of valid entries
         self.index = 0  # Position in which to add new values
 
-    def add_step(self, step):
+    def add_metrics(self, step):
         # Assume step is of type TrainMetrics
         if step is None:
             return  
@@ -115,7 +114,7 @@ class MetricsTracker:
         self.valid[self.index] = True
         self.index = (self.index + 1) % self.n_steps
 
-    def compute_average(self):
+    def compute_average_metrics(self):
         avg_metrics = TrainingMetrics()
         valid_count = np.sum(self.valid)
 
@@ -128,7 +127,6 @@ class MetricsTracker:
         
         avg_metrics /= valid_count
         return avg_metrics
-
 
 def create_training_metrics(**kwargs):
     """Helper method to create TrainingMetrics object."""
@@ -217,14 +215,7 @@ class RewardTracker:
         avg_accumulative_rewards = total_accumulative_rewards / num_agents
         return avg_accumulative_rewards  # Return a single value representing the mean of the accumulative rewards of all agents
     
-    def _update_best_reward(self, avg_reward):
-        if avg_reward > self.best_reward:
-            self.best_reward = avg_reward
-            self.best_period = True 
-        else: 
-            self.best_period = False 
-
-    def compute_average(self):
+    def compute_average_reward(self):
         valid_indices = np.where(self.counts > 0)
         valid_rewards = self.steps[valid_indices]
         valid_counts = self.counts[valid_indices]
@@ -238,6 +229,13 @@ class RewardTracker:
         avg_reward = total_rewards / total_counts
         self._update_best_reward(avg_reward)
         return avg_reward
+
+    def _update_best_reward(self, avg_reward):
+        if avg_reward > self.best_reward:
+            self.best_reward = avg_reward
+            self.best_period = True 
+        else: 
+            self.best_period = False 
 
     def get_episode_counts(self):
         """Returns the smallest number of episodes ended among all agents."""

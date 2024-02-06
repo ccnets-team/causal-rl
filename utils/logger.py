@@ -7,22 +7,7 @@ METRICS_CATEGORY_MAP = {
     'errors': 'CoopErrors',
     'costs': 'TransitionCosts'
 }
-
-def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train_accumulative_rewards, test_accumulative_rewards, metrics, step, time_cost):
-    epsilon = trainer.get_exploration_rate()
-    learning_rate = trainer.get_lr()
-
-    # Creating a dictionary to log scalar data efficiently
-    scalar_logs = {
-        "Episode/TrainRewards": train_accumulative_rewards if train_accumulative_rewards is not None else None,
-        "Episode/TestRewards": test_accumulative_rewards if test_accumulative_rewards is not None else None,
-        "Step/TrainReward": train_reward_per_step if train_reward_per_step is not None else None,
-        "Step/TestReward": test_reward_per_step if test_reward_per_step is not None else None,
-        "Step/Time": time_cost,
-        "Step/LearningRate": learning_rate,
-        "Step/ExplorationRate": epsilon,
-    }
-
+def _log_data(logger, scalar_logs, metrics, step):
     # Log scalar data
     for name, value in scalar_logs.items():
         if value is not None:
@@ -37,14 +22,37 @@ def log_data(trainer, logger, train_reward_per_step, test_reward_per_step, train
             for metric_name, metric_value in category_metrics.items():
                 if metric_value is not None:
                     components = metric_name.split('_')
-
-                    if len(components) > 1:  # if there is more than one word in metric_name
-                        new_metric_name = components[-2].title()  # select only the previous of the last word and capitalize it
-                    else:  # if there is only one word in metric_name
-                        new_metric_name = components[0].title()                         
-                        
+                    new_metric_name = components[-2].title() if len(components) > 1 else components[0].title()                         
                     log_name = f"{mapped_category_name}/{new_metric_name}"
                     logger.add_scalar(log_name, metric_value, step)
+
+def log_train_data(trainer, logger, train_reward_per_step, eval_reward_per_step, train_accumulative_rewards, eval_accumulative_rewards, metrics, step, time_cost):
+    learning_rate = trainer.get_lr()
+
+    # Creating a dictionary to log scalar data efficiently
+    scalar_logs = {
+        "Episode/TrainRewards": train_accumulative_rewards,
+        "Episode/EvalRewards": eval_accumulative_rewards,
+        "Step/TrainReward": train_reward_per_step,
+        "Step/EvalReward": eval_reward_per_step,
+        "Step/Time": time_cost,
+        "Step/LearningRate": learning_rate,
+    }
+
+    _log_data(logger, scalar_logs, metrics, step)
+
+def log_test_data(trainer, logger, test_reward_per_step, test_accumulative_rewards, metrics, step, time_cost):
+    learning_rate = trainer.get_lr()
+
+    # Creating a dictionary to log scalar data efficiently
+    scalar_logs = {
+        "Episode/TestRewards": test_accumulative_rewards,
+        "Step/TestReward": test_reward_per_step,
+        "Step/Time": time_cost,
+        "Step/LearningRate": learning_rate,
+    }
+
+    _log_data(logger, scalar_logs, metrics, step)
 
 def get_log_name(log_path):
     current_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
