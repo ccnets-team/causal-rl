@@ -2,6 +2,40 @@
 import torch
 import torch.nn.functional as F
 
+def get_discount_sequence(discount_factor, max_seq_len):
+    return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
+
+def calculate_normalized_value_variance_scale(gamma, td_lambda, gpt_seq_length, device):
+    """
+    Derives a variance scale for value estimates, aligning the consistency of value loss variance across different sequence lengths and training dynamics. 
+    This scale factors in the combined effects of discounting (gamma) and temporal credit assignment (lambda), 
+    offering a nuanced approach to adjusting value estimates that accommodates varying temporal dependencies and sequence lengths.
+
+    Args:
+        gamma (float): Discount factor, influencing the weighting of future rewards.
+        td_lambda (float): Lambda parameter for TD(lambda) returns, moderating the blend of immediate versus future rewards.
+        gpt_seq_length (int): Maximum GPT model sequence length.
+        device (torch.device): Computational device (CPU or GPU).
+
+    Returns:
+        torch.Tensor: A scale for normalizing value estimates, ensuring uniform variance in value loss across sequences.
+    """
+    # Generate sequences for gamma and lambda for application across all sequences.
+    gammas = get_discount_sequence(gamma, gpt_seq_length).to(device)
+    lambdas = get_discount_sequence(td_lambda, gpt_seq_length).to(device)
+
+    # Formulate temporal scaling factors by merging the effects of gammas and lambdas.
+    temporal_scaling_factors = gammas * lambdas
+
+    # Accumulate these factors across sequences to gauge their comprehensive impact.
+    accumulative_scaling_factors = torch.cumsum(temporal_scaling_factors, dim=1)
+
+    # Establish a variance scale based on the average of accumulative scaling factors,
+    # facilitating consistent adjustment of value estimates across diverse sequence conditions.
+    normalized_value_variance_scale = accumulative_scaling_factors.mean()
+
+    return normalized_value_variance_scale
+
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 
