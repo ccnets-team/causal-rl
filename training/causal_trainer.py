@@ -75,7 +75,7 @@ class CausalTrainer(BaseTrainer):
         coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True)
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value, advantage = self.compute_values(trajectory, estimated_value, padding_mask)
+        estimated_value, expected_value, advantage = self.compute_values(trajectory, estimated_value, padding_mask)
             
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   

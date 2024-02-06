@@ -101,7 +101,7 @@ class NormalizationUtils:
     def normalize_rewards(self, reward):
         return self.reward_manager._normalize_feature(reward)
 
-    def normalize_value(self, value, padding_mask=None):
+    def normalize_value(self, estimated_value, expected_value, padding_mask=None):
         """
         Normalize value per sequence using an value normalizer.
 
@@ -120,21 +120,27 @@ class NormalizationUtils:
         otherwise, returns the unmodified value tensor.
         """
         if self.value_normalizer is None:
-            return value
-        elif self.value_normalizer == 'L1_norm':
-            return _normalize_l1_norm(value, padding_mask)
+            return estimated_value, expected_value
         elif self.value_normalizer == 'batch_norm':
-            return _normalize_batch_norm(value, padding_mask)
+            normalized_estimated_value = _normalize_batch_norm(estimated_value, padding_mask)
+            normalized_expected_value = _normalize_batch_norm(expected_value, padding_mask)
+            return normalized_estimated_value, normalized_expected_value
         else:
-            reshaped_value = value.squeeze(-1).unsqueeze(1)
+            reshaped_estimated_value = estimated_value.squeeze(-1).unsqueeze(1)
+            reshaped_expected_value = expected_value.squeeze(-1).unsqueeze(1)
             if padding_mask is None:
                 reshaped_padding_mask = None
             else:
                 reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
-            self.value_manager._update_normalizer(reshaped_value, reshaped_padding_mask)
-            normalized_reshaped_value = self.value_manager._normalize_feature(reshaped_value)
-            normalized_value = normalized_reshaped_value.squeeze(1).unsqueeze(-1)
-            return normalized_value
+            self.value_manager._update_normalizer(reshaped_expected_value, reshaped_padding_mask)
+
+            normalized_reshaped_estimated_value = self.value_manager._normalize_feature(reshaped_estimated_value)
+            normalized_estimated_value = normalized_reshaped_estimated_value.squeeze(1).unsqueeze(-1)
+
+            normalized_reshaped_expected_value = self.value_manager._normalize_feature(reshaped_expected_value)
+            normalized_expected_value = normalized_reshaped_expected_value.squeeze(1).unsqueeze(-1)
+            
+            return normalized_estimated_value, normalized_expected_value
 
     def normalize_advantage(self, advantage, padding_mask=None):
         """
