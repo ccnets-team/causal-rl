@@ -86,7 +86,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
             trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
             expected_value = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
-            normalized_expected_value = self.value_normalizer(expected_value, padding_mask)
+            normalized_expected_value = self.normalize_value(expected_value, padding_mask)
             
             advantage = (normalized_expected_value - estimated_value)
             normalized_advantage = self.normalize_advantage(advantage, padding_mask)

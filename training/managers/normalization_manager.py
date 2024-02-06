@@ -126,7 +126,15 @@ class NormalizationUtils:
         elif self.value_normalizer == 'batch_norm':
             return _normalize_batch_norm(value, padding_mask)
         else:
-            return self._normalize_running_norm(value, padding_mask)
+            reshaped_value = value.squeeze(-1).unsqueeze(1)
+            if padding_mask is None:
+                reshaped_padding_mask = None
+            else:
+                reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
+            self.value_manager._update_normalizer(reshaped_value, reshaped_padding_mask)
+            normalized_reshaped_value = self.value_manager._normalize_feature(reshaped_value)
+            normalized_value = normalized_reshaped_value.squeeze(1).unsqueeze(-1)
+            return normalized_value
 
     def normalize_advantage(self, advantage, padding_mask=None):
         """
@@ -153,18 +161,15 @@ class NormalizationUtils:
         elif self.advantage_normalizer == 'batch_norm':
             return _normalize_batch_norm(advantage, padding_mask)
         else:
-            return self._normalize_running_norm(advantage, padding_mask)
-
-    def _normalize_running_norm(self, advantage, padding_mask=None):
-        reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
-        if padding_mask is None:
-            reshaped_padding_mask = None
-        else:
-            reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
-        self.advantage_manager._update_normalizer(reshaped_advantage, reshaped_padding_mask)
-        normalized_reshaped_advantage = self.advantage_manager._normalize_feature(reshaped_advantage)
-        normalized_advantage = normalized_reshaped_advantage.squeeze(1).unsqueeze(-1)
-        return normalized_advantage
+            reshaped_advantage = advantage.squeeze(-1).unsqueeze(1)
+            if padding_mask is None:
+                reshaped_padding_mask = None
+            else:
+                reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
+            self.advantage_manager._update_normalizer(reshaped_advantage, reshaped_padding_mask)
+            normalized_reshaped_advantage = self.advantage_manager._normalize_feature(reshaped_advantage)
+            normalized_advantage = normalized_reshaped_advantage.squeeze(1).unsqueeze(-1)
+            return normalized_advantage
 
     def normalize_trajectories(self, trajectories: BatchTrajectory):
         trajectories.state = self.normalize_states(trajectories.state)
