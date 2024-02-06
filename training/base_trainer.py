@@ -91,7 +91,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             advantage = (normalized_expected_value - estimated_value)
             normalized_advantage = self.normalize_advantage(advantage, padding_mask)
     
-        return expected_value, normalized_advantage
+        return normalized_expected_value, normalized_advantage
 
     @abstractmethod
     def trainer_calculate_future_value(self, next_state, mask = None):
