@@ -80,9 +80,9 @@ class NormalizationUtils:
         self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, device=device)
         self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, device=device)
         self.advantage_manager = NormalizerBase(seq_length, 'advantage_normalizer', normalization_params, device=device)
-        self.value_manager = NormalizerBase(seq_length, 'value_normalizer', normalization_params, device=device)
+        self.value_manager = NormalizerBase(seq_length, 'sum_reward_normalizer', normalization_params, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
-        self.value_normalizer = normalization_params.value_normalizer
+        self.sum_reward_normalizer = normalization_params.sum_reward_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
@@ -101,7 +101,7 @@ class NormalizationUtils:
     def normalize_rewards(self, reward):
         return self.reward_manager._normalize_feature(reward)
     
-    def normalize_values(self, expected_value, padding_mask=None, normalized_value_scale = 1.0):
+    def normalize_sum_rewards(self, expected_value, padding_mask=None, normalized_value_scale = None):
         """
         Applies normalization to estimated and expected values using the specified value normalizer,
         adjusting for sequence length variability. This function enhances model stability and performance by
@@ -115,12 +115,12 @@ class NormalizationUtils:
         Returns:
             tuple[torch.Tensor, torch.Tensor]: Tuple containing normalized estimated and expected values.
         """
-        if self.value_normalizer is None:
+        if self.sum_reward_normalizer is None:
             return expected_value
 
-        if self.value_normalizer == 'L1_norm':
+        if self.sum_reward_normalizer == 'L1_norm':
             normalized_expected_value = _normalize_l1_norm(expected_value, padding_mask)
-        elif self.value_normalizer == 'batch_norm':
+        elif self.sum_reward_normalizer == 'batch_norm':
             normalized_expected_value = _normalize_batch_norm(expected_value, padding_mask)
         else:
             reshaped_expected_value = expected_value.squeeze(-1).unsqueeze(1)
@@ -132,8 +132,9 @@ class NormalizationUtils:
 
             normalized_reshaped_expected_value = self.value_manager._normalize_feature(reshaped_expected_value)
             normalized_expected_value = normalized_reshaped_expected_value.squeeze(1).unsqueeze(-1)
-            
-        normalized_expected_value *= normalized_value_scale
+        
+        if normalized_value_scale is not None:
+            normalized_expected_value *= normalized_value_scale
         
         return normalized_expected_value
 

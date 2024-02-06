@@ -5,38 +5,35 @@ import torch.nn.functional as F
 def get_discount_sequence(discount_factor, max_seq_len):
     return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
 
-def calculate_normalized_value_variance_scale(gamma, td_lambda, gpt_seq_length, device):
+def calculate_sum_reward_variance_scale(gamma, td_lambda, gpt_seq_length, device):
     """
-    Derives a variance scale for value estimates, aligning the consistency of value loss variance across different sequence lengths and training dynamics. 
-    This scale factors in the combined effects of discounting (gamma) and temporal credit assignment (lambda), 
-    offering a nuanced approach to adjusting value estimates that accommodates varying temporal dependencies and sequence lengths.
+    Adjusts the scale for normalizing sum of rewards from lambda returns, enhancing consistency in value loss variance across varying sequence lengths. 
+    This scale modification accounts for the temporal dynamics of discounting and bootstrapping, applying a corrective weight to earlier sequences 
+    to offset the diminishing scale effect due to normalization. It aims to ensure a balanced contribution of rewards throughout the sequence, 
+    particularly emphasizing the significance of initial rewards which are more impacted by discounting factors.
 
     Args:
-        gamma (float): Discount factor, influencing the weighting of future rewards.
-        td_lambda (float): Lambda parameter for TD(lambda) returns, moderating the blend of immediate versus future rewards.
-        gpt_seq_length (int): Maximum GPT model sequence length.
-        device (torch.device): Computational device (CPU or GPU).
+        gamma (float): Discount factor for future rewards, influencing the reduction in reward value over time.
+        td_lambda (float): Lambda for TD(lambda) returns, determining the balance between immediate and future rewards.
+        gpt_seq_length (int): The maximum sequence length for the GPT model.
+        device (torch.device): The computational device (CPU or GPU) for tensor operations.
 
     Returns:
-        torch.Tensor: A scale for normalizing value estimates, ensuring uniform variance in value loss across sequences.
+        torch.Tensor: A corrective scale for normalizing the sum of rewards, designed to preserve the influence of initial sequence rewards 
+        by applying an inversely proportional weight against the decay effects of gamma and lambda.
     """
-    # Generate sequences for gamma and lambda for application across all sequences.
-    gammas = get_discount_sequence(gamma, gpt_seq_length).to(device)
-    lambdas = get_discount_sequence(td_lambda, gpt_seq_length).to(device)
+    # Generate sequences for gamma and lambda, adjusted for sequence-wide application.
+    gammas_sequence = get_discount_sequence(gamma, gpt_seq_length).to(device)
+    lambdas_sequence = get_discount_sequence(td_lambda, gpt_seq_length).to(device)
 
-    # Formulate temporal scaling factors by merging the effects of gammas and lambdas.
-    temporal_scaling_factors = gammas * lambdas
+    # Calculate the combined impact of discounting and bootstrapping for each timestep.
+    combined_temporal_factors = gammas_sequence * lambdas_sequence
 
-    # Accumulate these factors across sequences to gauge their comprehensive impact.
-    accumulative_scaling_factors = torch.cumsum(temporal_scaling_factors, dim=1)
-
-    # Establish a variance scale based on the average of accumulative scaling factors,
-    # facilitating consistent adjustment of value estimates across diverse sequence conditions.
-    normalized_value_variance_scale = accumulative_scaling_factors.mean()
+    # Apply a weight to each timestep based on the combined temporal factors, giving more weight to earlier sequences.
+    temporal_weights = combined_temporal_factors/combined_temporal_factors[:,-1:]
     
-    normalized_value_variance_scale_sqrt = normalized_value_variance_scale.sqrt()
+    return temporal_weights
 
-    return normalized_value_variance_scale_sqrt
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -76,10 +73,26 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     return mask
 
 def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
+    """
+    Calculates lambda returns and sum of rewards for each timestep in a sequence.
+
+    Args:
+        values (torch.Tensor): The value estimates for each timestep.
+        rewards (torch.Tensor): The rewards received at each timestep.
+        dones (torch.Tensor): Indicates whether a timestep is terminal (1 if terminal, 0 otherwise).
+        gamma (float): Discount factor for future rewards.
+        td_lambda (float): Lambda parameter for TD(lambda) returns.
+
+    Returns:
+        tuple: A tuple containing:
+            - lambda_returns (torch.Tensor): The calculated lambda returns for each timestep.
+            - sum_rewards (torch.Tensor): The cumulative sum of rewards for each timestep.
+    """    
     # Determine the batch size and sequence length from the rewards shape
     batch_size, seq_len, _ = rewards.shape
 
     # Initialize lambda returns with the same shape as values
+    sum_rewards = torch.zeros_like(values)
     lambda_returns = torch.zeros_like(values)
 
     # Set the last timestep's lambda return to the last timestep's value
@@ -88,13 +101,16 @@ def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
     # Iterate backwards through each timestep in the sequence
     for t in reversed(range(seq_len)):
         # Calculate lambda return for each timestep:
+        sum_rewards[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * (td_lambda * sum_rewards[:, t + 1, :])
+        
         # Current reward + discounted future value, adjusted by td_lambda
         lambda_returns[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * ((1 - td_lambda) * values[:, t + 1, :] + td_lambda * lambda_returns[:, t + 1, :])
 
     # Remove the last timestep to align lambda returns with their corresponding states
+    sum_rewards = sum_rewards[:, :-1, :]
     lambda_returns = lambda_returns[:, :-1, :]
 
-    return lambda_returns
+    return lambda_returns, sum_rewards
 
 def masked_tensor_reduction(tensor, mask, reduction="batch"):
     # Dictionary mapping for reduction type to dimension
