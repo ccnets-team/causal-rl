@@ -32,14 +32,9 @@ def calculate_normalized_reward_scale(gamma, td_lambda, gpt_seq_length, device):
 
     # The square of the normalized reward scale is determined by the mean of accumulative scaling factors,
     # ensuring adjustments are uniformly applied across varying sequence dynamics.
-    normalized_reward_scale_square = accumulative_scaling_factors.mean()
-
-    # Applying a square root to the mean provides a reward scale that compensates for the squared increase in TD error or advantage,
-    # facilitating a consistent variance in value loss irrespective of sequence length, gamma, or lambda.
-    normalized_reward_scale = torch.sqrt(normalized_reward_scale_square)
+    normalized_reward_scale = accumulative_scaling_factors.mean()
 
     return normalized_reward_scale
-
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
