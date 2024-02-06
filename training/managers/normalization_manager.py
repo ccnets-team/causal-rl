@@ -3,7 +3,6 @@ from normalizer.running_mean_std import RunningMeanStd
 from normalizer.running_abs_mean import RunningAbsMean
 
 from utils.structure.data_structures  import BatchTrajectory
-from training.trainer_utils import create_padding_mask_before_dones
 
 TRANSITION_STATE_IDX = 0
 TRANSITION_NEXT_STATE_IDX = 3
@@ -81,7 +80,9 @@ class NormalizationUtils:
         self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, device=device)
         self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, device=device)
         self.advantage_manager = NormalizerBase(seq_length, 'advantage_normalizer', normalization_params, device=device)
+        self.value_manager = NormalizerBase(seq_length, 'value_normalizer', normalization_params, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
+        self.value_normalizer = normalization_params.value_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
@@ -99,6 +100,35 @@ class NormalizationUtils:
 
     def normalize_rewards(self, reward):
         return self.reward_manager._normalize_feature(reward)
+
+    def normalize_value(self, value, padding_mask=None):
+        """
+        Normalize value per sequence using an value normalizer.
+
+        Treats each sequence length as a separate feature and normalizes the value
+        for each sequence individually. If a normalizer is set, the value tensor 
+        is reshaped to align with the normalizer's format, normalized, and then 
+        reshaped back to its original structure. If no normalizer is set, the 
+        original value values are returned.
+
+        Args:
+        - value (Tensor): value values, with sequence length treated as a feature.
+        - padding_mask (Tensor, optional): Mask to identify valid data points within each sequence.
+
+        Returns:
+        - Tensor: value values normalized for each sequence if a normalizer is set; 
+        otherwise, returns the unmodified value tensor.
+        """
+        if self.value_normalizer is None:
+            return value
+        elif self.value_normalizer == 'L1_norm':
+            return _normalize_l1_norm(value, padding_mask)
+        elif self.value_normalizer == 'batch_norm':
+            return _normalize_batch_norm(value, padding_mask)
+        elif self.value_normalizer == 'running_abs_mean':
+            return self._normalize_abs_mean(value, padding_mask)
+        else:
+            assert False, "Invalid value normalizer type"
 
     def normalize_advantage(self, advantage, padding_mask=None):
         """

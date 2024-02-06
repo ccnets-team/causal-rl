@@ -2,40 +2,6 @@
 import torch
 import torch.nn.functional as F
 
-def get_discount_sequence(discount_factor, max_seq_len):
-    return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
-
-def calculate_normalized_reward_scale(gamma, td_lambda, gpt_seq_length, device):
-    """
-    Calculates a normalized reward scale that ensures consistent variance in value loss across sequences.
-    This approach accounts for the cumulative impact of discount rates (gamma) and bootstrapping rates (lambda),
-    providing a stable reward scaling mechanism adaptable to different sequence lengths and temporal dynamics.
-
-    Args:
-        gamma (float): The discount factor gamma, influencing the importance of future rewards.
-        td_lambda (float): The lambda parameter for TD(lambda) returns, balancing immediate and future rewards.
-        gpt_seq_length (int): The maximum sequence length for the GPT model.
-        device (torch.device): The computational device (CPU or GPU).
-
-    Returns:
-        torch.Tensor: The normalized reward scale to be used for consistent reward adjustment across sequences.
-    """
-    # Obtain discount sequences for gamma and lambda, shaping them for sequence-wide application.
-    gammas = get_discount_sequence(gamma, gpt_seq_length).to(device)
-    lambdas = get_discount_sequence(td_lambda, gpt_seq_length).to(device)
-
-    # Calculate temporal scaling factors by combining gammas and lambdas, reflecting both discounting and bootstrapping effects.
-    temporal_scaling_factors = gammas * lambdas
-
-    # Compute the cumulative sum of these factors to understand their aggregate effect over sequences.
-    accumulative_scaling_factors = torch.cumsum(temporal_scaling_factors, dim=1)
-
-    # The square of the normalized reward scale is determined by the mean of accumulative scaling factors,
-    # ensuring adjustments are uniformly applied across varying sequence dynamics.
-    normalized_reward_scale = accumulative_scaling_factors.mean()
-
-    return normalized_reward_scale
-
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 

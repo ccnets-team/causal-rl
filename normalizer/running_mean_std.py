@@ -5,7 +5,7 @@ class RunningMeanStd:
         self.device = device
         self.mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.var = torch.ones(num_features, device=self.device, dtype=torch.float64)
-        self.count = 0
+        self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.num_features = num_features
 
     def update(self, x, padding_mask=None):
@@ -15,11 +15,19 @@ class RunningMeanStd:
 
         x = x.to(dtype=torch.float64)
 
-        new_adding = batch_size * seq_len
-        x_mean = x.mean(dim=(0, 1)) 
-        x_var = x.var(dim=0, unbiased=False).mean(dim=0)
-        x_var = x.var(dim=(0, 1), unbiased=False)
-        
+        if padding_mask is None:
+            new_adding = batch_size * seq_len
+            x_mean = x.mean(dim=(0, 1)) 
+            x_var = x.var(dim=(0, 1), unbiased=False)
+        else:
+            mask = padding_mask.to(dtype=torch.float64)
+            new_adding = mask.sum(dim=(0, 1)).clamp(min=1)
+            x_mean = (mask*x).sum(dim=(0, 1))/new_adding
+            # Calculate variance for masked data
+            # Subtract the mean from x where padding_mask64 is 1, square it, then sum and average it across the valid (non-masked) entries
+            diff_sq = (mask * (x - x_mean.unsqueeze(0).unsqueeze(0))) ** 2
+            x_var = diff_sq.sum(dim=(0, 1)) / new_adding
+            
         delta = x_mean - self.mean
         new_count = self.count + new_adding
         new_mean = self.mean + delta * new_adding / new_count
@@ -41,7 +49,7 @@ class RunningMeanStd:
         return self.var
 
     def normalize(self, x):
-        if len(x) < 1 or self.count < 1:
+        if len(x) < 1 or torch.sum(self.count < 1) > 0:
             return x
         mean = self.get_mean().view(1, 1, self.num_features)
         var = self.get_var().view(1, 1, self.num_features)
