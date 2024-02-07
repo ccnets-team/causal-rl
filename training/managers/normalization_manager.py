@@ -22,6 +22,18 @@ def _normalize_l1_norm(advantage, padding_mask=None):
     normalized_advantage = advantage / norm
     return normalized_advantage
 
+def _normalize_l2_norm(advantage, padding_mask=None):
+    if padding_mask is not None:
+        valid_advantages = advantage * padding_mask
+        sum_padding = padding_mask.sum(dim=0, keepdim=True).clamp(min=1)
+        # Calculate L2 norm: sqrt of sum of squares of valid_advantages divided by the sum of padding_mask
+        norm = (valid_advantages.pow(2).sum(dim=0, keepdim=True) / sum_padding).sqrt()
+    else:
+        # Calculate L2 norm without padding: sqrt of mean of squares of advantage
+        norm = (advantage.pow(2).mean(dim=0, keepdim=True) + 1e-8).sqrt()
+    normalized_advantage = advantage / norm
+    return normalized_advantage
+
 def _normalize_batch_norm(advantage, padding_mask=None):
     if padding_mask is not None:
         valid_advantages = advantage * padding_mask
@@ -117,6 +129,8 @@ class NormalizationUtils:
 
         if self.sum_reward_normalizer == 'L1_norm':
             normalized_sum_rewards = _normalize_l1_norm(sum_rewards, padding_mask)
+        elif self.sum_reward_normalizer == 'L2_norm':
+            normalized_sum_rewards = _normalize_l2_norm(sum_rewards, padding_mask)
         elif self.sum_reward_normalizer == 'batch_norm':
             normalized_sum_rewards = _normalize_batch_norm(sum_rewards, padding_mask)
         else:
@@ -154,6 +168,8 @@ class NormalizationUtils:
             return advantage
         elif self.advantage_normalizer == 'L1_norm':
             return _normalize_l1_norm(advantage, padding_mask)
+        elif self.sum_reward_normalizer == 'L2_norm':
+            return _normalize_l2_norm(advantage, padding_mask)
         elif self.advantage_normalizer == 'batch_norm':
             return _normalize_batch_norm(advantage, padding_mask)
         else:

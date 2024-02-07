@@ -12,7 +12,7 @@ def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, de
 class BoltzmannExploration:
     def __init__(self):
         self.tau = 1.0
-        self.min_temperature = 0.001
+        self.min_temperature = 0.01
         # Adjusted decay rate as per the derived formula
         self.decay_rate = -math.log(self.min_temperature/self.tau)
             
