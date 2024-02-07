@@ -39,6 +39,37 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
+def create_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
+    # Initialize tensors for value weights and sum reward weights with zeros.
+    # Value weights are for calculating discounted future values, and sum reward weights are for scaling rewards.
+    value_weights = torch.zeros(max_seq_len + 1, dtype=torch.float, device=device)
+    sum_reward_weights = torch.zeros(max_seq_len, dtype=torch.float, device=device)
+
+    # Ensure the final value weight equals 1, setting up a base case for backward calculation.
+    value_weights[-1] = 1
+
+    # Backward pass to compute weights. This loop calculates the decayed weights for each timestep,
+    # applying the gamma (discount factor) and td_lambda (trade-off between TD and MC) to adjust the contribution of future rewards.
+    for t in reversed(range(max_seq_len)):
+        # Update value_weights by blending the immediate reward (1) and discounted future value weights,
+        # modulated by gamma and td_lambda for each timestep.
+        value_weights[t] = gamma * ((1 - td_lambda) * 1 + td_lambda * value_weights[t + 1])
+
+        # Compute the sum reward weights as the complement of value weights, indicating the proportion of reward assigned to each timestep.
+        sum_reward_weights[t] = 1 - value_weights[t]
+
+    # Ensure all sum_reward_weights are within the [0, 1] range, validating the computation logic.
+    assert torch.all(sum_reward_weights >= 0) and torch.all(sum_reward_weights <= 1)
+
+    # Normalize sum reward weights to maintain a consistent scale across sequences, improving stability.
+    # The normalization also ensures that the mean of these weights is adjusted to 1, preventing disproportionate scaling.
+    sum_reward_weights /= sum_reward_weights.mean(dim=0, keepdim=True).clamp(min=1e-8)
+
+    # Reshape sum reward weights for compatibility with expected input formats, preparing for further processing.
+    sum_reward_weights = sum_reward_weights.unsqueeze(0).unsqueeze(-1)
+    
+    return sum_reward_weights
+
 def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
     """
     Calculates lambda returns and sum of rewards for each timestep in a sequence.
