@@ -2,44 +2,6 @@
 import torch
 import torch.nn.functional as F
 
-def get_discount_sequence(discount_factor, max_seq_len):
-    return (discount_factor ** torch.arange(max_seq_len).unsqueeze(0)).unsqueeze(-1)
-
-def create_sum_reward_scale(gamma, td_lambda, gpt_seq_length, device):
-    """
-    This function computes a scaling factor for normalizing the cumulative rewards received over a sequence of actions,
-    taking into account the temporal discounting factor (gamma) and the lambda parameter for TD(lambda) returns. 
-    The normalization process ensures that the variance of value loss remains consistent across sequences of different lengths,
-    effectively balancing the significance of rewards received at various points in the sequence. 
-    This is particularly important for maintaining the relevance of initial rewards, which might otherwise diminish due to the effects of gamma and lambda.
-    
-    The function operates within the context of sequences handled by a GPT model, accommodating for the maximum sequence length specified.
-    It leverages the computational capabilities of the specified device (CPU or GPU) to perform the necessary calculations.
-
-    Args:
-        gamma (float): The discount factor applied to future rewards, diminishing their present value.
-        td_lambda (float): The lambda parameter that influences the weighting of immediate versus future rewards in the TD(lambda) return calculation.
-        gpt_seq_length (int): The maximum length of sequences that the GPT model can process, which dictates the scope of reward normalization.
-        device (torch.device): The device (CPU or GPU) where the calculations will be executed, ensuring optimal performance.
-
-    Returns:
-        torch.Tensor: A tensor containing the scaling factors for each timestep within a sequence. These factors are designed to normalize the sum of rewards,
-        preserving the impact of initial rewards by counteracting the natural decay introduced by the gamma and lambda parameters. This normalization
-        facilitates a more equitable distribution of the significance of rewards across the sequence, enhancing the model's learning efficiency.
-    """
-    # Generate sequences for gamma and lambda, adjusted for sequence-wide application.
-    gammas_sequence = get_discount_sequence(gamma, gpt_seq_length).to(device)
-    lambdas_sequence = get_discount_sequence(td_lambda, gpt_seq_length).to(device)
-
-    # Calculate the combined impact of discounting and bootstrapping for each timestep.
-    temporal_scaling_factors = gammas_sequence * lambdas_sequence
-
-    # Apply a weight to each timestep based on the combined temporal factors, giving more weight to earlier sequences.
-    normalized_scale = torch.flip(temporal_scaling_factors, dims=[1])
-    
-    return normalized_scale
-
-
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 

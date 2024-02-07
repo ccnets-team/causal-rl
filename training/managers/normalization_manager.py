@@ -101,17 +101,14 @@ class NormalizationUtils:
     def normalize_rewards(self, reward):
         return self.reward_manager._normalize_last_dim(reward)
     
-    def normalize_sum_rewards(self, sum_rewards, padding_mask=None, sum_reward_scale = None):
+    def normalize_sum_rewards(self, sum_rewards, padding_mask=None):
         """
         Applies normalization to estimated and expected values using the specified value normalizer,
-        adjusting for sequence length variability. This function enhances model stability and performance by
-        ensuring consistent value scaling across different sequences and environments.
+        adjusting for sequence length variability. 
 
         Args:
             sum_rewards (torch.Tensor): The calculated expected values (returns) for each sequence.
             padding_mask (torch.Tensor, optional): A mask indicating valid entries for normalization.
-            normalized_value_scale (float, optional): A scaling factor applied post-normalization to adjust the scale of normalized values.
-
         Returns:
             tuple[torch.Tensor, torch.Tensor]: Tuple containing normalized estimated and expected values.
         """
@@ -132,9 +129,6 @@ class NormalizationUtils:
 
             normalized_reshaped_sum_rewards = self.value_manager._normalize_last_dim(reshaped_sum_rewards)
             normalized_sum_rewards = normalized_reshaped_sum_rewards.squeeze(1).unsqueeze(-1)
-        
-        if sum_reward_scale is not None:
-            normalized_sum_rewards *= sum_reward_scale
         
         return normalized_sum_rewards
 
