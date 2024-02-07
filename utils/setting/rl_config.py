@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gpt_seq_length=16, discount_factor=0.999, advantage_lambda=0.99):
+    def __init__(self, gpt_seq_length=16, discount_factor=0.995, advantage_lambda=0.99):
         self.gpt_seq_length = gpt_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) lambda parameter for weighting advantages in policy optimization.
@@ -39,7 +39,7 @@ class OptimizationParameters:
         self.max_grad_norm = max_grad_norm  # L2 norm threshold for gradient clipping to prevent exploding gradients.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer='running_mean_std', sum_reward_normalizer='running_mean_std', advantage_normalizer=None):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer=None, sum_reward_normalizer='running_mean_std', advantage_normalizer='running_abs_mean'):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std' or 'None'.
         self.reward_normalizer = reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'None'.
         self.sum_reward_normalizer = sum_reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'None'.

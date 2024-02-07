@@ -101,7 +101,7 @@ class NormalizationUtils:
     def normalize_rewards(self, reward):
         return self.reward_manager._normalize_last_dim(reward)
     
-    def normalize_sum_rewards(self, sum_rewards, padding_mask=None, normalized_sum_reward_scale = None):
+    def normalize_sum_rewards(self, sum_rewards, padding_mask=None, sum_reward_scale = None):
         """
         Applies normalization to estimated and expected values using the specified value normalizer,
         adjusting for sequence length variability. This function enhances model stability and performance by
@@ -133,8 +133,8 @@ class NormalizationUtils:
             normalized_reshaped_sum_rewards = self.value_manager._normalize_last_dim(reshaped_sum_rewards)
             normalized_sum_rewards = normalized_reshaped_sum_rewards.squeeze(1).unsqueeze(-1)
         
-        if normalized_sum_reward_scale is not None:
-            normalized_sum_rewards /= normalized_sum_reward_scale
+        if sum_reward_scale is not None:
+            normalized_sum_rewards *= sum_reward_scale
         
         return normalized_sum_rewards
 
