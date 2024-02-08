@@ -39,6 +39,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
+        self.use_deterministic = self.algorithm_params.use_deterministic
         self.reduction_type = 'cross'
 
     def _compute_training_start_step(self):

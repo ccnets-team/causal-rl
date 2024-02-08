@@ -29,9 +29,9 @@ class CausalTrainer(BaseTrainer):
         rev_env_network = network_params.rev_env_network
         env_config = rl_params.env_config
         
-        self.critic = SingleInputCritic(critic_network, env_config, network_params.critic_params).to(device)
-        self.actor = DualInputActor(actor_network, env_config, network_params.actor_params).to(device)
-        self.revEnv = RevEnv(rev_env_network, env_config, network_params.rev_env_params).to(device)
+        self.critic = SingleInputCritic(critic_network, env_config, rl_params.critic_params).to(device)
+        self.actor = DualInputActor(actor_network, env_config, rl_params.use_deterministic, rl_params.actor_params).to(device)
+        self.revEnv = RevEnv(rev_env_network, env_config, rl_params.rev_env_params).to(device)
         self.target_critic = copy.deepcopy(self.critic) 
 
         super(CausalTrainer, self).__init__(env_config, rl_params, 
@@ -45,7 +45,7 @@ class CausalTrainer(BaseTrainer):
     def get_action(self, state, mask = None, training: bool = False):
         with torch.no_grad():
             estimated_value = self.critic(state, mask)
-            if training:
+            if training and not self.use_deterministic:
                 action = self.actor.sample_action(state, estimated_value, mask)
             else:
                 action = self.actor.select_action(state, estimated_value, mask)

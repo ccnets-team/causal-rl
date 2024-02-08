@@ -11,10 +11,11 @@ from ..network_utils import init_weights, create_layer
 from ..network_utils import ContinuousFeatureEmbeddingLayer
 
 class _BaseActor(nn.Module):
-    def __init__(self, net, env_config, network_params, input_size):
+    def __init__(self, net, env_config, use_deterministic, network_params, input_size):
         super(_BaseActor, self).__init__()
         
         # Environment and network configuration
+        self.use_deterministic = use_deterministic
         self.use_discrete = env_config.use_discrete
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
         self.num_layers, self.d_model = network_params.num_layers, network_params.d_model
@@ -67,9 +68,9 @@ class _BaseActor(nn.Module):
         return action
     
 class DualInputActor(_BaseActor):
-    def __init__(self, net, env_config, network_params):
+    def __init__(self, net, env_config, use_deterministic, network_params):
         value_size = 1
-        super().__init__(net, env_config, network_params, env_config.state_size + value_size)
+        super().__init__(net, env_config, use_deterministic, network_params, env_config.state_size + value_size)
         self.apply(init_weights)
         
         # Comment about joint representation for the actor and reverse-env network:
@@ -78,6 +79,8 @@ class DualInputActor(_BaseActor):
         # The decision of which method to use should be based on the specifics of the task and the nature of the data.
 
     def forward(self, state, value, mask = None):
+        if self.use_deterministic:
+            return self.select_action(state, value, mask)
         z = self.embedding_layer(torch.cat([state, value], dim =-1))
         mean, std = self._compute_forward_pass(z, mask)
         return Normal(mean, std).rsample()
