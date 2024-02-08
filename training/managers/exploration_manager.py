@@ -43,7 +43,7 @@ class ExplorationUtils:
         
         sequence_ratios = sequence_lengths/max_seq_length
         
-        adjustment_ratios = torch.pow(sequence_ratios, 1/max(self.exploration_rate, 1e-8))
+        adjustment_ratios = torch.pow(sequence_ratios, math.log2(1/max(self.exploration_rate, 1e-8)))
         
         adjustment_probs = adjustment_ratios/adjustment_ratios.sum()
         
