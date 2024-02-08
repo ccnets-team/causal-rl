@@ -1,6 +1,7 @@
 import torch
 from normalizer.running_mean_std import RunningMeanStd
 from normalizer.running_abs_mean import RunningAbsMean
+from normalizer.running_square_mean import RunningSquareMean
 
 from utils.structure.data_structures  import BatchTrajectory
 
@@ -66,6 +67,8 @@ class NormalizerBase:
             self.normalizer = RunningMeanStd(feature_size, device)
         elif norm_type == "running_abs_mean":
             self.normalizer = RunningAbsMean(feature_size, device)
+        elif norm_type == "running_square_mean":
+            self.normalizer = RunningSquareMean(feature_size, device)
             
         self.device = device
                     
