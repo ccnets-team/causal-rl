@@ -40,7 +40,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
         self.use_deterministic = self.algorithm_params.use_deterministic
-        self.reduction_type = 'cross'
+        self.reduction_type = 'batch'
 
     def _compute_training_start_step(self):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio

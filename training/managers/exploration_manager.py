@@ -17,9 +17,9 @@ class ExplorationUtils:
         self.decay_percentage = None
         self.decay_factor = None
         # Default exploration rate at the start of training. High value (1.0) promotes initial random exploration.
-        self.initial_exploration = 1.0
+        self.initial_exploration = 0.0
         # Minimum exploration rate, ensuring some level of exploration is maintained throughout training.
-        self.min_exploration = 0.01
+        self.min_exploration = 0.0
         # Defines the rate at which exploration decreases. A value of 0.8 means 80% of initial exploration will be reduced over max_steps.
         self.decay_percentage = 0.8
         # Default decay mode. 'linear' means exploration rate decreases linearly over time.
@@ -43,11 +43,9 @@ class ExplorationUtils:
         
         sequence_ratios = sequence_lengths/max_seq_length
         
-        adjustment_ratios = torch.pow(sequence_ratios, math.log2(1/max(self.exploration_rate, 1e-8)))
+        sequence_probs = sequence_ratios/sequence_ratios.sum()
         
-        adjustment_probs = adjustment_ratios/adjustment_ratios.sum()
-        
-        sampled_indices = torch.multinomial(adjustment_probs, batch_size, replacement=True)
+        sampled_indices = torch.multinomial(sequence_probs, batch_size, replacement=True)
         sampled_lengths = sequence_lengths[sampled_indices]
         return sampled_lengths
     
