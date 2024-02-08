@@ -9,20 +9,6 @@ def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, de
     decay_steps = decay_percentage * max_steps
     return (min_exploration / initial_exploration) ** (1/decay_steps)
 
-class BoltzmannExploration:
-    def __init__(self):
-        self.tau = 1.0
-        self.min_temperature = 0.01
-        # Adjusted decay rate as per the derived formula
-        self.decay_rate = -math.log(self.min_temperature/self.tau)
-            
-    def apply(self, x, exploration_rate):
-        # Computing temperature based on the adjusted decay rate
-        temperature = max(self.tau * math.exp(-self.decay_rate * (1 - exploration_rate)), self.min_temperature)
-        # Assuming x has some specific use and computation. Placeholder for actual computation with x.
-        boltzmann_probs = torch.softmax(x / temperature, dim=-1)
-        return boltzmann_probs
-    
 class ExplorationUtils:
     def __init__(self, max_steps, device):
         self.device = device
@@ -41,7 +27,6 @@ class ExplorationUtils:
             
         self.decay_mode = 'linear'
         self.exploration_rate = self.initial_exploration
-        self.boltzmann_exploration = BoltzmannExploration()
         
     def update_exploration_rate(self):  
         if self.decay_mode == "linear":
@@ -54,22 +39,16 @@ class ExplorationUtils:
         
     def sample_dynamic_sequence_lengths(self, batch_size, min_seq_length, max_seq_length):
         # Dynamically samples sequence lengths based on the current exploration rate
-        possible_lengths = torch.arange(min_seq_length, max_seq_length + 1).to(self.device)
+        sequence_lengths = torch.arange(min_seq_length, max_seq_length + 1).to(self.device)
         
-        sequence_probs = possible_lengths/possible_lengths.sum()
+        sequence_ratios = sequence_lengths/max_seq_length
         
-        # Apply Boltzmann exploration to adjust the temperature
-        boltzmann_probs = self.boltzmann_exploration.apply(sequence_probs, self.exploration_rate)
-        
-        adjustment_factors = sequence_probs/torch.softmax(sequence_probs, dim=-1)
-        
-        adjustment_ratios = boltzmann_probs* adjustment_factors
+        adjustment_ratios = torch.pow(sequence_ratios, 1/max(self.exploration_rate, 1e-8))
         
         adjustment_probs = adjustment_ratios/adjustment_ratios.sum()
         
-        # Sample sequence lengths based on Boltzmann probabilities
         sampled_indices = torch.multinomial(adjustment_probs, batch_size, replacement=True)
-        sampled_lengths = possible_lengths[sampled_indices]
+        sampled_lengths = sequence_lengths[sampled_indices]
         return sampled_lengths
     
     def apply_exploration_masking(self, padding_mask):
