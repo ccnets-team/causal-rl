@@ -10,6 +10,9 @@ from torch.distributions import Normal
 from ..network_utils import init_weights, create_layer
 from ..network_utils import ContinuousFeatureEmbeddingLayer
 
+LOG_STD_MIN = -20
+LOG_STD_MAX = 2
+
 class _BaseActor(nn.Module):
     def __init__(self, net, env_config, use_deterministic, network_params, input_size):
         super(_BaseActor, self).__init__()
@@ -26,13 +29,12 @@ class _BaseActor(nn.Module):
         self.log_std_layer = create_layer(self.d_model, self.action_size, act_fn='none')
         self.net = net(self.num_layers, self.d_model, dropout = network_params.dropout) 
         self.value_size = 1
-        self.softplus = nn.Softplus()
         self.relu = nn.ReLU()
 
     def _compute_forward_pass(self, z, mask = None):
         y = self.net(z, mask = mask) 
         y = self.relu(y)
-        mu, sigma = self.mean_layer(y), self.softplus(self.log_std_layer(y))
+        mu, sigma = self.mean_layer(y), torch.exp(torch.clamp(self.log_std_layer(y), LOG_STD_MIN, LOG_STD_MAX))
         return mu, sigma 
         
     def _sample_action(self, mean, std):
