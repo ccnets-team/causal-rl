@@ -1,11 +1,12 @@
 import torch
 
 class RunningAbsMean:
-    def __init__(self, num_features, device):
+    def __init__(self, num_features, scale, device):
         self.device = device
         self.abs_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.num_features = num_features
+        self.scale = scale
 
     def update(self, x, padding_mask=None):
         batch_size, seq_len, feature_size = x.size()
@@ -37,7 +38,7 @@ class RunningAbsMean:
         if len(x) < 1 or torch.sum(self.count < 1) > 0:
             return x
         abs_mean = self.get_abs_mean().view(1, 1, self.num_features)
-        normalized_x = x / (abs_mean + 1e-8)
+        normalized_x = x / (abs_mean / self.scale + 1e-8)
         return normalized_x.to(dtype=x.dtype)
 
     def save(self, path):

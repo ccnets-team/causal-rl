@@ -1,11 +1,12 @@
 import torch
 
 class RunningSquareMean:
-    def __init__(self, num_features, device):
+    def __init__(self, num_features, device, scale):
         self.device = device
         self.square_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.num_features = num_features
+        self.scale = scale
 
     def update(self, x, padding_mask=None):
         batch_size, seq_len, feature_size = x.size()
@@ -37,7 +38,7 @@ class RunningSquareMean:
         if len(x) < 1 or torch.sum(self.count < 1) > 0:
             return x
         square_mean = self.get_square_mean().view(1, 1, self.num_features)
-        normalized_x = x / (square_mean + 1e-8)
+        normalized_x = x / (square_mean / self.scale + 1e-8)
         return normalized_x.to(dtype=x.dtype)
 
     def save(self, path):

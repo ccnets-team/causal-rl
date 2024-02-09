@@ -11,6 +11,11 @@ TRANSITION_REWARD_IDX = 2
 
 REWARD_SIZE = 1
 
+STATE_NORM_SCALE = 1
+REWARD_NORM_SCALE = 1
+SUM_REWARD_NORM_SCALE = 1
+ADVANTAGE_NORM_SCALE = 1
+
 CLIP_NORM_RANGE = 10.0
 
 def _normalize_l1_norm(advantage, padding_mask=None):
@@ -57,18 +62,18 @@ def _estimate_batch_mean_and_std(advantages, sum_padding):
     return batch_mean_estimated, batch_std_estimated
 
 class NormalizerBase:
-    def __init__(self, feature_size, norm_type_key, normalization_params, device):
+    def __init__(self, feature_size, norm_type_key, normalization_params, scale, device):
         self.normalizer = None
         self.feature_size = feature_size
         self.clip_norm_range = CLIP_NORM_RANGE  # The range within which normalized values are clipped, preventing excessively high normalization values.
 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
-            self.normalizer = RunningMeanStd(feature_size, device)
+            self.normalizer = RunningMeanStd(feature_size, scale, device)
         elif norm_type == "running_abs_mean":
-            self.normalizer = RunningAbsMean(feature_size, device)
+            self.normalizer = RunningAbsMean(feature_size, scale, device)
         elif norm_type == "running_square_mean":
-            self.normalizer = RunningSquareMean(feature_size, device)
+            self.normalizer = RunningSquareMean(feature_size, scale, device)
             
         self.device = device
                     
@@ -92,10 +97,10 @@ class NormalizerBase:
     
 class NormalizationUtils:
     def __init__(self, state_size, normalization_params, seq_length, device):
-        self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, device=device)
-        self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, device=device)
-        self.advantage_manager = NormalizerBase(seq_length, 'advantage_normalizer', normalization_params, device=device)
-        self.value_manager = NormalizerBase(seq_length, 'sum_reward_normalizer', normalization_params, device=device)
+        self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, STATE_NORM_SCALE, device=device)
+        self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, REWARD_NORM_SCALE, device=device)
+        self.sum_reward_manager = NormalizerBase(seq_length, 'sum_reward_normalizer', normalization_params, SUM_REWARD_NORM_SCALE, device=device)
+        self.advantage_manager = NormalizerBase(seq_length, 'advantage_normalizer', normalization_params, ADVANTAGE_NORM_SCALE, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
         self.sum_reward_normalizer = normalization_params.sum_reward_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
@@ -142,9 +147,9 @@ class NormalizationUtils:
                 reshaped_padding_mask = None
             else:
                 reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
-            self.value_manager._update_normalizer(reshaped_sum_rewards, reshaped_padding_mask)
+            self.sum_reward_manager._update_normalizer(reshaped_sum_rewards, reshaped_padding_mask)
 
-            normalized_reshaped_sum_rewards = self.value_manager._normalize_last_dim(reshaped_sum_rewards)
+            normalized_reshaped_sum_rewards = self.sum_reward_manager._normalize_last_dim(reshaped_sum_rewards)
             normalized_sum_rewards = normalized_reshaped_sum_rewards.squeeze(1).unsqueeze(-1)
         
         return normalized_sum_rewards
