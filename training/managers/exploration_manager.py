@@ -41,7 +41,7 @@ class ExplorationUtils:
         # Dynamically samples sequence lengths based on the current exploration rate
         sequence_lengths = torch.arange(min_seq_length, max_seq_length + 1).to(self.device)
         
-        sequence_ratios = sequence_lengths/max_seq_length
+        sequence_ratios = (sequence_lengths/max_seq_length)**2
         
         sequence_probs = sequence_ratios/sequence_ratios.sum()
         
