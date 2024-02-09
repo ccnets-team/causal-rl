@@ -11,7 +11,7 @@ TRANSITION_REWARD_IDX = 2
 
 REWARD_SIZE = 1
 
-STATE_NORM_SCALE = 1
+STATE_NORM_SCALE = 2
 REWARD_NORM_SCALE = 1
 SUM_REWARD_NORM_SCALE = 1
 ADVANTAGE_NORM_SCALE = 1
@@ -87,10 +87,10 @@ class NormalizerBase:
             # Update the normalizer with the reshaped data
             self.normalizer.update(data, padding_mask)
                 
-    def _normalize_last_dim(self, data):
+    def _normalize_last_dim(self, data, scale = 1):
         if self.normalizer is not None:
             # Normalize and clamp data
-            clip = self.clip_norm_range
+            clip = self.clip_norm_range * scale
             data = self.normalizer.normalize(data)
             data.clamp_(-clip, clip)
         return data
@@ -116,10 +116,10 @@ class NormalizationUtils:
         return self.advantage_manager.normalizer
             
     def normalize_states(self, state):
-        return self.state_manager._normalize_last_dim(state)
+        return self.state_manager._normalize_last_dim(state, STATE_NORM_SCALE)
 
     def normalize_rewards(self, reward):
-        return self.reward_manager._normalize_last_dim(reward)
+        return self.reward_manager._normalize_last_dim(reward, REWARD_NORM_SCALE)
     
     def normalize_sum_rewards(self, sum_rewards, padding_mask=None):
         """
@@ -149,7 +149,7 @@ class NormalizationUtils:
                 reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
             self.sum_reward_manager._update_normalizer(reshaped_sum_rewards, reshaped_padding_mask)
 
-            normalized_reshaped_sum_rewards = self.sum_reward_manager._normalize_last_dim(reshaped_sum_rewards)
+            normalized_reshaped_sum_rewards = self.sum_reward_manager._normalize_last_dim(reshaped_sum_rewards, SUM_REWARD_NORM_SCALE)
             normalized_sum_rewards = normalized_reshaped_sum_rewards.squeeze(1).unsqueeze(-1)
         
         return normalized_sum_rewards
@@ -187,7 +187,7 @@ class NormalizationUtils:
             else:
                 reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
             self.advantage_manager._update_normalizer(reshaped_advantage, reshaped_padding_mask)
-            normalized_reshaped_advantage = self.advantage_manager._normalize_last_dim(reshaped_advantage)
+            normalized_reshaped_advantage = self.advantage_manager._normalize_last_dim(reshaped_advantage, ADVANTAGE_NORM_SCALE)
             normalized_advantage = normalized_reshaped_advantage.squeeze(1).unsqueeze(-1)
             return normalized_advantage
 
