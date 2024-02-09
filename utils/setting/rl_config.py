@@ -20,7 +20,7 @@ class AlgorithmParameters:
         self.use_deterministic = use_deterministic  # Determines whether to use deterministic actions during training/evaluation.
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.0, network_type=GPT):
+    def __init__(self, num_layers=5, d_model=256, dropout=0.01, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
