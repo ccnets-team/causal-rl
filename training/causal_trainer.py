@@ -70,9 +70,9 @@ class CausalTrainer(BaseTrainer):
         # This step enhances computational efficiency by processing these states simultaneously.
         reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
                 
-        forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = False)
+        forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
         
-        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True)
+        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False)
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
         estimated_value, expected_value, advantage = self.compute_values(trajectory, estimated_value, padding_mask)
@@ -115,7 +115,7 @@ class CausalTrainer(BaseTrainer):
         return metrics
 
     
-    def compute_transition_costs_from_states(self, states, reversed_state, recurred_state, reduce_feture_dim = False):
+    def compute_transition_costs_from_states(self, states, reversed_state, recurred_state, reduce_feture_dim = True):
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state, reduce_feture_dim)
         # Compute the reverse cost by checking the discrepancy between the reversed state and the original state.
@@ -124,7 +124,7 @@ class CausalTrainer(BaseTrainer):
         recurrent_cost = self.cost_fn(recurred_state, states, reduce_feture_dim)
         return forward_cost, reverse_cost, recurrent_cost
     
-    def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True):
+    def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
         # Calculate the cooperative critic error using forward and reverse costs in relation to the recurrent cost.
         coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)
         # Calculate the cooperative actor error using recurrent and forward costs in relation to the reverse cost.
