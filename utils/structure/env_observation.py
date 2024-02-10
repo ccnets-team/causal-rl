@@ -78,8 +78,8 @@ class EnvObservation:
         self.mask[term_agents, :] = 0  
 
         # Set the last time dimension to 0 for data of 'dec_agents'
-        for key in self.data:
-            self.data[key][dec_agents, -1] = 0
+        # for key in self.data:
+        #     self.data[key][dec_agents, -1] = 0
         self.mask[dec_agents, -1] = 1
 
     def to_vector(self):
