@@ -50,7 +50,7 @@ class EnvironmentPool:
         padding_mask = torch.from_numpy(np_mask).to(self.device)
 
         # In your training loop or function
-        if training:
+        if training and trainer.use_masked_exploration:
             padding_mask = trainer.apply_exploration_masking(padding_mask)
                         
         state_tensor = trainer.normalize_states(state_tensor)

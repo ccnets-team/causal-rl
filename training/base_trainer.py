@@ -40,6 +40,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.advantage_lambda = self.algorithm_params.advantage_lambda
         self.discount_factor = self.algorithm_params.discount_factor
         self.use_deterministic = self.algorithm_params.use_deterministic
+        self.use_masked_exploration = self.algorithm_params.use_masked_exploration 
         self.reduction_type = 'batch'
 
     def _compute_training_start_step(self):
