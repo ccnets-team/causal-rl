@@ -22,7 +22,9 @@ class ExplorationUtils:
         self.decay_percentage = 0.8
         # Default decay mode. 'linear' means exploration rate decreases linearly over time.
         self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, max_steps, self.decay_percentage)
-            
+        
+        self.min_sample_weight = 1
+        self.max_sample_weight = 10
         self.decay_mode = 'linear'
         self.exploration_rate = self.initial_exploration
         
@@ -35,34 +37,67 @@ class ExplorationUtils:
     def get_exploration_rate(self):
         return self.exploration_rate
         
-    def sample_dynamic_sequence_lengths(self, batch_size, min_seq_length, max_seq_length):
-        # Dynamically samples sequence lengths based on the current exploration rate
+    def sample_sequence_lengths(self, batch_size, min_seq_length, max_seq_length):
+        """
+        Samples sequence lengths within the specified range, adjusting probabilities 
+        based on the exploration rate to promote varied sequence sampling. This method 
+        encourages exploration by dynamically adjusting the likelihood of selecting different 
+        sequence lengths, factoring in the current exploration rate to balance between 
+        exploring new lengths and exploiting known advantageous lengths.
+        """
         sequence_lengths = torch.arange(min_seq_length, max_seq_length + 1).to(self.device)
         
-        sequence_ratios = torch.pow(sequence_lengths/max_seq_length, 2 - self.exploration_rate)
+        # Compute relative lengths as ratios of the maximum sequence length.
+        sequence_ratios = sequence_lengths / max_seq_length
         
-        sequence_probs = sequence_ratios/sequence_ratios.sum()
+        # Determine the rate of exploitation, inversely related to exploration.
+        exploitation_rate = 1 - self.exploration_rate
         
+        # Adjust sequence length ratios based on exploration/exploitation balance.
+        adjusted_sequence_ratios = sequence_ratios * (self.min_sample_weight + (self.max_sample_weight - self.min_sample_weight) * exploitation_rate * sequence_ratios)
+
+        # Normalize adjusted ratios to get probabilities for sampling.
+        sequence_probs = adjusted_sequence_ratios / adjusted_sequence_ratios.sum()
+        
+        # Sample sequence lengths based on the computed probabilities.
         sampled_indices = torch.multinomial(sequence_probs, batch_size, replacement=True)
         sampled_lengths = sequence_lengths[sampled_indices]
-        return sampled_lengths
-    
+        
+        # Ensure sampled lengths are within the specified range.
+        return torch.clamp(sampled_lengths, min_seq_length, max_seq_length)
+
+    def create_padding_slots(self, padding_mask, sampled_seq_lengths):
+        """
+        Identifies positions within the padding mask that should be updated to reflect 
+        the dynamically sampled sequence lengths. This process involves determining which 
+        parts of each sequence are considered 'padding' based on the sampled lengths.
+        """
+        max_seq_length = padding_mask.size(1)
+        # Calculate the number of padding slots needed for each sequence.
+        padding_seq_length = max_seq_length - sampled_seq_lengths
+        range_tensor = torch.arange(max_seq_length, device=self.device).expand_as(padding_mask)
+        # Determine which slots will be marked as padding.
+        sampled_padding_slots = range_tensor < padding_seq_length.unsqueeze(1)
+
+        return sampled_padding_slots
+
     def apply_exploration_masking(self, padding_mask):
         """
-        Applies an effective sequence mask to the given padding mask based on 
-        the exploration rate and random sequence lengths.
+        Applies exploration-driven masking to the padding mask, based on dynamically 
+        sampled sequence lengths. This method adjusts the padding mask to facilitate 
+        variable-length sequence training, aligning sequence lengths with the current 
+        exploration strategy to improve model robustness and adaptability.
         """
         batch_size, max_seq_length = padding_mask.size()
         min_seq_length = 1
         
-        random_seq_lengths = self.sample_dynamic_sequence_lengths(batch_size, min_seq_length, max_seq_length)
+        # Sample new sequence lengths according to the current exploration strategy.
+        sampled_seq_lengths = self.sample_sequence_lengths(batch_size, min_seq_length, max_seq_length)
 
-        effective_seq_length = torch.clamp(random_seq_lengths, min_seq_length, max_seq_length)
-
-        padding_seq_length = max_seq_length - effective_seq_length
-        # Create a range tensor and apply the mask
-        range_tensor = torch.arange(max_seq_length, device=self.device).expand_as(padding_mask)
-        mask_indices = range_tensor < padding_seq_length.unsqueeze(1)
-        padding_mask[mask_indices] = 0.0
+        # Identify valid padding slots based on the sampled sequence lengths.
+        padding_slots = self.create_padding_slots(padding_mask, sampled_seq_lengths)
+        
+        # Update the padding mask based on the identified valid padding slots.
+        padding_mask[padding_slots] = 0.0
         
         return padding_mask
