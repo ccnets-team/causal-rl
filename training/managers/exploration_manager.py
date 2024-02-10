@@ -79,7 +79,11 @@ class ExplorationUtils:
         # Determine which slots will be marked as padding.
         sampled_padding_slots = range_tensor < padding_seq_length.unsqueeze(1)
 
-        return sampled_padding_slots
+        cumsum_padding_mask = torch.cumsum(padding_mask, dim=1)
+        # This checks for sequences that have no padding, implying survival beyond max_seq_length
+        empty_padding_slots = (cumsum_padding_mask[:, -1:] >= max_seq_length).expand_as(padding_mask)
+        valid_padding_slots = sampled_padding_slots & empty_padding_slots
+        return valid_padding_slots
 
     def apply_exploration_masking(self, padding_mask):
         """
