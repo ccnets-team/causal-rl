@@ -3,7 +3,7 @@ from nn.network_utils import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, batch_size=64, replay_ratio=2, train_interval=1, max_steps=200000, buffer_size=160000):
+    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, max_steps=200000, buffer_size=320000):
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
@@ -20,7 +20,7 @@ class AlgorithmParameters:
         self.use_deterministic = use_deterministic  # Determines whether to use deterministic actions during training/evaluation.
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.01, network_type=GPT):
+    def __init__(self, num_layers=5, d_model=256, dropout=0.0, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
