@@ -25,7 +25,6 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         self.use_discrete = env_config.use_discrete
 
         self.actions = np.zeros((env_config.num_agents, env_config.action_size), dtype = np.float32)
-        self.padding_lengths = np.zeros((env_config.num_agents, env_config.action_size), dtype = np.float32)
         self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, gpt_seq_length)
 
         self.agent_ids = np.array([i for i in range(env_config.num_agents)], dtype=int)
@@ -41,7 +40,6 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         self.env.reset()
         
         self.actions.fill(0)
-        self.padding_lengths.fill(0)
         self.observations.reset()
         self.agent_life.fill(False) 
         self.agent_dec.fill(False) 
@@ -52,7 +50,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         states = self.observations[self.agent_life, -1].to_vector()
         
         actions = self.actions[self.agent_life]
-        padding_lengths = self.padding_lengths[self.agent_life]
+        padding_lengths = self.observations.episode_padding[self.agent_life]
         self.agent_dec.fill(False)
         return agent_ids, states, actions, padding_lengths
 
@@ -95,7 +93,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         
         return self.done
     
-    def update(self, action, padding_length):
+    def update(self, action):
         action_tuple = ActionTuple()
         if self.use_discrete:
             discrete_action = np.argmax(action, axis=1) + 1
@@ -106,7 +104,6 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
             action_tuple.add_continuous(continuous_action)
             
         self.actions[self.agent_dec] = action
-        self.padding_lengths[self.agent_dec] = padding_length
         self.env.set_actions(self.behavior_name, action_tuple)
         self.env.step()
         return

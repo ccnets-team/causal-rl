@@ -35,7 +35,7 @@ class ExplorationUtils:
     def get_exploration_rate(self):
         return self.exploration_rate
 
-    def create_padding_slots(self, padding_mask, padding_lengths):
+    def apply_sequence_masking(self, padding_mask, padding_lengths):
         """
         Identifies positions within the padding mask that should be updated to reflect 
         the dynamically sampled sequence lengths. This process involves determining which 
@@ -47,13 +47,6 @@ class ExplorationUtils:
         # Determine which slots will be marked as padding.
         sampled_padding_slots = range_tensor < padding_lengths.unsqueeze(1)
 
-        return sampled_padding_slots
+        padding_mask[sampled_padding_slots] = 0.0
 
-    def apply_exploration_masking(self, padding_mask, padding_lengths):
-
-        padding_slots = self.create_padding_slots(padding_mask, padding_lengths)
-        
-        # Update the padding mask based on the identified valid padding slots.
-        padding_mask[padding_slots] = 0.0
-        
         return padding_mask
