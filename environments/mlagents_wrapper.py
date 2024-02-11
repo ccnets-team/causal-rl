@@ -25,6 +25,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         self.use_discrete = env_config.use_discrete
 
         self.actions = np.zeros((env_config.num_agents, env_config.action_size), dtype = np.float32)
+        self.padding_lengths = np.zeros((env_config.num_agents, env_config.action_size), dtype = np.float32)
         self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, gpt_seq_length)
 
         self.agent_ids = np.array([i for i in range(env_config.num_agents)], dtype=int)
@@ -40,6 +41,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         self.env.reset()
         
         self.actions.fill(0)
+        self.padding_lengths.fill(0)
         self.observations.reset()
         self.agent_life.fill(False) 
         self.agent_dec.fill(False) 
@@ -50,8 +52,9 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
         states = self.observations[self.agent_life, -1].to_vector()
         
         actions = self.actions[self.agent_life]
+        padding_lengths = self.padding_lengths[self.agent_life]
         self.agent_dec.fill(False)
-        return agent_ids, states, actions
+        return agent_ids, states, actions, padding_lengths
 
     def get_steps(self):
         self.dec, self.term = self.env.get_steps(self.behavior_name)
@@ -68,7 +71,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
     
     def step(self):
         # Retrieve and process environment steps
-        agent_ids, state, action = self.init_variables()
+        agent_ids, state, action, padding_length = self.init_variables()
         term_agents, dec_agents, term_reward, dec_reward, term_next_obs, dec_next_obs = self.get_steps()
         self.update_agent_life(term_agents, dec_agents)
 
@@ -86,13 +89,13 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
 
         # Store transitions in the experience buffer
         if len(agent_ids) > 0:
-            self.push_transitions(agent_ids, state, action, term_agents, term_reward, term_next_obs, term=True)
+            self.push_transitions(agent_ids, state, action, padding_length, term_agents, term_reward, term_next_obs, term=True)
             dec_agents, dec_reward, dec_next_obs = self.filter_data(dec_agents, term_agents, dec_reward, dec_next_obs)
-            self.push_transitions(agent_ids, state, action, dec_agents, dec_reward, dec_next_obs)
+            self.push_transitions(agent_ids, state, action, padding_length, dec_agents, dec_reward, dec_next_obs)
         
         return self.done
     
-    def update(self, action):
+    def update(self, action, padding_length):
         action_tuple = ActionTuple()
         if self.use_discrete:
             discrete_action = np.argmax(action, axis=1) + 1
@@ -103,6 +106,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
             action_tuple.add_continuous(continuous_action)
             
         self.actions[self.agent_dec] = action
+        self.padding_lengths[self.agent_dec] = padding_length
         self.env.set_actions(self.behavior_name, action_tuple)
         self.env.step()
         return

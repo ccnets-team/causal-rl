@@ -37,37 +37,41 @@ class EnvironmentPool:
         transitions = AgentTransitions()
 
         for env_idx, env in enumerate(self.env_list):
-            agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated = env.output_transitions()
-            transitions.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated)
+            agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, np_padding_length = env.output_transitions()
+            transitions.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, np_padding_length)
         return transitions
         
     def explore_environments(self, trainer, training):
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
         np_mask = np.concatenate([env.observations.mask for env in self.env_list], axis=0)
+        np_episode_padding = np.concatenate([env.observations.episode_padding for env in self.env_list], axis=0)
 
         state_tensor = torch.from_numpy(np_state).to(self.device)
         padding_mask = torch.from_numpy(np_mask).to(self.device)
-
+        padding_lengths = torch.from_numpy(np_episode_padding).to(self.device)
+        
         # In your training loop or function
         if training and trainer.use_masked_exploration:
-            padding_mask = trainer.apply_exploration_masking(padding_mask)
-                        
+            padding_mask = trainer.apply_exploration_masking(padding_mask, padding_lengths)
+
         state_tensor = trainer.normalize_states(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
             
         # Apply actions to environments
-        self.apply_actions_to_envs(action_tensor)
+        self.apply_actions_to_envs(action_tensor, padding_lengths)
 
-    def apply_actions_to_envs(self, action_tensor):
+    def apply_actions_to_envs(self, action_tensor, padding_length):
         np_action = action_tensor.cpu().numpy()
+        np_padding_length = padding_length.cpu().numpy()
         start_idx = 0
         for env in self.env_list:
             end_idx = start_idx + len(env.agent_dec)
             valid_action = np_action[start_idx:end_idx][env.agent_dec]
+            valid_seq_lengths = np_padding_length[start_idx:end_idx][env.agent_dec]
 
             select_valid_action = valid_action[:, -1, :]
-            env.update(select_valid_action)
+            env.update(select_valid_action, valid_seq_lengths)
             start_idx = end_idx
             
     @staticmethod

@@ -97,7 +97,7 @@ class GymEnvWrapper(AgentExperienceCollector):
         """
         return False
         
-    def update(self, action) -> bool:
+    def update(self, action, padding_length) -> bool:
         """
         Updates the environment state with the given action.
 
@@ -143,12 +143,12 @@ class GymEnvWrapper(AgentExperienceCollector):
                     next_observation[idx] = _info["final_observation"][idx]
 
         if not self.test_env:
-            self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated)
+            self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, padding_length, np_reward, next_observation, np_terminated, np_truncated)
         else:
             if self.use_graphics:
-                self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated)
+                self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, padding_length, np_reward, next_observation, np_terminated, np_truncated)
             else:
-                self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], np_reward[0], next_observation[0], np_terminated[0], np_truncated[0])
+                self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], padding_length[0], np_reward[0], next_observation[0], np_terminated[0], np_truncated[0])
 
         self.process_terminated_and_decision_agents(np_done, np_next_obs)            
 

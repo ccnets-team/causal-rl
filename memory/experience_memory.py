@@ -52,14 +52,15 @@ class ExperienceMemory:
         agent_id = buffer_id % self.num_agents
         return env_id, agent_id
             
-    def push_transitions(self, multi_env_trajectories: AgentTransitions):
-        if multi_env_trajectories.env_ids is None:
+    def push_transitions(self, agent_transitions: AgentTransitions):
+        if agent_transitions.env_ids is None:
             return
 
-        for data in zip(multi_env_trajectories.env_ids, multi_env_trajectories.agent_ids,
-                        multi_env_trajectories.states, multi_env_trajectories.actions,
-                        multi_env_trajectories.rewards, multi_env_trajectories.next_states,
-                        multi_env_trajectories.dones_terminated, multi_env_trajectories.dones_truncated):
+        for data in zip(agent_transitions.env_ids, agent_transitions.agent_ids,
+                        agent_transitions.states, agent_transitions.actions,
+                        agent_transitions.rewards, agent_transitions.next_states,
+                        agent_transitions.dones_terminated, agent_transitions.dones_truncated,
+                        agent_transitions.padding_length):
             env_id, agent_id = data[:2]
             buffer = self.multi_buffers[env_id][agent_id]
             buffer.add_transition(*data[2:])
