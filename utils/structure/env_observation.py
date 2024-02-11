@@ -10,6 +10,7 @@ class EnvObservation:
         self.data = self._create_empty_data()
         self.mask = np.zeros((self.num_agents, self.gpt_seq_length), dtype=np.float32)
         self.episode_padding = np.zeros(self.num_agents, dtype=np.int32)
+        self.exploration_rate = 1.0
 
     def _create_empty_data(self):
         observations = {}
@@ -63,6 +64,9 @@ class EnvObservation:
         for obs_type in self.obs_types:
             self.data[obs_type][agent_indices] = values[obs_type]
     
+    def update_exploration_rate(self, exploration_rate):
+        self.exploration_rate = exploration_rate
+        
     def reset(self):
         self.mask.fill(0.0)
         self.episode_padding.fill(0)
@@ -81,8 +85,10 @@ class EnvObservation:
         # Compute relative lengths as ratios of the maximum sequence length.
         sequence_ratios = sequence_lengths / max_seq_length
         
+        adjusted_ratios = np.power(sequence_ratios, 1 / max(self.exploration_rate, 1e-8) - 1) 
+        
         # Normalize adjusted ratios to get probabilities for sampling.
-        sequence_probs = sequence_ratios / sequence_ratios.sum()
+        sequence_probs = adjusted_ratios / adjusted_ratios.sum()
         
         # Sample sequence lengths based on the computed probabilities.
         sampled_indices = np.random.choice(range(len(sequence_probs)), size=batch_size, replace=True, p=sequence_probs)

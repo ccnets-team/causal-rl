@@ -46,7 +46,9 @@ class EnvironmentPool:
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
         np_mask = np.concatenate([env.observations.mask for env in self.env_list], axis=0)
         np_episode_padding = np.concatenate([env.observations.episode_padding for env in self.env_list], axis=0)
-
+        for env in self.env_list:
+            env.observations.update_exploration_rate(trainer.get_exploration_rate())
+        
         state_tensor = torch.from_numpy(np_state).to(self.device)
         padding_mask = torch.from_numpy(np_mask).to(self.device)
         padding_lengths = torch.from_numpy(np_episode_padding).to(self.device)
@@ -57,7 +59,7 @@ class EnvironmentPool:
 
         state_tensor = trainer.normalize_states(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
-            
+        
         # Apply actions to environments
         self.apply_actions_to_envs(action_tensor, padding_lengths)
 
