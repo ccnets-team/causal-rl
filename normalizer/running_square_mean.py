@@ -1,7 +1,7 @@
 import torch
 
 class RunningSquareMean:
-    def __init__(self, num_features, device, scale):
+    def __init__(self, num_features, scale, device):
         self.device = device
         self.square_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)

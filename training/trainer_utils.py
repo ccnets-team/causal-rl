@@ -56,7 +56,7 @@ def create_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
         value_weights[t] = gamma * ((1 - td_lambda) * 1 + td_lambda * value_weights[t + 1])
 
         # Compute the sum reward weights as the complement of value weights, indicating the proportion of reward assigned to each timestep.
-        sum_reward_weights[t] = 1 - value_weights[t]
+        sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
 
     # Ensure all sum_reward_weights are within the [0, 1] range, validating the computation logic.
     assert torch.all(sum_reward_weights >= 0) and torch.all(sum_reward_weights <= 1)
