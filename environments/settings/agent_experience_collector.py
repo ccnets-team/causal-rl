@@ -6,26 +6,22 @@ class AgentExperienceCollector:
         self.obs_shapes = env_config.obs_shapes
         self.obs_types = env_config.obs_types
         self.num_agents = env_config.num_agents
-        self.agent_num = np.zeros((self.num_agents), dtype=int)
-        self.agent_obs = [[] for i in range(self.num_agents)]
-        self.agent_action = [[] for i in range(self.num_agents)]
-        self.agent_reward = [[] for i in range(self.num_agents)]
-        self.agent_next_obs = [[] for i in range(self.num_agents)]
-        self.agent_done_terminated = [[] for i in range(self.num_agents)]
-        self.agent_done_truncated = [[] for i in range(self.num_agents)]
-        self.agent_padding_length = [[] for i in range(self.num_agents)]
-
-    def reset_agents(self):
-        for i in range(self.num_agents):
-            self.agent_obs[i].clear()
-            self.agent_action[i].clear()
-            self.agent_reward[i].clear()
-            self.agent_next_obs[i].clear()
-            self.agent_done_terminated[i].clear()  
-            self.agent_done_truncated[i].clear()  
-            self.agent_padding_length[i].clear()  
-        self.agent_num.fill(int(0))
         
+        # Assuming observation shapes are uniform for simplification
+        obs_size = env_config.state_size
+        action_size = env_config.action_size  # Placeholder, define properly based on your env_config
+
+        # Pre-allocate NumPy arrays for agent data
+        self.agent_num = np.zeros(self.num_agents, dtype=int)
+        self.agent_obs = np.zeros((self.num_agents, obs_size), dtype=np.float32)
+        self.agent_action = np.zeros((self.num_agents, action_size), dtype=np.float32)
+        self.agent_reward = np.zeros((self.num_agents), dtype=np.float32)
+        self.agent_next_obs = np.zeros((self.num_agents, obs_size), dtype=np.float32)
+        self.agent_done_terminated = np.zeros((self.num_agents), dtype=bool)
+        self.agent_done_truncated = np.zeros((self.num_agents), dtype=bool)
+        self.agent_padding_length = np.zeros((self.num_agents), dtype=int)
+        self.agent_data_hold = np.zeros((self.num_agents), dtype=int)
+
     def init_observation(self, observations):
         struct_observations = {}
         for i, (obs, shape) in enumerate(zip(observations, self.obs_shapes)):
@@ -36,18 +32,6 @@ class AgentExperienceCollector:
             else:
                 raise ValueError(f"Unsupported observation shape: {shape}")
         return struct_observations
-        
-    def select_observations(self, struct_observations):
-        vector_obervations = []
-        for idx, (key, observation) in enumerate(struct_observations.items()):
-            if 'vector' in key:
-                vector_obervations.append(observation)
-            elif 'image' in key:
-                raise ValueError(f"Unsupported image observations: {key}")
-            else:
-                raise ValueError(f"Unsupported key in observations: {key}")
-        cat_obervation = np.concatenate(vector_obervations, axis=1)
-        return cat_obervation
 
     def filter_data(self, target_ids, exclude_ids, reward, observations):
         mask = ~np.isin(target_ids, exclude_ids)
@@ -61,50 +45,66 @@ class AgentExperienceCollector:
         agent_ids_ls = agent_ids.tolist()
         return [agent_ids_ls.index(selected_id) for selected_id in selected_next_agent_ids]
 
-    def select_data(self, agent_ids, selected_agent_indices, obs, action, padding_length, reward, term):
+    def select_data(self, agent_ids, selected_agent_indices, obs, action, reward, terminated, trucated, padding_length):
         selected_agent_ids = agent_ids[selected_agent_indices]
         selected_obs = obs[selected_agent_indices]
         action = action[selected_agent_indices]
         padding_length = padding_length[selected_agent_indices]
-        done = np.ones_like(reward, dtype=np.bool8) if term else np.zeros_like(reward, dtype=np.bool8)
+        terminated = np.ones_like(reward, dtype=np.bool8) if terminated else np.zeros_like(reward, dtype=np.bool8)
+        trucated = np.ones_like(reward, dtype=np.bool8) if trucated else np.zeros_like(reward, dtype=np.bool8)
+        return selected_agent_ids, selected_obs, action, reward, terminated, trucated, padding_length
+        
+    def select_observations(self, struct_observations):
+        vector_obervations = []
+        for idx, (key, observation) in enumerate(struct_observations.items()):
+            if 'vector' in key:
+                vector_obervations.append(observation)
+            elif 'image' in key:
+                raise ValueError(f"Unsupported image observations: {key}")
+            else:
+                raise ValueError(f"Unsupported key in observations: {key}")
+        cat_obervation = np.concatenate(vector_obervations, axis=1)
+        return cat_obervation
 
-        return selected_agent_ids, selected_obs, action, padding_length, reward, done
+    def append_transitions(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, padding_length):
+        # Ensure all inputs are NumPy arrays and properly reshaped or flattened as needed
+        # This example assumes obs and next_obs need flattening to match the pre-allocated array shapes
+        obs_flat = obs.reshape(len(agent_ids), -1)  # Reshape obs to ensure it fits into the agent_obs array
+        next_obs_flat = next_obs.reshape(len(agent_ids), -1)  # Same for next_obs
+        # Directly update the arrays for each agent using advanced indexing
+        self.agent_obs[agent_ids] = obs_flat
+        self.agent_action[agent_ids] = action  # Assuming action is already correctly shaped
+        self.agent_reward[agent_ids] = reward
+        self.agent_next_obs[agent_ids] = next_obs_flat
+        self.agent_done_terminated[agent_ids] = done_terminated
+        self.agent_done_truncated[agent_ids] = done_truncated
+        self.agent_padding_length[agent_ids] = padding_length
+        self.agent_data_hold[agent_ids] = True
 
-    def append_agent_transition(self, agent_id, obs, action, padding_length, reward, next_obs, done_terminated, done_truncated):
-        self.agent_obs[agent_id].append(obs)
-        self.agent_action[agent_id].append(action)
-        self.agent_reward[agent_id].append(reward)
-        self.agent_next_obs[agent_id].append(next_obs)
-        self.agent_done_terminated[agent_id].append(done_terminated)
-        self.agent_done_truncated[agent_id].append(done_truncated)
-        self.agent_padding_length[agent_id].append(padding_length)
-        self.agent_num[agent_id] += 1
-
-    def update_agent_data(self, agent_ids, obs, action, padding_length, reward, next_obs, done_terminated, done_truncated=None):
+    def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, done_terminated, done_truncated, padding_length):
+        if len(next_agent_ids) == 0: return
         if done_truncated is None:
             done_truncated = [False] * len(agent_ids)
-        for agent_idx, agent_id in enumerate(agent_ids):
-            self.append_agent_transition(agent_id, obs[agent_idx], action[agent_idx], padding_length[agent_idx], reward[agent_idx], next_obs[agent_idx], 
-                                        done_terminated[agent_idx], done_truncated[agent_idx])
-            
-    def push_transitions(self, agent_ids, obs, action, padding_length, next_agent_ids, reward, next_obs, term=False):
-        if len(next_agent_ids) == 0: return
         
         selected_next_agent_ids, reward, next_obs = self.filter_agents(agent_ids, next_agent_ids, reward, next_obs)
         
         selected_agent_indices = self.find_indices(agent_ids, selected_next_agent_ids)
-        selected_agent_ids, obs, action, padding_length, reward, done = self.select_data(agent_ids, selected_agent_indices, obs, action, padding_length, reward, term)
-        self.update_agent_data(selected_agent_ids, obs, action, padding_length, reward, next_obs, done_terminated = done)
+        selected_agent_ids, obs, action, reward, done_terminated, done_truncated, padding_length = self.select_data(agent_ids, selected_agent_indices, obs, action, reward, done_terminated, done_truncated, padding_length)
+        self.append_transitions(selected_agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, padding_length)
+
+    def add_transition(self, agent_id, obs, action, reward, next_obs, done_terminated, done_truncated, padding_length):
+        self.agent_obs[agent_id] = obs
+        self.agent_action[agent_id] = action
+        self.agent_reward[agent_id] = reward
+        self.agent_next_obs[agent_id] = next_obs
+        self.agent_done_terminated[agent_id] = done_terminated
+        self.agent_done_truncated[agent_id] = done_truncated
+        self.agent_padding_length[agent_id] = padding_length
+        self.agent_data_hold[agent_id] = True
 
     def output_transitions(self):
-        np_obs = [item for sublist in self.agent_obs[:self.num_agents] for item in sublist]
-        np_action = [item for sublist in self.agent_action[:self.num_agents] for item in sublist]
-        np_reward = [item for sublist in self.agent_reward[:self.num_agents] for item in sublist]
-        np_next_obs = [item for sublist in self.agent_next_obs[:self.num_agents] for item in sublist]
-        np_done_terminated = [item for sublist in self.agent_done_terminated[:self.num_agents] for item in sublist]
-        np_done_truncated = [item for sublist in self.agent_done_truncated[:self.num_agents] for item in sublist]
-        np_agent_id = [i for i in range(self.num_agents) for _ in range(len(self.agent_obs[i]))]
-        np_padding_length = [item for sublist in self.agent_padding_length[:self.num_agents] for item in sublist]
-    
-        self.reset_agents()
-        return np_agent_id, np_obs, np_action, np_reward, np_next_obs, np_done_terminated, np_done_truncated, np_padding_length
+        # select self.agent_data_hold positive boolean indices
+        agent_ids = np.where(self.agent_data_hold)[0]
+        self.agent_data_hold.fill(False)
+        return agent_ids, self.agent_obs[agent_ids], self.agent_action[agent_ids], self.agent_reward[agent_ids], \
+            self.agent_next_obs[agent_ids], self.agent_done_terminated[agent_ids], self.agent_done_truncated[agent_ids], self.agent_padding_length[agent_ids]

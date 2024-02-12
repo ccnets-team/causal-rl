@@ -123,14 +123,14 @@ class GymEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
             for idx, trunc in enumerate(np_truncated):
                 if trunc:
                     next_observation[idx] = _info["final_observation"][idx]
-
+        
         if not self.test_env:
-            self.update_agent_data(self.agent_ids, self.observations[:, -1].to_vector(), action, self.padding_lengths, np_reward, next_observation, np_terminated, np_truncated)
+            self.append_transitions(self.agent_ids, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated, self.padding_lengths)
         else:
             if self.use_graphics:
-                self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, self.padding_lengths, np_reward, next_observation, np_terminated, np_truncated)
+                self.add_transition(0, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated, self.padding_lengths)
             else:
-                self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], self.padding_lengths[0], np_reward[0], next_observation[0], np_terminated[0], np_truncated[0])
+                self.add_transition(0, self.observations[:, -1].to_vector()[0], action[0], np_reward[0], next_observation[0], np_terminated[0], np_truncated[0], self.padding_lengths[0])
 
         self.process_terminated_and_decision_agents(np_done, np_next_obs)            
 
