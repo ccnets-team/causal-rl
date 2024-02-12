@@ -57,7 +57,7 @@ class EnvironmentPool:
             padding_mask, padding_lengths = trainer.apply_sequence_masking(padding_mask)
             padding_lengths = padding_lengths.detach().cpu()
         else:
-            padding_lengths = padding_lengths.detach().cpu()
+            padding_lengths = np.zeros(padding_mask.shape[0], dtype=np.int32)
             
         state_tensor = trainer.normalize_states(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
