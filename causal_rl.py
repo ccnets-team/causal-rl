@@ -1,5 +1,5 @@
 from tqdm.notebook import tqdm
-from utils.structure.env_config import EnvConfig
+from utils.setting.env_settings import update_env_config
 from utils.setting.rl_params import RLParameters
 from utils.setting.causal_rl_helper import CausalRLHelper
 from utils.wandb_logger import wandb_end
@@ -20,7 +20,9 @@ class CausalRL:
             use_print (bool, optional): Whether to print training/testing logs. Default is False.
         """
         
+        update_env_config(rl_params, env_config = rl_params.env_config)
         print_rl_params('causal_rl', rl_params)
+        
         self.step = 0
         self.device = device
         self.max_steps = rl_params.max_steps
@@ -85,7 +87,7 @@ class CausalRL:
             train_data = self.trainer.train_model(samples)
             self.helper.add_train_metrics(train_data)
             
-        self.trainer.update_exploration_rate()
+        self.helper.update_exploration_strategy()
         
     # Environment Interaction
     def interact_environment(self, env, training=True):

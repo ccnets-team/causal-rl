@@ -1,9 +1,9 @@
 import gymnasium as gym
 import numpy as np
 from .settings.agent_experience_collector import AgentExperienceCollector
-from utils.structure.env_observation import EnvObservation
+from .settings.reinforcement_agent import ReinforcementAgent
 
-class GymEnvWrapper(AgentExperienceCollector):
+class GymEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
     """
     A wrapper class for gym environments to collect agent experiences and interact with the environment.
     
@@ -13,7 +13,7 @@ class GymEnvWrapper(AgentExperienceCollector):
     """
     MAX_RANDOM_SEED = 1000  # Maximum value for environment random seed
 
-    def __init__(self, env_config, gpt_seq_length, test_env: bool, use_graphics: bool = False, seed: int = 0):
+    def __init__(self, env_config, test_env: bool, use_graphics: bool = False, seed: int = 0):
         """
         Initializes the gym environment with the given configuration.
         
@@ -24,31 +24,17 @@ class GymEnvWrapper(AgentExperienceCollector):
             use_graphics (bool): A flag indicating if graphics should be used (visual rendering).
             seed (int): A seed for environment randomization.
         """
-        num_agents = 1 if test_env or use_graphics else env_config.num_agents
-        super(GymEnvWrapper, self).__init__(num_agents, env_config)
-        self.num_agents = num_agents
+        ReinforcementAgent.__init__(self, env_config)
+        AgentExperienceCollector.__init__(self, env_config)
+        self.num_agents = 1 if test_env or use_graphics else env_config.num_agents
         self.use_discrete = env_config.use_discrete
-
-        if not self.use_discrete:
-            self.action_low = env_config.action_low
-            self.action_high = env_config.action_high
-        
-        env_name = env_config.env_name
-        self.env_name = env_name
+        self.env_name = env_config.env_name
         self.test_env = test_env
         self.seed = seed
-        self.obs_shapes = env_config.obs_shapes
-        self.obs_types = env_config.obs_types
-        self.agents = np.arange(self.num_agents)
-        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, gpt_seq_length)
-
-        self.agent_dec = np.ones(self.num_agents, dtype=bool)
-
-        self.env = gym.make(env_name, render_mode='human') if use_graphics else gym.make_vec(env_name, num_envs=self.num_agents) 
         self.use_graphics = use_graphics
-        all_dec_agents = list(range(self.num_agents))
-        self.all_dec_agents = np.array(all_dec_agents)
+        self.env = gym.make(self.env_name, render_mode='human') if self.use_graphics else gym.make_vec(self.env_name, num_envs=self.num_agents) 
         self.reset_environment()
+        self.agent_dec.fill(True)
 
     def format_and_assign_observations(self, raw_observations: np.ndarray, observations):
         """
@@ -91,11 +77,7 @@ class GymEnvWrapper(AgentExperienceCollector):
     def step(self) -> bool:
         """
         Steps the environment with the given action input.
-        
-        Returns:
-            A boolean indicating whether the step was successful.
         """
-        return False
         
     def update(self, action) -> bool:
         """
@@ -143,12 +125,12 @@ class GymEnvWrapper(AgentExperienceCollector):
                     next_observation[idx] = _info["final_observation"][idx]
 
         if not self.test_env:
-            self.update_agent_data(self.agents, self.observations[:, -1].to_vector(), action, self.observations.episode_padding, np_reward, next_observation, np_terminated, np_truncated)
+            self.update_agent_data(self.agent_ids, self.observations[:, -1].to_vector(), action, self.padding_lengths, np_reward, next_observation, np_terminated, np_truncated)
         else:
             if self.use_graphics:
-                self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, self.observations.episode_padding, np_reward, next_observation, np_terminated, np_truncated)
+                self.append_agent_transition(0, self.observations[:, -1].to_vector(), action, self.padding_lengths, np_reward, next_observation, np_terminated, np_truncated)
             else:
-                self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], self.observations.episode_padding[0], np_reward[0], next_observation[0], np_terminated[0], np_truncated[0])
+                self.append_agent_transition(0, self.observations[:, -1].to_vector()[0], action[0], self.padding_lengths[0], np_reward[0], next_observation[0], np_terminated[0], np_truncated[0])
 
         self.process_terminated_and_decision_agents(np_done, np_next_obs)            
 
@@ -166,7 +148,8 @@ class GymEnvWrapper(AgentExperienceCollector):
             next_obs (np.ndarray): The next observations for the agents.
         """
         term_agents = np.where(done)[0]
-        self.observations.shift(term_agents, self.all_dec_agents)
+        self.observations.shift(term_agents, self.agent_ids)
+        self.padding_lengths[term_agents] = self.sample_padding_lengths(len(term_agents))
         self.format_and_assign_observations(next_obs, self.observations)
         
     def _get_action_input(self, action) -> np.ndarray:

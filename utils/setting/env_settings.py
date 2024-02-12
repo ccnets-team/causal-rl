@@ -88,6 +88,31 @@ def apply_configuration_to_parameters(env_configs: Dict, env_name: str, rl_param
                 for key, value in settings.items():
                     if hasattr(param_object, key):
                         setattr(param_object, key, value)
+                        
+def update_env_config(rl_params: RLParameters, env_config: EnvConfig) -> None:
+    # List of sub-parameter objects within rl_params
+    sub_params_objects = [
+        rl_params.training, 
+        rl_params.algorithm, 
+        rl_params.network, 
+        rl_params.optimization, 
+        rl_params.normalization
+    ]
+    # Iterate over each sub-parameter object
+    for sub_param in sub_params_objects:
+        # Iterate over the attributes of the sub-parameter object
+        for attr_name in dir(sub_param):
+            # Skip any special methods or attributes
+            if attr_name.startswith('__'):
+                continue
+            
+            # Ensure the attribute exists in both rl_params (accessible via sub_param) and env_config, and is not a method
+            if hasattr(env_config, attr_name) and hasattr(sub_param, attr_name):
+                rl_param_value = getattr(sub_param, attr_name)
+                # Ensure the value is not a method before setting it
+                if not callable(rl_param_value):
+                    setattr(env_config, attr_name, rl_param_value)
+                    print(f"Updated env_config.{attr_name} with {rl_param_value}")
 
 def create_environment_config(
     env_name: str,

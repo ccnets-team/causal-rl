@@ -1,11 +1,11 @@
 import numpy as np
 
 class AgentExperienceCollector:
-    def __init__(self, num_agents, env_config):
+    def __init__(self, env_config):
         super(AgentExperienceCollector, self).__init__()
         self.obs_shapes = env_config.obs_shapes
         self.obs_types = env_config.obs_types
-        self.num_agents = num_agents
+        self.num_agents = env_config.num_agents
         self.agent_num = np.zeros((self.num_agents), dtype=int)
         self.agent_obs = [[] for i in range(self.num_agents)]
         self.agent_action = [[] for i in range(self.num_agents)]

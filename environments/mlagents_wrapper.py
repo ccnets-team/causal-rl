@@ -2,19 +2,16 @@ from mlagents_envs.environment import UnityEnvironment, ActionTuple
 from mlagents_envs.side_channel.engine_configuration_channel import EngineConfigurationChannel
 import numpy as np
 from .settings.agent_experience_collector import AgentExperienceCollector
-from utils.structure.env_observation import EnvObservation
+from .settings.reinforcement_agent import ReinforcementAgent
 
-class MLAgentsEnvWrapper(AgentExperienceCollector):
-    def __init__(self, env_config, gpt_seq_length, test_env, use_graphics: bool, worker_id, seed = 0, time_scale = 256):
-        num_agents = env_config.num_agents
-        super(MLAgentsEnvWrapper, self).__init__(num_agents, env_config)
-        if use_graphics:
-            self.time_scale = 1.5
-        else:
-            self.time_scale = time_scale
+class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector): 
+    def __init__(self, env_config, test_env, use_graphics: bool, worker_id, seed = 0, time_scale = 256):
+        ReinforcementAgent.__init__(self, env_config)
+        AgentExperienceCollector.__init__(self, env_config)        
+        self.env_time_scale = 1.5 if use_graphics else time_scale
         
         self.channel = EngineConfigurationChannel()
-        self.channel.set_configuration_parameters(width = 1280, height = 720, time_scale = self.time_scale)
+        self.channel.set_configuration_parameters(width = 1280, height = 720, time_scale = self.env_time_scale)
         self.worker_id = worker_id
         self.file_name = "../unity_environments/" + env_config.env_name +"/"
 
@@ -24,33 +21,20 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
 
         self.use_discrete = env_config.use_discrete
 
-        self.actions = np.zeros((env_config.num_agents, env_config.action_size), dtype = np.float32)
-        self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, gpt_seq_length)
-
-        self.agent_ids = np.array([i for i in range(env_config.num_agents)], dtype=int)
-        self.agent_life = np.zeros((env_config.num_agents), dtype=bool)
-        self.agent_dec = np.zeros((env_config.num_agents), dtype=bool)
-        
         self.reset_environment()
-        self.reset_agents()
+        self.reset_agent()
         self.behavior_name = list(self.env.behavior_specs.keys())[0]
 
         return
     def reset_environment(self):
         self.env.reset()
-        
-        self.actions.fill(0)
-        self.observations.reset()
-        self.agent_life.fill(False) 
-        self.agent_dec.fill(False) 
-        self.done = False
             
     def init_variables(self):
         agent_ids = self.agent_ids[self.agent_life]
         states = self.observations[self.agent_life, -1].to_vector()
         
         actions = self.actions[self.agent_life]
-        padding_lengths = self.observations.episode_padding[self.agent_life]
+        padding_lengths = self.padding_lengths[self.agent_life]
         self.agent_dec.fill(False)
         return agent_ids, states, actions, padding_lengths
 
@@ -75,6 +59,7 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
 
         # Shift the trajectory data to make room for the new observations
         self.observations.shift(term_agents, dec_agents)
+        self.padding_lengths[term_agents] = self.sample_padding_lengths(len(term_agents))
                 
         # Update observations with new data
         self.observations[dec_agents, -1] = dec_next_obs  # Update only the most recent time step
@@ -91,8 +76,6 @@ class MLAgentsEnvWrapper(AgentExperienceCollector):
             dec_agents, dec_reward, dec_next_obs = self.filter_data(dec_agents, term_agents, dec_reward, dec_next_obs)
             self.push_transitions(agent_ids, state, action, padding_length, dec_agents, dec_reward, dec_next_obs)
         
-        return self.done
-    
     def update(self, action):
         action_tuple = ActionTuple()
         if self.use_discrete:

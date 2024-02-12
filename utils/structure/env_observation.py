@@ -9,8 +9,6 @@ class EnvObservation:
         self.gpt_seq_length = gpt_seq_length
         self.data = self._create_empty_data()
         self.mask = np.zeros((self.num_agents, self.gpt_seq_length), dtype=np.float32)
-        self.episode_padding = np.zeros(self.num_agents, dtype=np.int32)
-        self.exploration_rate = 1.0
 
     def _create_empty_data(self):
         observations = {}
@@ -56,48 +54,16 @@ class EnvObservation:
         for obs_type in self.obs_types:
             new_observation.data[obs_type] = self.data[obs_type][new_agent_indices, new_td_indices]
         new_observation.mask = self.mask[new_agent_indices, new_td_indices]
-        new_observation.episode_padding = np.minimum(self.episode_padding[new_agent_indices], new_model_seq_length - 1)
     
         return new_observation
     
     def __setitem__(self, agent_indices, values):
         for obs_type in self.obs_types:
             self.data[obs_type][agent_indices] = values[obs_type]
-    
-    def update_exploration_rate(self, exploration_rate):
-        self.exploration_rate = exploration_rate
         
     def reset(self):
         self.mask.fill(0.0)
-        self.episode_padding.fill(0)
         self.data = self._create_empty_data()
-        
-    def sample_padding_lengths(self, batch_size, min_seq_length, max_seq_length):
-        """
-        Samples sequence lengths within the specified range, adjusting probabilities 
-        based on the exploration rate to promote varied sequence sampling. This method 
-        encourages exploration by dynamically adjusting the likelihood of selecting different 
-        sequence lengths, factoring in the current exploration rate to balance between 
-        exploring new lengths and exploiting known advantageous lengths.
-        """
-        sequence_lengths = np.arange(min_seq_length, max_seq_length + 1)
-        
-        # Compute relative lengths as ratios of the maximum sequence length.
-        sequence_ratios = sequence_lengths / max_seq_length
-        
-        adjusted_ratios = np.power(sequence_ratios, 1 / max(self.exploration_rate, 1e-8) - 1) 
-        
-        # Normalize adjusted ratios to get probabilities for sampling.
-        sequence_probs = adjusted_ratios / adjusted_ratios.sum()
-        
-        # Sample sequence lengths based on the computed probabilities.
-        sampled_indices = np.random.choice(range(len(sequence_probs)), size=batch_size, replace=True, p=sequence_probs)
-        sampled_lengths = sequence_lengths[sampled_indices]
-        
-        padding_seq_length = self.gpt_seq_length - sampled_lengths
-        
-        # Ensure sampled lengths are within the specified range.
-        return np.clip(padding_seq_length, 0, max_seq_length - 1)
                                         
     def shift(self, term_agents, dec_agents):
         assert isinstance(term_agents, np.ndarray), "'term_agents' must be a NumPy ndarray or None"
@@ -107,9 +73,6 @@ class EnvObservation:
         for key in self.data:
             self.data[key][dec_agents] = np.roll(self.data[key][dec_agents], shift=-1, axis=1)
         self.mask[dec_agents] = np.roll(self.mask[dec_agents], shift=-1, axis=1)
-
-        # Generate random padding lengths for terminated agents within [0, gpt_seq_length - 1]
-        self.episode_padding[term_agents] = self.sample_padding_lengths(len(term_agents), 1, self.gpt_seq_length)
 
         # Mask out all previous data for 'term_agents' and indicate the start of a new episode
         self.mask[term_agents, :] = 0  

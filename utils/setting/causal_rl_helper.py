@@ -86,6 +86,11 @@ class CausalRLHelper:
         """Checks if the model should be trained on the current step."""
         return samples is not None and (step % self.train_interval == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
 
+    def update_exploration_strategy(self) -> bool:
+        self.parent.trainer.update_exploration_rate()
+        exploration_rate = self.parent.trainer.get_exploration_rate()
+        self.parent.train_env.update_env_exploration_rate(exploration_rate)
+        
     # Private Helpers
     def _initialize_training_parameters(self):
         self.gpt_seq_length = self.rl_params.algorithm.gpt_seq_length
@@ -102,15 +107,15 @@ class CausalRLHelper:
 
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
-            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.gpt_seq_length, self.parent.device)
+            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.parent.device)
             
     def _ensure_eval_environment_exists(self, use_graphics):
         if not self.parent.eval_env:
-            self.parent.eval_env = EnvironmentPool.create_eval_environments(self.env_config, self.gpt_seq_length, self.parent.device, use_graphics)
+            self.parent.eval_env = EnvironmentPool.create_eval_environments(self.env_config, self.parent.device, use_graphics)
 
     def _ensure_test_environment_exists(self, use_graphics):
         if not self.parent.test_env:
-            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.gpt_seq_length, self.parent.device, use_graphics)
+            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.parent.device, use_graphics)
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
