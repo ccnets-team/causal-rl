@@ -67,10 +67,14 @@ class CausalTrainer(BaseTrainer):
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor(states, estimated_value, padding_mask)
         
+        # Set the same random seed for controlled stochasticity in RevEnv operations.
         set_seed(self.train_iter)
+        # Generate reversed_state: reverse the state from next state using actual action with value estimate.
         reversed_state = self.revEnv(next_states, actions, estimated_value, padding_mask)
-        
+
+        # Reset seed to ensure identical randomness for recurred state generation.
         set_seed(self.train_iter)
+        # Generate recurred_state: recur the state from next state using inferred action with value estimate.
         recurred_state = self.revEnv(next_states, inferred_action, estimated_value, padding_mask)
         
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
@@ -155,7 +159,6 @@ class CausalTrainer(BaseTrainer):
         combined_padding_masks = torch.cat((padding_mask, padding_mask), dim=0)
 
         # Process the concatenated inputs through self.revEnv
-        # set_seed(self.train_iter)
         combined_states = self.revEnv(combined_next_states, combined_actions, combined_estimated_values, combined_padding_masks)
 
         # Split the results back into reversed_state and recurred_state
