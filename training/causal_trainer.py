@@ -16,6 +16,7 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from training.trainer_utils import create_padding_mask_before_dones
+from utils.init import set_seed
         
 class CausalTrainer(BaseTrainer):
 
@@ -65,11 +66,13 @@ class CausalTrainer(BaseTrainer):
             
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor(states, estimated_value, padding_mask)
-
-        # Invoke the process_parallel_rev_env method to compute the reversed and recurred states in parallel.
-        # This step enhances computational efficiency by processing these states simultaneously.
-        reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
-                
+        
+        set_seed(self.train_iter)
+        reversed_state = self.revEnv(next_states, actions, estimated_value, padding_mask)
+        
+        set_seed(self.train_iter)
+        recurred_state = self.revEnv(next_states, inferred_action, estimated_value, padding_mask)
+        
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
         
         coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False)
@@ -114,7 +117,6 @@ class CausalTrainer(BaseTrainer):
         )
         return metrics
 
-    
     def compute_transition_costs_from_states(self, states, reversed_state, recurred_state, reduce_feture_dim = True):
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state, reduce_feture_dim)
@@ -153,6 +155,7 @@ class CausalTrainer(BaseTrainer):
         combined_padding_masks = torch.cat((padding_mask, padding_mask), dim=0)
 
         # Process the concatenated inputs through self.revEnv
+        # set_seed(self.train_iter)
         combined_states = self.revEnv(combined_next_states, combined_actions, combined_estimated_values, combined_padding_masks)
 
         # Split the results back into reversed_state and recurred_state
@@ -165,6 +168,7 @@ class CausalTrainer(BaseTrainer):
         self.update_optimizers()
         self.update_target_networks()
         self.update_schedulers()
+        self.train_iter += 1
 
     def trainer_calculate_future_value(self, next_state, mask):
         with torch.no_grad():

@@ -17,6 +17,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_exploration_utils(rl_params.max_steps)
         self.sum_reward_weights = create_sum_reward_weights(self.gpt_seq_length, self.discount_factor, self.advantage_lambda, device)
         self.sequence_weights = create_sequence_weights(self.gpt_seq_length, self.device)
+        self.train_iter = 0
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
