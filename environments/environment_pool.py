@@ -40,10 +40,6 @@ class EnvironmentPool:
             transitions.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, np_padding_length)
         return transitions
         
-    def update_env_exploration_rate(self, exploration_rate):
-        for env in self.env_list:
-            env._update_env_exploration_rate(exploration_rate)
-        
     def explore_environments(self, trainer, training):
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)

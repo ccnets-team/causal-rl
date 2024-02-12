@@ -52,7 +52,6 @@ class BaseBuffer:
         next_states_slices = self.next_states[expanded_indices]
         terminated_slices = self.terminated[expanded_indices]
         truncated_slices = self.truncated[expanded_indices]
-        padding_length_slices = self.padding_length[expanded_indices]
 
         states_slices = states_slices.reshape(batch_size, td_steps, -1)
         actions_slices = actions_slices.reshape(batch_size, td_steps, -1)
@@ -60,15 +59,10 @@ class BaseBuffer:
         next_states_slices = next_states_slices.reshape(batch_size, td_steps, -1)
         terminated_slices = terminated_slices.reshape(batch_size, td_steps, -1)
         truncated_slices = truncated_slices.reshape(batch_size, td_steps, -1)
-        padding_length_slices = padding_length_slices.reshape(batch_size, td_steps, -1)
 
-        padding_indicator = np.tile(np.arange(td_steps).reshape(1, td_steps, 1), (batch_size, 1, 1)) < padding_length_slices[:, -1:, :]
         # Ensure the last element of truncated_slices is False to prevent truncation
         truncated_slices[:, -1] = False
         dones_slices = np.logical_or(terminated_slices, truncated_slices)
-
-        # Mask the dones_slices based on valid sequence length
-        dones_slices[padding_indicator] = True
 
         transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions

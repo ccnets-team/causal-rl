@@ -88,8 +88,6 @@ class CausalRLHelper:
 
     def update_exploration_strategy(self) -> bool:
         self.parent.trainer.update_exploration_rate()
-        exploration_rate = self.parent.trainer.get_exploration_rate()
-        self.parent.train_env.update_env_exploration_rate(exploration_rate)
         
     # Private Helpers
     def _initialize_training_parameters(self):

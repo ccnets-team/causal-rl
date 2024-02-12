@@ -11,7 +11,6 @@ class ReinforcementAgent:
         self.obs_shapes = env_config.obs_shapes
         self.obs_types = env_config.obs_types
         self.action_size = env_config.action_size
-        self.exploration_rate = 1.0
         
         self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, self.gpt_seq_length)
         self.agent_ids = np.array(range(self.num_agents), dtype=int)
@@ -25,9 +24,6 @@ class ReinforcementAgent:
             self.action_high = env_config.action_high
                 
         self.reset_agent()
-
-    def _update_env_exploration_rate(self, exploration_rate):
-        self.exploration_rate = exploration_rate
 
     def reset_agent(self):
         self.actions.fill(0)
