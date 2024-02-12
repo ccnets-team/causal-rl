@@ -6,7 +6,7 @@ from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.data_structures  import BatchTrajectory
-from .trainer_utils import calculate_lambda_returns, masked_tensor_reduction, create_sum_reward_weights
+from .trainer_utils import calculate_lambda_returns, masked_tensor_reduction, create_sum_reward_weights, create_sequence_weights
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -16,6 +16,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils(rl_params.max_steps)
         self.sum_reward_weights = create_sum_reward_weights(self.gpt_seq_length, self.discount_factor, self.advantage_lambda, device)
+        self.sequence_weights = create_sequence_weights(self.gpt_seq_length, self.device)
 
     def _unpack_rl_params(self, rl_params):
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -47,6 +48,15 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
         training_start_step = self.training_params.buffer_size // int(batch_size_ratio)
         return training_start_step
+    
+    def apply_tensor_weights(self, tensor, mask=None):
+        if mask is not None:
+            weights = mask * self.sequence_weights
+            adjusted_weights = weights / weights.sum(dim=1, keepdim=True).clamp_min(1e-8)
+            weighted_tensor = tensor * adjusted_weights
+        else:
+            weighted_tensor = tensor * self.sequence_weights
+        return weighted_tensor
         
     def select_tensor_reduction(self, tensor, mask=None):
         """
@@ -59,22 +69,24 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :length_weight_exponent: The exponent used in adaptive reduction.
         :return: The reduced tensor.
         """
+        weighted_tensor = self.apply_tensor_weights(tensor, mask)
+        
         if mask is not None:
             if self.reduction_type in ['batch', 'seq', 'all']:
-                return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
+                return masked_tensor_reduction(weighted_tensor, mask, reduction=self.reduction_type)
             elif self.reduction_type == 'cross':
-                batch_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='batch')
-                seq_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='seq')
+                batch_wise_reduction = masked_tensor_reduction(weighted_tensor, mask, reduction='batch')
+                seq_wise_reduction = masked_tensor_reduction(weighted_tensor, mask, reduction='seq')
                 return torch.cat([batch_wise_reduction, seq_wise_reduction], dim = 0)
             elif self.reduction_type == 'none':
-                return tensor[mask>0].flatten()
+                return weighted_tensor[mask>0].flatten()
             else:
                 raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
         else:
             if self.reduction_type == 'none':
-                return tensor
+                return weighted_tensor
             else:
-                return tensor.mean()
+                return weighted_tensor.mean()
 
     def calculate_value_loss(self, estimated_value, expected_value, mask=None):
         squared_error = (estimated_value - expected_value).square()

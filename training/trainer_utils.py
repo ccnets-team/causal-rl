@@ -39,6 +39,26 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
+def create_sequence_weights(gpt_seq_length, device):
+    """
+    Applies weights on a sequence of the tensor for backwards operation and
+    optionally performs a reduction based on a mask.
+
+    :param tensor: The input tensor to be processed. Shape is assumed to be [batch_size, seq_length, feature_dim].
+    :param mask: Optional mask tensor indicating the elements to consider in the operation.
+    :param device: The device on which tensors are allocated.
+    :param reduction_type: Type of reduction to apply ('none', 'batch', 'seq', 'all', 'cross').
+    :return: The processed tensor.
+    """
+    # Compute sequence weights
+    sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=device)
+    sequence_ratios = sequence_lengths.float() / gpt_seq_length
+    sequence_probs = 1 - sequence_ratios / sequence_ratios.sum()
+    
+    sequence_weights = sequence_probs.unsqueeze(0).unsqueeze(-1) * gpt_seq_length
+    return sequence_weights
+
+    
 def create_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
     # Initialize tensors for value weights and sum reward weights with zeros.
     # Value weights are for calculating discounted future values, and sum reward weights are for scaling rewards.
