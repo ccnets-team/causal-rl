@@ -52,7 +52,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def apply_tensor_weights(self, tensor, mask=None):
         if mask is not None:
             weights = mask * self.sequence_weights
-            adjusted_weights = weights / weights.sum(dim=1, keepdim=True).clamp_min(1e-8)
+            adjusted_weights = (weights / weights.sum(dim=1, keepdim=True).clamp_min(1e-8)) * mask.sum(dim=1, keepdim=True).clamp_min(1)
             weighted_tensor = tensor * adjusted_weights
         else:
             weighted_tensor = tensor * self.sequence_weights
