@@ -65,7 +65,11 @@ class ExplorationUtils:
         
         # Ensure sampled lengths are within the specified range.
         return torch.clamp(padding_seq_length, 0, max_seq_length - 1)
-
+    
+    def get_padding_lengths(self, padding_mask):
+        cur_padding_lengths = padding_mask.size(1) - torch.sum(padding_mask, dim=1)
+        return cur_padding_lengths
+    
     def apply_sequence_masking(self, padding_mask):
         """
         Identifies positions within the padding mask that should be updated to reflect 
@@ -74,7 +78,7 @@ class ExplorationUtils:
         """
         batch_size = padding_mask.size(0)
         max_seq_length = padding_mask.size(1)
-        cur_padding_lengths = max_seq_length - torch.sum(padding_mask, dim=1)
+        cur_padding_lengths = self.get_padding_lengths(padding_mask)
         
         padding_lengths = self.sample_padding_lengths(batch_size, max_seq_length)
         

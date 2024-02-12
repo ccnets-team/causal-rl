@@ -55,9 +55,8 @@ class EnvironmentPool:
         # In your training loop or function
         if training and trainer.use_masked_exploration:
             padding_mask, padding_lengths = trainer.apply_sequence_masking(padding_mask)
-            padding_lengths = padding_lengths.detach().cpu()
         else:
-            padding_lengths = np.zeros(padding_mask.shape[0], dtype=np.int32)
+            padding_lengths = trainer.get_padding_lengths(padding_mask)
             
         state_tensor = trainer.normalize_states(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
@@ -67,11 +66,12 @@ class EnvironmentPool:
 
     def apply_actions_to_envs(self, action_tensor, padding_lengths):
         np_action = action_tensor.cpu().numpy()
+        np_padding_lengths = padding_lengths.cpu().numpy()
         start_idx = 0
         for env in self.env_list:
             end_idx = start_idx + len(env.agent_dec)
             valid_action = np_action[start_idx:end_idx][env.agent_dec]
-            valid_padding_lengths = padding_lengths[start_idx:end_idx][env.agent_dec]
+            valid_padding_lengths = np_padding_lengths[start_idx:end_idx][env.agent_dec]
 
             select_valid_action = valid_action[:, -1, :]
             env.update(select_valid_action, valid_padding_lengths)

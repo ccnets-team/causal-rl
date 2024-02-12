@@ -8,19 +8,19 @@ class AgentExperienceCollector:
         self.num_agents = env_config.num_agents
         
         # Assuming observation shapes are uniform for simplification
-        obs_size = env_config.state_size
+        state_size = env_config.state_size
         action_size = env_config.action_size  # Placeholder, define properly based on your env_config
 
         # Pre-allocate NumPy arrays for agent data
         self.agent_num = np.zeros(self.num_agents, dtype=int)
-        self.agent_obs = np.zeros((self.num_agents, obs_size), dtype=np.float32)
+        self.agent_obs = np.zeros((self.num_agents, state_size), dtype=np.float32)
         self.agent_action = np.zeros((self.num_agents, action_size), dtype=np.float32)
         self.agent_reward = np.zeros((self.num_agents), dtype=np.float32)
-        self.agent_next_obs = np.zeros((self.num_agents, obs_size), dtype=np.float32)
+        self.agent_next_obs = np.zeros((self.num_agents, state_size), dtype=np.float32)
         self.agent_done_terminated = np.zeros((self.num_agents), dtype=bool)
         self.agent_done_truncated = np.zeros((self.num_agents), dtype=bool)
         self.agent_padding_length = np.zeros((self.num_agents), dtype=int)
-        self.agent_data_hold = np.zeros((self.num_agents), dtype=int)
+        self.agent_data_check = np.zeros((self.num_agents), dtype=int)
 
     def init_observation(self, observations):
         struct_observations = {}
@@ -79,7 +79,7 @@ class AgentExperienceCollector:
         self.agent_done_terminated[agent_ids] = done_terminated
         self.agent_done_truncated[agent_ids] = done_truncated
         self.agent_padding_length[agent_ids] = padding_length
-        self.agent_data_hold[agent_ids] = True
+        self.agent_data_check[agent_ids] = True
 
     def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, done_terminated, done_truncated, padding_length):
         if len(next_agent_ids) == 0: return
@@ -100,11 +100,11 @@ class AgentExperienceCollector:
         self.agent_done_terminated[agent_id] = done_terminated
         self.agent_done_truncated[agent_id] = done_truncated
         self.agent_padding_length[agent_id] = padding_length
-        self.agent_data_hold[agent_id] = True
+        self.agent_data_check[agent_id] = True
 
     def output_transitions(self):
         # select self.agent_data_hold positive boolean indices
-        agent_ids = np.where(self.agent_data_hold)[0]
-        self.agent_data_hold.fill(False)
+        agent_ids = np.where(self.agent_data_check)[0]
+        self.agent_data_check.fill(False)
         return agent_ids, self.agent_obs[agent_ids], self.agent_action[agent_ids], self.agent_reward[agent_ids], \
             self.agent_next_obs[agent_ids], self.agent_done_terminated[agent_ids], self.agent_done_truncated[agent_ids], self.agent_padding_length[agent_ids]
