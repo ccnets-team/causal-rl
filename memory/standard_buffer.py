@@ -26,7 +26,7 @@ class StandardBuffer(BaseBuffer):
         self.truncated[self.index] = truncated
         self.padding_length[self.index] = padding_length
         
-        self._assign_sample_prob(self.index)
+        self._assign_sample_prob(self.index, padding_length)
         
         # Increment the buffer index and wrap around if necessary
         self.index = (self.index + 1) % self.capacity

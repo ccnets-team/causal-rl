@@ -59,7 +59,6 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
 
         # Shift the trajectory data to make room for the new observations
         self.observations.shift(term_agents, dec_agents)
-        self.padding_lengths[term_agents] = self.sample_padding_lengths(len(term_agents))
                 
         # Update observations with new data
         self.observations[dec_agents, -1] = dec_next_obs  # Update only the most recent time step
@@ -76,7 +75,7 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
             dec_agents, dec_reward, dec_next_obs = self.filter_data(dec_agents, term_agents, dec_reward, dec_next_obs)
             self.push_transitions(agent_ids, state, action, dec_agents, dec_reward, dec_next_obs, done_terminated=False, done_truncated=None, padding_length = padding_length)
         
-    def update(self, action):
+    def update(self, action, padding_length):
         action_tuple = ActionTuple()
         if self.use_discrete:
             discrete_action = np.argmax(action, axis=1) + 1
@@ -87,6 +86,7 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
             action_tuple.add_continuous(continuous_action)
             
         self.actions[self.agent_dec] = action
+        self.padding_lengths[self.agent_dec] = padding_length
         self.env.set_actions(self.behavior_name, action_tuple)
         self.env.step()
         return

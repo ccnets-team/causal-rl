@@ -48,31 +48,33 @@ class EnvironmentPool:
         trainer.set_train(training = training)
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
         np_mask = np.concatenate([env.observations.mask for env in self.env_list], axis=0)
-        np_padding_lengths = np.concatenate([env.padding_lengths for env in self.env_list], axis=0)
         
         state_tensor = torch.from_numpy(np_state).to(self.device)
         padding_mask = torch.from_numpy(np_mask).to(self.device)
-        padding_lengths = torch.from_numpy(np_padding_lengths).to(self.device)
         
         # In your training loop or function
         if training and trainer.use_masked_exploration:
-            padding_mask = trainer.apply_sequence_masking(padding_mask, padding_lengths)
-
+            padding_mask, padding_lengths = trainer.apply_sequence_masking(padding_mask)
+            padding_lengths = padding_lengths.detach().cpu()
+        else:
+            padding_lengths = padding_lengths.detach().cpu()
+            
         state_tensor = trainer.normalize_states(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
         
         # Apply actions to environments
-        self.apply_actions_to_envs(action_tensor)
+        self.apply_actions_to_envs(action_tensor, padding_lengths)
 
-    def apply_actions_to_envs(self, action_tensor):
+    def apply_actions_to_envs(self, action_tensor, padding_lengths):
         np_action = action_tensor.cpu().numpy()
         start_idx = 0
         for env in self.env_list:
             end_idx = start_idx + len(env.agent_dec)
             valid_action = np_action[start_idx:end_idx][env.agent_dec]
+            valid_padding_lengths = padding_lengths[start_idx:end_idx][env.agent_dec]
 
             select_valid_action = valid_action[:, -1, :]
-            env.update(select_valid_action)
+            env.update(select_valid_action, valid_padding_lengths)
             start_idx = end_idx
             
     @staticmethod

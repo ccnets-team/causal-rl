@@ -18,21 +18,8 @@ class BaseBuffer:
             return self.size
         return max(self.size - self.seq_len + 1, 0)
 
-    def _assign_sample_prob(self, index):
-        if self.size < self.seq_len - 1:
-            sample_prob = 1e-8
-        else:
-            sample_prob = 1.0  # Default to including the index.
-            # Calculate the starting and ending index for the search, considering wrap-around in a circular buffer.
-            start_idx = index - self.seq_len + 1 + self.capacity
-            end_idx = index + self.capacity
-            # Check each index in the range for termination or truncation, indicating invalid for sampling.
-            for i in reversed(range(start_idx, end_idx)):            
-                idx = i % self.capacity  # Adjust for circular buffer wrap-around.
-                if self.terminated[idx] or self.truncated[idx]:
-                    sample_prob = (end_idx - i) / self.seq_len 
-                    break  # Stop checking if any index in the sequence is terminated or truncated.
-
+    def _assign_sample_prob(self, index, padding_length):
+        sample_prob = max(0, min((self.seq_len - padding_length) / self.seq_len, 1))
         self.sample_probs[index] = sample_prob
 
     def _reset_sample_prob(self, index):
