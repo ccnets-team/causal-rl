@@ -26,7 +26,7 @@ class ExplorationUtils:
         self.decay_mode = 'linear'
         self.exploration_rate = self.initial_exploration
         self.min_sample_weight = 1
-        self.max_sample_weight = 4
+        self.max_sample_weight = 10
         
     def update_exploration_rate(self):  
         if self.decay_mode == "linear":
