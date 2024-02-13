@@ -71,9 +71,9 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
 
         # Store transitions in the experience buffer
         if len(agent_ids) > 0:
-            self.push_transitions(agent_ids, state, action, term_agents, term_reward, term_next_obs, done_terminated=True, done_truncated=None, padding_length = padding_length)
+            self.push_transitions(agent_ids, state, action, term_agents, term_reward, term_next_obs, done_terminated=True, done_truncated=False, padding_length = padding_length)
             dec_agents, dec_reward, dec_next_obs = self.filter_data(dec_agents, term_agents, dec_reward, dec_next_obs)
-            self.push_transitions(agent_ids, state, action, dec_agents, dec_reward, dec_next_obs, done_terminated=False, done_truncated=None, padding_length = padding_length)
+            self.push_transitions(agent_ids, state, action, dec_agents, dec_reward, dec_next_obs, done_terminated=False, done_truncated=False, padding_length = padding_length)
         
     def update(self, action, padding_length):
         action_tuple = ActionTuple()

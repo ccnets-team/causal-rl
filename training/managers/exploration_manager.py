@@ -39,12 +39,14 @@ class ExplorationUtils:
 
     def sample_padding_lengths(self, batch_size, gpt_seq_length):
         """
-        Samples sequence lengths within the specified range, adjusting probabilities 
-        based on the exploration rate to promote varied sequence sampling. This method 
-        encourages exploration by dynamically adjusting the likelihood of selecting different 
-        sequence lengths, factoring in the current exploration rate to balance between 
-        exploring new lengths and exploiting known advantageous lengths.
-        """
+        Dynamically samples sequence lengths, with a bias towards longer sequences as training progresses. 
+        This approach is designed to gradually increase the probability of selecting longer sequence lengths, 
+        thereby encouraging the model to adapt to and explore the complexities of more extended sequences over time. 
+        The adjustment of sampling probabilities is guided by the exploration rate, 
+        which is tuned to strike a balance between exploring the potential of longer sequences and exploiting the benefits of previously identified advantageous lengths. 
+        This method aims to enhance the model's exposure to a wider range of sequence lengths, with a particular emphasis on extending its competency over longer sequences, 
+        which are typically more challenging but potentially more informative.
+        """        
         min_seq_length = 1
         max_seq_length = gpt_seq_length
         
@@ -52,7 +54,9 @@ class ExplorationUtils:
         
         # Compute relative lengths as ratios of the maximum sequence length.
         sequence_ratios = sequence_lengths.float() / max_seq_length
-        
+
+        # Calculate a weighted preference for each sequence length, influenced by the exploration rate.
+        # This encourages the model to explore a variety of sequence lengths over time.
         exploitation_rate = 1 - self.exploration_rate
         adjusted_ratios = sequence_ratios * (self.min_sample_weight + (self.max_sample_weight - self.min_sample_weight) * exploitation_rate * sequence_ratios)
         
