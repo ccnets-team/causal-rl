@@ -21,7 +21,7 @@ class AlgorithmParameters:
         self.use_masked_exploration = use_masked_exploration # Enalbes sequence masking-based exploration, dynamically varying input sequence lengths by selective masking to promote internal strategy exploration without external noise.
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.05, network_type=GPT):
+    def __init__(self, num_layers=6, d_model=256, dropout=0.05, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
@@ -31,7 +31,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=5e-5, min_lr=1e-5, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=None): 
+    def __init__(self, lr=1e-4, min_lr=1e-5, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=None): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.min_lr = min_lr  # Minimum learning rate to which the lr will decay.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
