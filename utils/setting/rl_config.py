@@ -21,7 +21,7 @@ class AlgorithmParameters:
         self.use_masked_exploration = use_masked_exploration # Enalbes sequence masking-based exploration, dynamically varying input sequence lengths by selective masking to promote internal strategy exploration without external noise.
 
 class NetworkParameters:
-    def __init__(self, num_layers=6, d_model=256, dropout=0.05, network_type=GPT):
+    def __init__(self, num_layers=5, d_model=256, dropout=0.05, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
