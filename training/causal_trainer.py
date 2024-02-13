@@ -34,7 +34,7 @@ class CausalTrainer(BaseTrainer):
         self.actor = DualInputActor(actor_network, env_config, rl_params.use_deterministic, rl_params.actor_params).to(device)
         self.revEnv = RevEnv(rev_env_network, env_config, rl_params.rev_env_params).to(device)
         self.target_critic = copy.deepcopy(self.critic) 
-
+        
         super(CausalTrainer, self).__init__(env_config, rl_params, 
                                         networks = [self.critic, self.actor, self.revEnv], \
                                         target_networks =[self.target_critic, None, None], \
@@ -67,15 +67,7 @@ class CausalTrainer(BaseTrainer):
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor(states, estimated_value, padding_mask)
         
-        # Set the same random seed for controlled stochasticity in RevEnv operations.
-        set_seed(self.train_iter)
-        # Generate reversed_state: reverse the state from next state using actual action with value estimate.
-        reversed_state = self.revEnv(next_states, actions, estimated_value, padding_mask)
-
-        # Reset seed to ensure identical randomness for recurred state generation.
-        set_seed(self.train_iter)
-        # Generate recurred_state: recur the state from next state using inferred action with value estimate.
-        recurred_state = self.revEnv(next_states, inferred_action, estimated_value, padding_mask)
+        reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
         
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
         
@@ -140,30 +132,18 @@ class CausalTrainer(BaseTrainer):
         return coop_critic_error, coop_actor_error, coop_revEnv_error
 
     def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
-        """
-        Process the reverse-environment states in parallel.
+        # Assuming self.revEnv and its method are TorchScript compatible
+        # Start asynchronous computation for reversed_state
+        set_seed(self.train_iter)
+        fut_reversed = torch.jit.fork(self.revEnv, next_states, actions, estimated_value, padding_mask)
 
-        :param next_states: Tensor of next states from the environment.
-        :param actions: Tensor of actions taken.
-        :param inferred_action: Tensor of inferred actions from the actor network.
-        :param estimated_value: Tensor of estimated values from the critic network.
-        :param padding_mask: Tensor for padding mask.
-        :return: A tuple of (reversed_state, recurred_state).
-        """
-        batch_size = len(next_states)
-        
-        # Concatenate inputs for reversed and recurred states
-        combined_next_states = torch.cat((next_states, next_states), dim=0)
-        combined_actions = torch.cat((actions, inferred_action), dim=0)
-        combined_estimated_values = torch.cat((estimated_value, estimated_value.detach()), dim=0)
-        combined_padding_masks = torch.cat((padding_mask, padding_mask), dim=0)
+        # Start asynchronous computation for recurred_state
+        set_seed(self.train_iter)
+        fut_recurred = torch.jit.fork(self.revEnv, next_states, inferred_action, estimated_value, padding_mask)
 
-        # Process the concatenated inputs through self.revEnv
-        combined_states = self.revEnv(combined_next_states, combined_actions, combined_estimated_values, combined_padding_masks)
-
-        # Split the results back into reversed_state and recurred_state
-        reversed_state, recurred_state = combined_states.split(batch_size, dim=0)
-
+        # Wait for both computations to complete and retrieve the results
+        reversed_state = torch.jit.wait(fut_reversed)
+        recurred_state = torch.jit.wait(fut_recurred)
         return reversed_state, recurred_state
 
     def update_step(self):
