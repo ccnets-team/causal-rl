@@ -25,6 +25,8 @@ class ExplorationUtils:
 
         self.decay_mode = 'linear'
         self.exploration_rate = self.initial_exploration
+        self.min_sample_weight = 1
+        self.max_sample_weight = 4
         
     def update_exploration_rate(self):  
         if self.decay_mode == "linear":
@@ -51,7 +53,8 @@ class ExplorationUtils:
         # Compute relative lengths as ratios of the maximum sequence length.
         sequence_ratios = sequence_lengths.float() / max_seq_length
         
-        adjusted_ratios = torch.pow(sequence_ratios, 1 / max(self.exploration_rate, 1e-8))
+        exploitation_rate = 1 - self.exploration_rate
+        adjusted_ratios = sequence_ratios * (self.min_sample_weight + (self.max_sample_weight - self.min_sample_weight) * exploitation_rate * sequence_ratios)
         
         # Normalize adjusted ratios to get probabilities for sampling.
         sequence_probs = adjusted_ratios / adjusted_ratios.sum()
