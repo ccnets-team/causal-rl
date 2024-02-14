@@ -59,7 +59,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :param mask: Optional mask tensor indicating the elements to consider in the operation.
         :return: A tensor with applied sequence weights, emphasizing later elements in the sequence.
         """
-        dynamic_sequence_weights = (self.sequence_weights*self.exploration_rate + torch.ones_like(self.sequence_weights)*(1 - self.exploration_rate))
+        dynamic_sequence_weights = torch.pow(self.sequence_weights, self.exploration_rate)
+        dynamic_sequence_weights = dynamic_sequence_weights/dynamic_sequence_weights.mean(dim = 1).clamp_min(1e-8)
+
         if mask is not None:
             # Apply the mask to the sequence weights, focusing on unmasked (valid) parts of the tensor
             weights = mask * dynamic_sequence_weights
