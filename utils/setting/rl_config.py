@@ -3,7 +3,7 @@ from nn.network_utils import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, max_steps=150000, buffer_size=320000):
+    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, max_steps=100000, buffer_size=320000):
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gpt_seq_length=16, discount_factor=0.995, advantage_lambda=0.95, use_deterministic=False, use_masked_exploration=True):
+    def __init__(self, gpt_seq_length=16, discount_factor=0.99, advantage_lambda=0.95, use_deterministic=False, use_masked_exploration=True):
         self.gpt_seq_length = gpt_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) lambda parameter for weighting advantages in policy optimization.
@@ -21,7 +21,7 @@ class AlgorithmParameters:
         self.use_masked_exploration = use_masked_exploration # Enalbes sequence masking-based exploration, dynamically varying input sequence lengths by selective masking to promote internal strategy exploration without external noise.
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.05, network_type=GPT):
+    def __init__(self, num_layers=5, d_model=256, dropout=0.02, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
