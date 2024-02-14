@@ -39,6 +39,26 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
+def create_sequence_weights(gpt_seq_length, device):
+    """
+    Creates weights for a sequence, with higher weights assigned to later elements in the sequence.
+    This function is designed for models like GPT, where the significance of each element in a sequence increases with its position.
+
+    :param gpt_seq_length: The length of the GPT sequence.
+    :param device: The device on which tensors are allocated.
+    :return: A tensor of sequence weights, emphasizing later elements in the sequence.
+    """
+    # Generate a range of sequence positions
+    sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=device)
+    # Calculate the ratio of each position in the sequence relative to the total length
+    sequence_ratios = sequence_lengths.float() / gpt_seq_length
+    # Normalize the ratios to sum to 1, creating a probability distribution
+    sequence_probs = sequence_ratios / sequence_ratios.sum()
+    
+    # Expand the sequence probabilities to match the expected dimensions for weighting
+    sequence_weights = sequence_probs.unsqueeze(0).unsqueeze(-1) * gpt_seq_length
+    return sequence_weights
+
 def create_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
     # Initialize tensors for value weights and sum reward weights with zeros.
     # Value weights are for calculating discounted future values, and sum reward weights are for scaling rewards.
