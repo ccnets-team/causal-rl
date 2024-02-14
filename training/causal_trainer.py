@@ -24,17 +24,20 @@ class CausalTrainer(BaseTrainer):
     def __init__(self, rl_params, device):
         self.trainer_name = 'causal_rl'
         self.network_names = ["critic", "actor", "rev_env"]
-        network_params = rl_params.network
-        critic_network = network_params.critic_network
-        actor_network = network_params.actor_network
-        rev_env_network = network_params.rev_env_network
+        critic_network = rl_params.network.critic_network
+        actor_network = rl_params.network.actor_network
+        rev_env_network = rl_params.network.rev_env_network
+        self.critic_params = rl_params.critic_params
+        self.actor_params = rl_params.actor_params
+        self.rev_env_params = rl_params.rev_env_params
+
         env_config = rl_params.env_config
         
         self.critic = SingleInputCritic(critic_network, env_config, rl_params.critic_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, rl_params.use_deterministic, rl_params.actor_params).to(device)
         self.revEnv = RevEnv(rev_env_network, env_config, rl_params.rev_env_params).to(device)
         self.target_critic = copy.deepcopy(self.critic) 
-        
+
         super(CausalTrainer, self).__init__(env_config, rl_params, 
                                         networks = [self.critic, self.actor, self.revEnv], \
                                         target_networks =[self.target_critic, None, None], \
@@ -66,7 +69,7 @@ class CausalTrainer(BaseTrainer):
             
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor(states, estimated_value, padding_mask)
-        
+
         reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
         
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
@@ -132,18 +135,51 @@ class CausalTrainer(BaseTrainer):
         return coop_critic_error, coop_actor_error, coop_revEnv_error
 
     def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
-        # Assuming self.revEnv and its method are TorchScript compatible
-        # Start asynchronous computation for reversed_state
-        set_seed(self.train_iter)
-        fut_reversed = torch.jit.fork(self.revEnv, next_states, actions, estimated_value, padding_mask)
+        """
+        Process the reverse-environment states in parallel.
+        The presence of dropout in the reverse-environment model introduces stochasticity into the process, 
+        affecting the reproducibility and consistency of the generated states (reversed_state and recurred_state). 
+        To address this, the code employs a conditional mechanism:
 
-        # Start asynchronous computation for recurred_state
-        set_seed(self.train_iter)
-        fut_recurred = torch.jit.fork(self.revEnv, next_states, inferred_action, estimated_value, padding_mask)
+        1. When dropout is enabled (`self.rev_env_params.dropout > 0.0`), 
+        the method ensures identical stochasticity for both reversed_state and recurred_state by resetting the random seed (`set_seed(self.train_iter)`) before each call to `self.revEnv`. 
+        This approach guarantees that both state generations encounter the same dropout pattern, maintaining consistency in their stochastic components. 
 
-        # Wait for both computations to complete and retrieve the results
-        reversed_state = torch.jit.wait(fut_reversed)
-        recurred_state = torch.jit.wait(fut_recurred)
+        2. In the absence of dropout (`self.rev_env_params.dropout == 0.0`), 
+        the method concatenates inputs for both reversed and recurred states and processes them in a single pass through `self.revEnv`. 
+        This approach is computationally efficient and leverages batch processing capabilities. 
+        Since there's no dropout to introduce variability, there's no need for the seed-resetting step to ensure identical stochastic behavior between the state generations.
+
+        :param next_states: Tensor of next states from the environment.
+        :param actions: Tensor of actions taken.
+        :param inferred_action: Tensor of inferred actions from the actor network.
+        :param estimated_value: Tensor of estimated values from the critic network.
+        :param padding_mask: Tensor for padding mask.
+        :return: A tuple of (reversed_state, recurred_state).
+        """
+        batch_size = len(next_states)
+
+        if self.rev_env_params.dropout > 0.0:
+            set_seed(self.train_iter)
+            reversed_state = self.revEnv(next_states, actions, estimated_value, padding_mask)
+
+            set_seed(self.train_iter)
+            recurred_state = self.revEnv(next_states, inferred_action, estimated_value.detach(), padding_mask)
+        elif self.rev_env_params.dropout == 0.0:
+            # Concatenate inputs for reversed and recurred states
+            combined_next_states = torch.cat((next_states, next_states), dim=0)
+            combined_actions = torch.cat((actions, inferred_action), dim=0)
+            combined_estimated_values = torch.cat((estimated_value, estimated_value.detach()), dim=0)
+            combined_padding_masks = torch.cat((padding_mask, padding_mask), dim=0)
+
+            # Process the concatenated inputs through self.revEnv
+            combined_states = self.revEnv(combined_next_states, combined_actions, combined_estimated_values, combined_padding_masks)
+
+            # Split the results back into reversed_state and recurred_state
+            reversed_state, recurred_state = combined_states.split(batch_size, dim=0)
+        else:
+            assert False, "Invalid dropout value for reverse environment model."
+        
         return reversed_state, recurred_state
 
     def update_step(self):
