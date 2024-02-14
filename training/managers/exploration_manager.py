@@ -1,5 +1,4 @@
 import torch
-import math
 
 def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, decay_percentage):
     decay_steps = decay_percentage * max_steps
@@ -25,8 +24,6 @@ class ExplorationUtils:
 
         self.decay_mode = 'linear'
         self.exploration_rate = self.initial_exploration
-        self.min_sample_weight = 1
-        self.max_sample_weight = 10
         
     def update_exploration_rate(self):  
         if self.decay_mode == "linear":
@@ -57,8 +54,7 @@ class ExplorationUtils:
 
         # Calculate a weighted preference for each sequence length, influenced by the exploration rate.
         # This encourages the model to explore a variety of sequence lengths over time.
-        exploitation_rate = 1 - self.exploration_rate
-        adjusted_ratios = sequence_ratios * (self.min_sample_weight + (self.max_sample_weight - self.min_sample_weight) * exploitation_rate * sequence_ratios)
+        adjusted_ratios = torch.pow(sequence_ratios, 1/max(self.exploration_rate, 1e-8))
         
         # Normalize adjusted ratios to get probabilities for sampling.
         sequence_probs = adjusted_ratios / adjusted_ratios.sum()
