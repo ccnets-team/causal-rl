@@ -27,7 +27,7 @@ class NetworkParameters:
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
         self.critic_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the critic network.
         self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
-        self.rev_env_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the reverse environment network.
+        self.rev_env_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=0.0)  # Parameters for the reverse environment network.
 
 class OptimizationParameters:
     # Initialize optimization parameters
