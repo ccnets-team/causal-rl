@@ -1,6 +1,6 @@
 # Causal Reinforcement Learning Framework by CCNets
 
-[![Static Badge](https://img.shields.io/badge/Release-v1.0.1-%25%2300FF00)](https://github.com/ccnets-team/causal-rl)
+[![Static Badge](https://img.shields.io/badge/Release-v1.1.1-%25%2300FF00)](https://github.com/ccnets-team/causal-rl)
 [![Static Badge](https://img.shields.io/badge/LICENSE-DUAL-%23512BD4)](./LICENSE/)
 [![Static Badge](https://img.shields.io/badge/Python-3.9.18-%233776AB)](https://www.python.org/)
 [![Static Badge](https://img.shields.io/badge/PyTorch-2.1.2-%23EE4C2C)](https://pytorch.org/get-started/locally/)
