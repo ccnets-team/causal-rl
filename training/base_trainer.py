@@ -6,7 +6,7 @@ from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from utils.structure.data_structures  import BatchTrajectory
-from .trainer_utils import calculate_lambda_returns, masked_tensor_reduction, create_sum_reward_weights, create_sequence_weights
+from .trainer_utils import calculate_lambda_returns, masked_tensor_reduction, calculate_sum_reward_weights, create_sequence_weights
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -15,8 +15,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils(rl_params.max_steps)
-        self.sum_reward_weights = create_sum_reward_weights(self.gpt_seq_length, self.discount_factor, self.advantage_lambda, device)
-        self.sequence_weights = create_sequence_weights(self.gpt_seq_length, self.device)
+        self.base_sequence_weights = create_sequence_weights(self.gpt_seq_length, self.device)
         self.train_iter = 0
 
     def _unpack_rl_params(self, rl_params):
@@ -50,6 +49,20 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         training_start_step = self.training_params.buffer_size // int(batch_size_ratio)
         return training_start_step
 
+    def get_dynamic_lambda(self) -> float:
+        """
+        Calculates a dynamic lambda value by integrating the current exploration rate with the agent's base advantage lambda. 
+        This adjustment dynamically balances immediate and future rewards in the learning process, based on the agent's 
+        current exploration rate. As exploration decreases and exploitation increases, the lambda value shifts to emphasize 
+        longer-term rewards, reflecting a strategy shift from short-term to long-term reward maximization as the agent 
+        becomes more confident in its policy.
+
+        :return: The dynamically adjusted lambda value, tailored to the current exploration behavior and focusing on the balance 
+                between immediate and future rewards.
+        """
+        dynamic_lambda = (1 - self.exploration_rate) + self.advantage_lambda * self.exploration_rate
+        return dynamic_lambda
+    
     def apply_tensor_weights(self, tensor, mask=None):
         """
         Applies the calculated sequence weights to a tensor, optionally using a mask to focus on specific elements.
@@ -59,7 +72,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :param mask: Optional mask tensor indicating the elements to consider in the operation.
         :return: A tensor with applied sequence weights, emphasizing later elements in the sequence.
         """
-        dynamic_sequence_weights = torch.pow(self.sequence_weights, self.exploration_rate)
+        dynamic_sequence_weights = torch.pow(self.base_sequence_weights, self.exploration_rate)
         dynamic_sequence_weights = dynamic_sequence_weights/dynamic_sequence_weights.mean(dim = 1).clamp_min(1e-8)
 
         if mask is not None:
@@ -138,6 +151,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         # Extract components from the trajectory
         states, actions, rewards, next_states, dones = trajectory 
 
+        gamma = self.discount_factor  # Define the discount factor for future rewards, determining their present value.
+        lambd = self.get_dynamic_lambda()  # Calculate the dynamic lambda value, adjusting the balance between immediate and future rewards.
+        
         with torch.no_grad():
             # Calculate future values from the model, used to estimate the expected return from each state.
             future_values = self.trainer_calculate_future_value(next_states, padding_mask)
@@ -145,12 +161,15 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             # Prepare trajectory values for lambda returns calculation, initializing the sequence with zeros.
             trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
             
+            # Compute the weighting factors for summing rewards over the trajectory, based on sequence length, gamma, and lambda.
+            sum_reward_weights = calculate_sum_reward_weights(self.gpt_seq_length, gamma, lambd, self.device)  
+            
             # Calculate expected values and sum of rewards using lambda returns method,
             # which blends immediate rewards with future values for a balanced estimate.
-            expected_value, sum_rewards = calculate_lambda_returns(trajectory_values, rewards, dones, self.discount_factor, self.advantage_lambda)
+            expected_value, sum_rewards = calculate_lambda_returns(trajectory_values, rewards, dones, gamma, lambd)
             
             # Normalize the sum of rewards, applying the mask to handle valid sequence lengths.
-            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask) * self.sum_reward_weights
+            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask) * sum_reward_weights
             
             # Correct the expected value by adjusting with the normalized sum of rewards.
             expected_value = expected_value - sum_rewards + normalized_sum_rewards

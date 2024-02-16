@@ -59,7 +59,7 @@ def create_sequence_weights(gpt_seq_length, device):
     sequence_weights = sequence_probs.unsqueeze(0).unsqueeze(-1) * gpt_seq_length
     return sequence_weights
 
-def create_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
+def calculate_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
     # Initialize tensors for value weights and sum reward weights with zeros.
     # Value weights are for calculating discounted future values, and sum reward weights are for scaling rewards.
     value_weights = torch.zeros(max_seq_len + 1, dtype=torch.float, device=device)
