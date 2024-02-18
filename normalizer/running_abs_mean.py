@@ -1,13 +1,15 @@
 import torch
 
 class RunningAbsMean:
-    def __init__(self, num_features, scale, device, max_abs_mean=1.0):
+    def __init__(self, num_features, scale, device, min_abs_mean=0.5, max_abs_mean=1.0, alpha = 1e-4):
         self.device = device
         self.abs_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.num_features = num_features
         self.scale = scale
+        self.min_abs_mean = min_abs_mean    
         self.max_abs_mean = max_abs_mean    
+        self.decay_factor = 1 - alpha
 
     def update(self, x, padding_mask=None):
         batch_size, seq_len, feature_size = x.size()
@@ -23,20 +25,29 @@ class RunningAbsMean:
             new_adding = mask.sum(dim = (0, 1))
             weighted_x = mask * x.abs()  # Apply mask to x if padding mask is provided
                 
-        delta = torch.where(new_adding > 0, torch.sum(weighted_x, dim=(0, 1))/new_adding, torch.zeros_like(new_adding))- self.abs_mean
+        delta = torch.where(new_adding > 0, torch.sum(weighted_x, dim=(0, 1))/new_adding, self.abs_mean) - self.abs_mean
         new_count = self.count + new_adding
-        new_mean = self.abs_mean + delta * torch.where(new_adding > 0, new_adding / new_count, torch.zeros_like(new_adding))
+        new_mean = torch.where(new_adding > 0, self.abs_mean + delta * new_adding / new_count, self.abs_mean)
 
         self.abs_mean = new_mean
-        self.count = new_count
+        self.count = self.decay_factor * new_count
 
         return self
 
     def get_abs_mean(self):
-        if self.max_abs_mean is None:
-            thresh_abs_mean = self.abs_mean
+        # Apply the minimum absolute mean threshold if min_abs_mean is not None
+        if self.min_abs_mean is not None:
+            thresh_min_abs_mean = torch.maximum(self.abs_mean, self.min_abs_mean * torch.ones_like(self.abs_mean))
         else:
-            thresh_abs_mean = torch.where(self.abs_mean < self.max_abs_mean, self.abs_mean, self.max_abs_mean*torch.ones_like(self.abs_mean))
+            thresh_min_abs_mean = self.abs_mean  # If min_abs_mean is None, do not apply minimum threshold
+        
+        # Apply the maximum absolute mean threshold if max_abs_mean is not None
+        if self.max_abs_mean is not None:
+            thresh_abs_mean = torch.minimum(thresh_min_abs_mean, self.max_abs_mean * torch.ones_like(thresh_min_abs_mean))
+        else:
+            thresh_abs_mean = thresh_min_abs_mean  # If max_abs_mean is None, use the min thresholded value or original abs_mean
+
+        # Now scale the thresholded absolute mean
         scaled_abs_mean = (thresh_abs_mean / self.scale) + 1e-8
         return scaled_abs_mean
 

@@ -9,7 +9,7 @@ def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, de
     return (min_exploration / initial_exploration) ** (1/decay_steps)
 
 class ExplorationUtils:
-    def __init__(self, max_steps, device):
+    def __init__(self, gpt_seq_length, max_steps, device):
         self.device = device
         self.decay_percentage = None
         self.decay_factor = None
@@ -22,7 +22,8 @@ class ExplorationUtils:
         # Default decay mode. 'linear' means exploration rate decreases linearly over time.
         self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, max_steps, self.decay_percentage)
         
-        self.max_sample_ratio = 2
+        self.min_sample_ratio = 1
+        self.max_sample_ratio = gpt_seq_length
         self.decay_mode = 'linear'
         self.exploration_rate = self.initial_exploration
         
@@ -55,7 +56,7 @@ class ExplorationUtils:
 
         # Calculate a weighted preference for each sequence length, influenced by the exploration rate.
         # This encourages the model to explore a variety of sequence lengths over time.
-        adjusted_ratios = torch.pow(sequence_ratios, 1 + self.max_sample_ratio * (1 - self.exploration_rate))
+        adjusted_ratios = sequence_ratios * (self.min_sample_ratio + (self.max_sample_ratio - self.min_sample_ratio) * (1 - self.exploration_rate) * sequence_ratios) 
         
         # Normalize adjusted ratios to get probabilities for sampling.
         sequence_probs = adjusted_ratios / adjusted_ratios.sum()

@@ -14,7 +14,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_trainer_specific_params()
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
-        self._init_exploration_utils(rl_params.max_steps)
+        self._init_exploration_utils(self.gpt_seq_length, rl_params.max_steps)
         self.base_sequence_weights = create_sequence_weights(self.gpt_seq_length, self.device)
         self.train_iter = 0
 
@@ -32,9 +32,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def _init_normalization_utils(self, env_config, device):
         NormalizationUtils.__init__(self, env_config.state_size, self.normalization_params, self.gpt_seq_length, device)
 
-    def _init_exploration_utils(self, max_steps):
+    def _init_exploration_utils(self, gpt_seq_length, max_steps):
         self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationUtils.__init__(self, max_steps, self.device)
+        ExplorationUtils.__init__(self, gpt_seq_length, max_steps, self.device)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
@@ -60,7 +60,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :return: The dynamically adjusted lambda value, tailored to the current exploration behavior and focusing on the balance 
                 between immediate and future rewards.
         """
-        dynamic_lambda = (1 - self.exploration_rate) + self.advantage_lambda * self.exploration_rate
+        dynamic_lambda = 1.0 * (1 - self.exploration_rate) + self.advantage_lambda * self.exploration_rate
         return dynamic_lambda
     
     def apply_tensor_weights(self, tensor, mask=None):
@@ -72,7 +72,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :param mask: Optional mask tensor indicating the elements to consider in the operation.
         :return: A tensor with applied sequence weights, emphasizing later elements in the sequence.
         """
-        dynamic_sequence_weights = torch.pow(self.base_sequence_weights, self.exploration_rate)
+        dynamic_sequence_weights = self.base_sequence_weights * self.exploration_rate + torch.ones_like(self.base_sequence_weights) * (1 - self.exploration_rate)
         dynamic_sequence_weights = dynamic_sequence_weights/dynamic_sequence_weights.mean(dim = 1).clamp_min(1e-8)
 
         if mask is not None:

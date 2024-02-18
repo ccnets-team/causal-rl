@@ -1,13 +1,14 @@
 import torch
 
 class RunningMeanStd:
-    def __init__(self, num_features, scale, device):
+    def __init__(self, num_features, scale, device, alpha = 1e-5):
         self.device = device
         self.mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.var = torch.ones(num_features, device=self.device, dtype=torch.float64)
         self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.num_features = num_features
         self.scale = scale
+        self.decay_factor = 1 - alpha
 
     def update(self, x, padding_mask=None):
         batch_size, seq_len, feature_size = x.size()
@@ -39,8 +40,7 @@ class RunningMeanStd:
 
         self.mean = new_mean
         self.var = M2 / new_count
-        self.count = new_count
-
+        self.count = self.decay_factor *new_count
         return self
 
     def get_mean(self):
