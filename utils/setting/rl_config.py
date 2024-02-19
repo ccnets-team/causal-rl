@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gpt_seq_length=16, discount_factor=0.993, advantage_lambda=0.95, use_deterministic=False, use_masked_exploration=True):
+    def __init__(self, gpt_seq_length=16, discount_factor=0.995, advantage_lambda=0.8, use_deterministic=False, use_masked_exploration=True):
         self.gpt_seq_length = gpt_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) lambda parameter for weighting advantages in policy optimization.

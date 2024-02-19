@@ -18,9 +18,8 @@ class BaseBuffer:
             return self.size
         return max(self.size - self.seq_len + 1, 0)
 
-    def _assign_sample_prob(self, index, padding_length):
-        sample_prob = max(0, min((self.seq_len - padding_length) / self.seq_len, 1))
-        self.sample_probs[index] = sample_prob
+    def _assign_sample_prob(self, index):
+        self.sample_probs[index] = 1.0
 
     def _reset_sample_prob(self, index):
         end_idx = (index + self.seq_len - 1) % self.capacity
