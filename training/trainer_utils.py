@@ -39,26 +39,6 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-def create_sequence_weights(gpt_seq_length, device):
-    """
-    Creates weights for a sequence, with higher weights assigned to later elements in the sequence.
-    This function is designed for models like GPT, where the significance of each element in a sequence increases with its position.
-
-    :param gpt_seq_length: The length of the GPT sequence.
-    :param device: The device on which tensors are allocated.
-    :return: A tensor of sequence weights, emphasizing later elements in the sequence.
-    """
-    # Generate a range of sequence positions
-    sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=device)
-    # Calculate the ratio of each position in the sequence relative to the total length
-    sequence_ratios = sequence_lengths.float() / gpt_seq_length
-    # Normalize the ratios to sum to 1, creating a probability distribution
-    sequence_probs = sequence_ratios / sequence_ratios.sum()
-    
-    # Expand the sequence probabilities to match the expected dimensions for weighting
-    sequence_weights = sequence_probs.unsqueeze(0).unsqueeze(-1) * gpt_seq_length
-    return sequence_weights
-
 def calculate_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
     # Initialize tensors for value weights and sum reward weights with zeros.
     # Value weights are for calculating discounted future values, and sum reward weights are for scaling rewards.
@@ -150,10 +130,8 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
     # Sum the masked tensor across the batch dimension (dim=0)
     sum_per_sequence = torch.sum(masked_tensor, dim=dim)
     # Count the number of True entries in the mask per sequence for normalization
-    count_per_sequence = torch.sum(mask_bool, dim=dim)
-    # Handle potential division by zero in case some sequences are fully masked
-    # If count_per_sequence is 0, replace it with 1 to prevent division by zero
-    count_per_sequence = torch.clamp(count_per_sequence, min=1)
-    # Calculate the mean by dividing the sum by the number of unmasked entries
-    mean_per_sequence = sum_per_sequence / count_per_sequence
-    return mean_per_sequence
+    dim_size = mask_bool.shape[dim] 
+    # Calculate the mean across the specified dimension
+    mean_across_dim = sum_per_sequence / max(dim_size, 1)
+    
+    return mean_across_dim

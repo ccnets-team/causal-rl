@@ -15,7 +15,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils(self.gpt_seq_length, rl_params.max_steps)
-        self.base_sequence_weights = create_sequence_weights(self.gpt_seq_length, self.device)
         self.train_iter = 0
 
     def _unpack_rl_params(self, rl_params):
@@ -63,31 +62,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         dynamic_lambda = 1.0 * (1 - self.exploration_rate) + self.advantage_lambda * self.exploration_rate
         return dynamic_lambda
     
-    def apply_tensor_weights(self, tensor, mask=None):
-        """
-        Applies the calculated sequence weights to a tensor, optionally using a mask to focus on specific elements.
-        This method is particularly useful for models that process sequential data, enhancing the impact of elements based on their position in the sequence.
-
-        :param tensor: The input tensor to be weighted. Shape is assumed to be [batch_size, seq_length, feature_dim].
-        :param mask: Optional mask tensor indicating the elements to consider in the operation.
-        :return: A tensor with applied sequence weights, emphasizing later elements in the sequence.
-        """
-        dynamic_sequence_weights = self.base_sequence_weights * self.exploration_rate + torch.ones_like(self.base_sequence_weights) * (1 - self.exploration_rate)
-        dynamic_sequence_weights = dynamic_sequence_weights/dynamic_sequence_weights.mean(dim = 1).clamp_min(1e-8)
-
-        if mask is not None:
-            # Apply the mask to the sequence weights, focusing on unmasked (valid) parts of the tensor
-            weights = mask * dynamic_sequence_weights
-            # Normalize the weights to ensure that their sum matches the number of valid positions in the mask
-            adjusted_weights = (weights / weights.sum(dim=1, keepdim=True).clamp_min(1e-8)) * mask.sum(dim=1, keepdim=True).clamp_min(1)
-            # Apply the normalized, adjusted weights to the tensor
-            weighted_tensor = tensor * adjusted_weights
-        else:
-            # If no mask is provided, apply the sequence weights directly to the tensor
-            weighted_tensor = tensor * dynamic_sequence_weights
-        
-        return weighted_tensor
-        
     def select_tensor_reduction(self, tensor, mask=None):
         """
         Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
@@ -99,24 +73,23 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :length_weight_exponent: The exponent used in adaptive reduction.
         :return: The reduced tensor.
         """
-        weighted_tensor = self.apply_tensor_weights(tensor, mask)
         
         if mask is not None:
             if self.reduction_type in ['batch', 'seq', 'all']:
-                return masked_tensor_reduction(weighted_tensor, mask, reduction=self.reduction_type)
+                return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
             elif self.reduction_type == 'cross':
-                batch_wise_reduction = masked_tensor_reduction(weighted_tensor, mask, reduction='batch')
-                seq_wise_reduction = masked_tensor_reduction(weighted_tensor, mask, reduction='seq')
+                batch_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='batch')
+                seq_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='seq')
                 return torch.cat([batch_wise_reduction, seq_wise_reduction], dim = 0)
             elif self.reduction_type == 'none':
-                return weighted_tensor[mask>0].flatten()
+                return tensor[mask>0].flatten()
             else:
                 raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
         else:
             if self.reduction_type == 'none':
-                return weighted_tensor
+                return tensor
             else:
-                return weighted_tensor.mean()
+                return tensor.mean()
 
     def calculate_value_loss(self, estimated_value, expected_value, mask=None):
         """
