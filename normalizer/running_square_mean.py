@@ -1,12 +1,13 @@
 import torch
 
 class RunningSquareMean:
-    def __init__(self, num_features, scale, device):
+    def __init__(self, num_features, scale, device, alpha = 1e-4):
         self.device = device
         self.square_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.num_features = num_features
         self.scale = scale
+        self.decay_factor = 1 - alpha
 
     def update(self, x, padding_mask=None):
         batch_size, seq_len, feature_size = x.size()
@@ -22,23 +23,23 @@ class RunningSquareMean:
             new_adding = mask.sum(dim = (0, 1))
             weighted_x = mask * x.square()  # Apply mask to x if padding mask is provided
                 
-        delta = torch.where(new_adding > 0, torch.sum(weighted_x, dim=(0, 1))/new_adding, torch.zeros_like(new_adding))- self.square_mean
+        delta = torch.where(new_adding > 0, torch.sum(weighted_x, dim=(0, 1))/new_adding, self.square_mean) - self.square_mean
         new_count = self.count + new_adding
-        new_mean = self.square_mean + delta * torch.where(new_adding > 0, new_adding / new_count, torch.zeros_like(new_adding))
+        new_mean = torch.where(new_adding > 0, self.square_mean + delta * new_adding / new_count, self.square_mean)
 
         self.square_mean = new_mean
-        self.count = new_count
+        self.count = self.decay_factor* new_count
 
         return self
 
     def get_square_mean(self):
-        return self.square_mean
-
+        return (self.square_mean / self.scale + 1e-8)
+    
     def normalize(self, x):
         if len(x) < 1 or torch.sum(self.count < 1) > 0:
             return x
         square_mean = self.get_square_mean().view(1, 1, self.num_features)
-        normalized_x = x / (square_mean / self.scale + 1e-8)
+        normalized_x = x / square_mean
         return normalized_x.to(dtype=x.dtype)
 
     def save(self, path):

@@ -9,7 +9,7 @@ def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, de
     return (min_exploration / initial_exploration) ** (1/decay_steps)
 
 class ExplorationUtils:
-    def __init__(self, max_steps, device):
+    def __init__(self, gpt_seq_length, max_steps, device):
         self.device = device
         self.decay_percentage = None
         self.decay_factor = None
@@ -22,10 +22,15 @@ class ExplorationUtils:
         # Default decay mode. 'linear' means exploration rate decreases linearly over time.
         self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, max_steps, self.decay_percentage)
         
-        self.max_sample_ratio = 4
         self.decay_mode = 'linear'
         self.exploration_rate = self.initial_exploration
-        
+
+        self.min_sample_ratio = 1
+        self.max_sample_ratio = gpt_seq_length
+        self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=self.device)
+        self.start_ratios = torch.full_like(self.sequence_lengths, fill_value=1)  # Starting from even chance for minimum length
+        self.end_ratios = torch.pow(self.sequence_lengths.float(), 2)  # Ending with linear favoring towards longer lengths
+            
     def update_exploration_rate(self):  
         if self.decay_mode == "linear":
             self.exploration_rate = max(self.exploration_rate + self.decay_factor, self.min_exploration)
@@ -45,17 +50,11 @@ class ExplorationUtils:
         This method aims to enhance the model's exposure to a wider range of sequence lengths, with a particular emphasis on extending its competency over longer sequences, 
         which are typically more challenging but potentially more informative.
         """        
-        min_seq_length = 1
         max_seq_length = gpt_seq_length
         
-        sequence_lengths = torch.arange(min_seq_length, max_seq_length + 1, device=self.device)
-        
-        # Compute relative lengths as ratios of the maximum sequence length.
-        sequence_ratios = sequence_lengths.float() / max_seq_length
-
         # Calculate a weighted preference for each sequence length, influenced by the exploration rate.
         # This encourages the model to explore a variety of sequence lengths over time.
-        adjusted_ratios = torch.pow(sequence_ratios, 1 + self.max_sample_ratio * (1 - self.exploration_rate))
+        adjusted_ratios = self.exploration_rate * self.start_ratios + (1 - self.exploration_rate) * self.end_ratios
         
         # Normalize adjusted ratios to get probabilities for sampling.
         sequence_probs = adjusted_ratios / adjusted_ratios.sum()
@@ -63,7 +62,7 @@ class ExplorationUtils:
         # Sample sequence lengths based on the computed probabilities.
         sampled_indices = torch.multinomial(sequence_probs, batch_size, replacement=True)
         
-        sampled_lengths = sequence_lengths[sampled_indices]
+        sampled_lengths = self.sequence_lengths[sampled_indices]
         
         padding_seq_length = max_seq_length - sampled_lengths
         
