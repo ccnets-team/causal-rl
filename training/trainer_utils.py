@@ -39,12 +39,15 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-def calculate_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
+def calculate_sum_reward_weights(max_seq_len, gammas, td_lambdas, device):
     # Initialize tensors for value weights and sum reward weights with zeros.
     # Value weights are for calculating discounted future values, and sum reward weights are for scaling rewards.
     value_weights = torch.zeros(max_seq_len + 1, dtype=torch.float, device=device)
     sum_reward_weights = torch.zeros(max_seq_len, dtype=torch.float, device=device)
 
+    flattened_gammas = gammas.flatten()
+    flattened_td_lambdas = td_lambdas.flatten()
+    
     # Ensure the final value weight equals 1, setting up a base case for backward calculation.
     value_weights[-1] = 1
 
@@ -53,7 +56,7 @@ def calculate_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
     for t in reversed(range(max_seq_len)):
         # Update value_weights by blending the immediate reward (1) and discounted future value weights,
         # modulated by gamma and td_lambda for each timestep.
-        value_weights[t] = gamma * ((1 - td_lambda) * 1 + td_lambda * value_weights[t + 1])
+        value_weights[t] = flattened_gammas[t] * ((1 - flattened_td_lambdas[t]) * 1 + flattened_td_lambdas[t] * value_weights[t + 1])
 
         # Compute the sum reward weights as the complement of value weights, indicating the proportion of reward assigned to each timestep.
         sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
@@ -70,22 +73,22 @@ def calculate_sum_reward_weights(max_seq_len, gamma, td_lambda, device):
     
     return sum_reward_weights
 
-def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
+def calculate_lambda_returns(values, rewards, dones, gammas, td_lambdas):
     """
-    Calculates lambda returns and sum of rewards for each timestep in a sequence.
+    Calculates lambda returns and sum of rewards for each timestep in a sequence with variable gamma and lambda.
 
     Args:
         values (torch.Tensor): The value estimates for each timestep.
         rewards (torch.Tensor): The rewards received at each timestep.
         dones (torch.Tensor): Indicates whether a timestep is terminal (1 if terminal, 0 otherwise).
-        gamma (float): Discount factor for future rewards.
-        td_lambda (float): Lambda parameter for TD(lambda) returns.
+        gammas (torch.Tensor): Discount factors for future rewards, varying per timestep.
+        td_lambdas (torch.Tensor): Lambda parameters for TD(lambda) returns, varying per timestep.
 
     Returns:
         tuple: A tuple containing:
             - lambda_returns (torch.Tensor): The calculated lambda returns for each timestep.
             - sum_rewards (torch.Tensor): The cumulative sum of rewards for each timestep.
-    """    
+    """
     # Determine the batch size and sequence length from the rewards shape
     batch_size, seq_len, _ = rewards.shape
 
@@ -99,10 +102,10 @@ def calculate_lambda_returns(values, rewards, dones, gamma, td_lambda):
     # Iterate backwards through each timestep in the sequence
     for t in reversed(range(seq_len)):
         # Calculate lambda return for each timestep:
-        sum_rewards[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * (td_lambda * sum_rewards[:, t + 1, :])
+        sum_rewards[:, t, :] = rewards[:, t, :] + gammas[:, t, :] * (1 - dones[:, t, :]) * (td_lambdas[:, t, :] * sum_rewards[:, t + 1, :])
         
         # Current reward + discounted future value, adjusted by td_lambda
-        lambda_returns[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * ((1 - td_lambda) * values[:, t + 1, :] + td_lambda * lambda_returns[:, t + 1, :])
+        lambda_returns[:, t, :] = rewards[:, t, :] + gammas[:, t, :] * (1 - dones[:, t, :]) * ((1 - td_lambdas[:, t, :]) * values[:, t + 1, :] + td_lambdas[:, t, :] * lambda_returns[:, t + 1, :])
 
     # Remove the last timestep to align lambda returns with their corresponding states
     sum_rewards = sum_rewards[:, :-1, :]
@@ -135,3 +138,32 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
     mean_across_dim = sum_per_sequence / max(dim_size, 1)
     
     return mean_across_dim
+
+def create_train_sequence_mask(padding_mask, train_seq_length):
+    """
+    Creates a selection mask for trajectories.
+
+    :param padding_mask: Mask tensor from create_padding_mask_before_dones, shape [B, S, 1].
+    :param train_seq_length: Length of the train sequence to select.
+    :return: Selection mask tensor, shape [B, train_seq_length, 1].
+    """
+    batch_size, seq_len, _ = padding_mask.shape
+
+    # Find the index of the first non-padding point after 'done'
+    first_non_padding_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
+    end_non_padding_idx = first_non_padding_idx + train_seq_length
+    end_select_idx = torch.clamp(end_non_padding_idx, max=seq_len)
+    first_select_idx = end_select_idx - train_seq_length
+
+    # Create a range tensor of shape [S]
+    range_tensor = torch.arange(seq_len, device=padding_mask.device).unsqueeze(0).unsqueeze(-1)
+
+    # Broadcast to shape [B, S, 1] and compare
+    select_mask = (range_tensor >= first_select_idx) & (range_tensor < end_select_idx)
+    
+    return select_mask, end_select_idx
+
+# Function to apply selection mask to a trajectory component
+def apply_sequence_mask(component, model_seq_mask, model_seq_length):
+    component_shape = component.shape
+    return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])

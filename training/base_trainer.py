@@ -5,8 +5,7 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from utils.structure.data_structures  import BatchTrajectory
-from .trainer_utils import calculate_lambda_returns, masked_tensor_reduction, calculate_sum_reward_weights
+from .trainer_utils import calculate_lambda_returns, masked_tensor_reduction, calculate_sum_reward_weights, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -15,6 +14,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils(self.gpt_seq_length, rl_params.max_steps)
+            
+        self.gammas = torch.tensor(self.discount_factor, device=self.device).expand(self.gpt_seq_length).unsqueeze(0).unsqueeze(-1)
+        self.lambdas = torch.tensor(self.advantage_lambda, device=self.device).expand(self.gpt_seq_length).unsqueeze(0).unsqueeze(-1)
+        self.sum_reward_weights = calculate_sum_reward_weights(self.gpt_seq_length, self.gammas, self.lambdas, self.device)  
         self.train_iter = 0
 
     def _unpack_rl_params(self, rl_params):
@@ -47,20 +50,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
         training_start_step = self.training_params.buffer_size // int(batch_size_ratio)
         return training_start_step
-
-    def get_dynamic_lambda(self) -> float:
-        """
-        Calculates a dynamic lambda value by integrating the current exploration rate with the agent's base advantage lambda. 
-        This adjustment dynamically balances immediate and future rewards in the learning process, based on the agent's 
-        current exploration rate. As exploration decreases and exploitation increases, the lambda value shifts to emphasize 
-        longer-term rewards, reflecting a strategy shift from short-term to long-term reward maximization as the agent 
-        becomes more confident in its policy.
-
-        :return: The dynamically adjusted lambda value, tailored to the current exploration behavior and focusing on the balance 
-                between immediate and future rewards.
-        """
-        dynamic_lambda = 1.0 * (1 - self.exploration_rate) + self.advantage_lambda * self.exploration_rate
-        return dynamic_lambda
     
     def select_tensor_reduction(self, tensor, mask=None):
         """
@@ -110,7 +99,92 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         return reduced_loss
 
-    def compute_values(self, trajectory: BatchTrajectory, estimated_value: torch.Tensor, padding_mask: torch.Tensor):
+    def select_train_sequence(self, trajectory):
+        """
+        Selects a segment from the trajectory for training, tailored to the model's input requirements. This method is 
+        crucial for handling trajectories of length 'gpt_td_seq_length', which is intentionally longer than 'gpt_seq_length' 
+        to provide additional context for TD calculations. It identifies the valid portion of these extended trajectories, 
+        starting from the last non-padded point and moving backward, and selects a segment of size 'gpt_seq_length'. If 
+        the valid portion is shorter than 'gpt_seq_length', the selection includes padding towards the beginning.
+
+        This strategy ensures consistent input size while maximizing the use of relevant experience and accommodating 
+        the extended context provided by 'gpt_td_seq_length'. The method effectively balances the need for fixed-length 
+        inputs and the desire to capture as much meaningful data as possible within each training sequence.
+
+        :param trajectory: A tuple containing the trajectory's components (states, actions, rewards, next_states, dones).
+                        The trajectory is expected to be of 'gpt_td_seq_length', providing a larger context for selection.
+        :param padding_mask: A tensor indicating valid (1) and padded (0) parts of the trajectory, shape [B, S, 1],
+                            where B is the batch size, and S is the sequence length ('gpt_td_seq_length').
+        :return: A tuple of selected and masked trajectory components (states, actions, rewards, next_states, dones, 
+                padding_mask), each trimmed to 'gpt_seq_length' to fit the model's input specifications.
+        """
+        states, actions, rewards, next_states, dones = trajectory
+        padding_mask = create_padding_mask_before_dones(dones)
+
+        train_seq_length = self.gpt_seq_length
+        train_seq_mask, selection_end_idx = create_train_sequence_mask(padding_mask, train_seq_length)
+
+        # Apply the mask to each trajectory component
+        sel_states = apply_sequence_mask(states, train_seq_mask, train_seq_length)
+        sel_actions = apply_sequence_mask(actions, train_seq_mask, train_seq_length)
+        sel_rewards = apply_sequence_mask(rewards, train_seq_mask, train_seq_length)
+        sel_next_states = apply_sequence_mask(next_states, train_seq_mask, train_seq_length)
+        sel_dones = apply_sequence_mask(dones, train_seq_mask, train_seq_length)
+        sel_padding_mask = apply_sequence_mask(padding_mask, train_seq_mask, train_seq_length)
+        
+        end_value = self.calculate_sequence_end_value(trajectory, selection_end_idx)
+        return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
+
+    def calculate_sequence_end_value(self, trajectory, selection_end_idx):
+        """
+        Computes the future value for TD calculations from the terminal segment of a trajectory sampled at 'gpt_td_seq_length'.
+        This extended trajectory length allows for the division of the sequence into two parts: the front part, used for training,
+        and the rear part, of the same length as 'gpt_seq_length', designated for TD computation. The sequence is considered valid
+        from the right side (end of the episode) towards the left, ensuring the inclusion of meaningful end-of-episode data.
+
+        This function focuses on the rear part of the trajectory, calculating the expected future return from the final state(s) 
+        in the context of TD updates. The selection of the sequence for this computation is based on the valid portion extending 
+        leftward from the end of the episode, incorporating any necessary padding to meet the 'gpt_seq_length' if the valid 
+        portion is shorter.
+
+        :param trajectory: A tuple containing the trajectory's components (states, actions, rewards, next_states, dones),
+                        sampled to 'gpt_td_seq_length' to provide sufficient context for both training and TD computation.
+        :param selection_end_idx: The index marking the division between the training and TD computation segments within
+                                the 'gpt_td_seq_length', facilitating precise extraction of the terminal segment for value calculation.
+        :return: A tensor of the discounted future value from the terminal sequence segment,
+                critical for computing expected values and advantages in `compute_values`.
+        """
+        _, _, rewards, next_states, dones = trajectory
+        
+        # Extract the last segment of the trajectory based on the training sequence length
+        last_segment = slice(-self.gpt_seq_length, None)
+        last_next_states = next_states[:, last_segment]
+        last_dones = dones[:, last_segment]
+        last_rewards = rewards[:, last_segment]
+
+        # Calculate future values for the last states and construct trajectory values for lambda returns calculation
+        last_padding_mask = create_padding_mask_before_dones(last_dones)
+        future_values = self.trainer_calculate_future_value(last_next_states, last_padding_mask)
+        trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
+
+        # Calculate expected value from the trajectory, considering rewards and dones
+        expected_value, sum_rewards = calculate_lambda_returns(
+            trajectory_values, last_rewards, last_dones, self.gammas, self.lambdas)
+
+        # Normalize the sum of rewards, applying the mask to handle valid sequence lengths.
+        normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, last_padding_mask) * self.sum_reward_weights
+        
+        # Correct the expected value by adjusting with the normalized sum of rewards.
+        expected_value = expected_value - sum_rewards + normalized_sum_rewards
+        
+        # Select the appropriate future value using end_select_idx
+        target_idx = (self.gpt_seq_length - next_states.size(1) + selection_end_idx - 1).flatten()
+        batch_idx = torch.arange(0, next_states.size(0), device=self.device)
+        discounted_future_value = expected_value[batch_idx, target_idx].unsqueeze(-1)
+        
+        return discounted_future_value
+        
+    def compute_values(self, states: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor, estimated_value: torch.Tensor, padding_mask: torch.Tensor, future_value: torch.Tensor):
         """
         Computes the expected value and advantage for each state in a given trajectory,
         based on future values and actual rewards. The advantage calculation helps to quantify
@@ -122,27 +196,20 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :return: The estimated value, the corrected expected value, and the computed advantage for the trajectory.
         """
         # Extract components from the trajectory
-        states, actions, rewards, next_states, dones = trajectory 
 
-        gamma = self.discount_factor  # Define the discount factor for future rewards, determining their present value.
-        lambd = self.get_dynamic_lambda()  # Calculate the dynamic lambda value, adjusting the balance between immediate and future rewards.
-        
         with torch.no_grad():
             # Calculate future values from the model, used to estimate the expected return from each state.
-            future_values = self.trainer_calculate_future_value(next_states, padding_mask)
+            target_values = self.trainer_calculate_future_value(states, padding_mask)
             
             # Prepare trajectory values for lambda returns calculation, initializing the sequence with zeros.
-            trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
-            
-            # Compute the weighting factors for summing rewards over the trajectory, based on sequence length, gamma, and lambda.
-            sum_reward_weights = calculate_sum_reward_weights(self.gpt_seq_length, gamma, lambd, self.device)  
+            trajectory_values = torch.cat([target_values, future_value], dim=1)
             
             # Calculate expected values and sum of rewards using lambda returns method,
             # which blends immediate rewards with future values for a balanced estimate.
-            expected_value, sum_rewards = calculate_lambda_returns(trajectory_values, rewards, dones, gamma, lambd)
+            expected_value, sum_rewards = calculate_lambda_returns(trajectory_values, rewards, dones, self.gammas, self.lambdas)
             
             # Normalize the sum of rewards, applying the mask to handle valid sequence lengths.
-            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask) * sum_reward_weights
+            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask) * self.sum_reward_weights
             
             # Correct the expected value by adjusting with the normalized sum of rewards.
             expected_value = expected_value - sum_rewards + normalized_sum_rewards
