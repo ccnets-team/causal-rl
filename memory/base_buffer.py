@@ -11,19 +11,21 @@ class BaseBuffer:
         self.seq_len = seq_len
         self.state_size = state_size
         self.action_size = action_size
-        self.sample_probs = np.zeros(capacity, dtype=np.float32)
-
+        self.valid_indices = np.zeros(capacity, dtype=bool)
+        
     def __len__(self):
         if self.size >= self.capacity:
             return self.size
         return max(self.size - self.seq_len + 1, 0)
-
+    
     def _assign_sample_prob(self, index):
-        self.sample_probs[index] = 1.0
+        if self.size < self.seq_len - 1:
+            return  # Early exit if buffer size is less than required sequence length.
+        self.valid_indices[index] = True
 
     def _reset_sample_prob(self, index):
         end_idx = (index + self.seq_len - 1) % self.capacity
-        self.sample_probs[end_idx] = 0.0
+        self.valid_indices[end_idx] = False
                 
     def _reset_buffer(self):
         self.size = 0  
@@ -35,8 +37,8 @@ class BaseBuffer:
         self.terminated = np.empty(self.capacity)       
         self.truncated = np.empty(self.capacity)       
         self.padding_length = np.empty(self.capacity)       
-        self.sample_probs.fill(0.0)  # Reset all indices to invalid
-        
+        self.valid_indices.fill(False)  # Reset all indices to invalid
+                
     def _fetch_trajectory_slices(self, indices, td_steps):
         batch_size = len(indices)
         buffer_size = self.capacity

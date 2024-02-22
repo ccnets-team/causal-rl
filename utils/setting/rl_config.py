@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gpt_seq_length=16, discount_factor=0.995, advantage_lambda=0.95, use_deterministic=False, use_masked_exploration=True):
+    def __init__(self, gpt_seq_length=16, discount_factor=0.994, advantage_lambda=0.96, use_deterministic=False, use_masked_exploration=True):
         self.gpt_seq_length = gpt_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) lambda parameter for weighting advantages in policy optimization.
@@ -27,7 +27,7 @@ class NetworkParameters:
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
         self.critic_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the critic network.
         self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
-        self.rev_env_params = ModelParams(d_model=224, num_layers=num_layers, dropout=0.0)  # Parameters for the reverse environment network.
+        self.rev_env_params = ModelParams(d_model=d_model - d_model//8, num_layers=num_layers, dropout=0.0)  # Parameters for the reverse environment network.
 
 class OptimizationParameters:
     # Initialize optimization parameters
