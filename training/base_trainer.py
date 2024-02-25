@@ -7,15 +7,6 @@ from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .trainer_utils import calculate_lambda_returns, masked_tensor_reduction, calculate_sum_reward_weights, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask
 
-class GradScaler(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, input_tensor, scale_factor):
-        ctx.scale_factor = scale_factor
-        return input_tensor
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        return grad_output * ctx.scale_factor, None  # Scale the gradient by the scale factor
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -69,28 +60,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :param tensor: The input tensor to be reduced.
         :param mask: The mask tensor indicating the elements to consider in the reduction.
         :reduction_type: Type of reduction to apply ('batch', 'seq', or 'all').
-        :length_weight_exponent: The exponent used in adaptive reduction.
         :return: The reduced tensor.
         """
         
         if mask is not None:
-            if self.reduction_type in ['batch', 'seq', 'all']:
-                return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
-            elif self.reduction_type == 'cross':
-                batch_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='batch')
-                seq_wise_reduction = masked_tensor_reduction(tensor, mask, reduction='seq')
-
-                # Apply the GradScaler to scale the gradient by half during backprop
-                scaled_batch_wise_reduction = GradScaler.apply(batch_wise_reduction, 1)
-                scaled_seq_wise_reduction = GradScaler.apply(seq_wise_reduction, 1)
-
-                # Concatenate the tensors with scaled gradients
-                return torch.cat([scaled_batch_wise_reduction, scaled_seq_wise_reduction], dim=0)
-
-            elif self.reduction_type == 'none':
-                return tensor[mask>0].flatten()
-            else:
-                raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
+            return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
         else:
             if self.reduction_type == 'none':
                 return tensor

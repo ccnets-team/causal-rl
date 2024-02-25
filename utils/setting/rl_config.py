@@ -3,7 +3,7 @@ from nn.network_utils import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, max_steps=100000, buffer_size=320000):
+    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, max_steps=150000, buffer_size=320000):
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gpt_seq_length=16, discount_factor=0.994, advantage_lambda=0.96, use_deterministic=False, use_masked_exploration=True):
+    def __init__(self, gpt_seq_length=16, discount_factor=0.995, advantage_lambda=0.98, use_deterministic=False, use_masked_exploration=True):
         self.gpt_seq_length = gpt_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) lambda parameter for weighting advantages in policy optimization.
@@ -27,11 +27,11 @@ class NetworkParameters:
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
         self.critic_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the critic network.
         self.actor_params = ModelParams(d_model=d_model, num_layers=num_layers, dropout=dropout)  # Parameters for the actor network.
-        self.rev_env_params = ModelParams(d_model=d_model - d_model//4, num_layers=num_layers, dropout=0.0)  # Parameters for the reverse environment network.
+        self.rev_env_params = ModelParams(d_model=d_model - d_model//8, num_layers=num_layers, dropout=0.0)  # Parameters for the reverse environment network.
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=1e-4, min_lr=1e-5, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=1.0): 
+    def __init__(self, lr=1e-4, min_lr=5e-6, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=1.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.min_lr = min_lr  # Minimum learning rate to which the lr will decay.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.

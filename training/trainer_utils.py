@@ -2,6 +2,16 @@
 import torch
 import torch.nn.functional as F
 
+class GradScaler(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input_tensor, scale_factor):
+        ctx.scale_factor = scale_factor
+        return input_tensor
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        return grad_output * ctx.scale_factor, None  # Scale the gradient by the scale factor
+
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 
@@ -114,30 +124,66 @@ def calculate_lambda_returns(values, rewards, dones, gammas, td_lambdas):
     return lambda_returns, sum_rewards
 
 def masked_tensor_reduction(tensor, mask, reduction="batch"):
-    # Dictionary mapping for reduction type to dimension
-    reduction_to_dim = {"batch": 0, "seq": 1}
-
-    # Handle the 'all' reduction case separately
-    if reduction == "all":
-        return tensor[mask > 0].flatten().mean()
-
-    # Get the dimension for reduction from the dictionary
-    dim = reduction_to_dim.get(reduction)
-    if dim is None:
-        raise ValueError("Invalid reduction type. Choose 'batch', 'seq', or 'all'.")
-
-    # Ensure mask is a boolean tensor
-    mask_bool = mask.bool()
-    # Multiply the tensor by the mask, zeroing out the elements of the tensor where mask is False
-    masked_tensor = tensor * mask_bool
-    # Sum the masked tensor across the batch dimension (dim=0)
-    sum_per_sequence = torch.sum(masked_tensor, dim=dim)
-    # Count the number of True entries in the mask per sequence for normalization
-    dim_size = mask_bool.shape[dim] 
-    # Calculate the mean across the specified dimension
-    mean_across_dim = sum_per_sequence / max(dim_size, 1)
+    """
+    Performs a masked reduction on a tensor according to a specified method.
     
-    return mean_across_dim
+    Parameters:
+    - tensor: Input tensor to be reduced.
+    - mask: Boolean mask indicating valid elements for consideration in the reduction.
+    - reduction: Type of reduction to apply. Options are "batch", "seq", "cross", or "all".
+    
+    Behavior:
+    - "all": Returns the mean of all elements marked True by the mask, effectively ignoring masked elements.
+    - "batch"/"seq": Computes the mean across the batch or sequence dimension for unmasked elements only,
+      adjusted by the ratio of unmasked elements to the total batch size, ensuring fair representation of each dimension.
+    - "cross": Integrates contributions from both batch-wise and sequence-wise reductions into a single tensor,
+      with each dimension's contributions adjusted by scale factors to ensure their weights are balanced and equivalent
+      to other reduction types, facilitating consistent learning signals across different dimensions.
+            
+    Returns:
+    - A tensor representing the reduced values, scaled appropriately based on the reduction strategy and mask.
+    
+    Utilizes GradScaler to adjust gradients during backpropagation, ensuring proportional learning from unmasked elements.
+    """
+    if reduction not in {"batch", "seq", "cross", "all"}:
+        raise ValueError(f"Unsupported reduction: {reduction}")
+    
+    mask_bool = mask.bool()
+    masked_tensor = tensor * mask_bool  # Apply mask
+    batch_size = mask.size(0)
+
+    if reduction == "all":
+        # Directly return mean of the masked elements
+        return torch.mean(tensor[mask_bool])
+
+    if reduction in {"batch", "seq"}:
+        dim = 0 if reduction == "batch" else 1
+        sum_per_dim = torch.sum(masked_tensor, dim=dim)
+        count_per_dim = torch.sum(mask_bool, dim=dim).clamp(min=1)
+        mean_across_dim = sum_per_dim / count_per_dim
+        
+        dim_scale_factor =  (count_per_dim/batch_size)
+        mean_across_dim_adjusted = GradScaler.apply(mean_across_dim, dim_scale_factor)
+        return mean_across_dim_adjusted
+
+    elif reduction == "cross":
+        sum_per_batch = torch.sum(masked_tensor, dim=0)
+        count_per_batch = torch.sum(mask_bool, dim=0).clamp(min=1)
+        mean_across_batch = sum_per_batch / count_per_batch 
+        
+        sum_per_sequence = torch.sum(masked_tensor, dim=1)
+        count_per_sequence = torch.sum(mask_bool, dim=1).clamp(min=1)
+        mean_across_sequence = sum_per_sequence / count_per_sequence 
+
+        batch_scale_factor =  0.5 * (count_per_batch/batch_size)
+        seq_scale_factor =  0.5 * (count_per_sequence/batch_size)
+        
+        # Adjust to ensure equal weight for batch and sequence reductions
+        mean_across_batch_adjusted = GradScaler.apply(mean_across_batch, batch_scale_factor)
+        mean_across_sequence_adjusted = GradScaler.apply(mean_across_sequence, seq_scale_factor)
+        
+        combined_reduction = torch.cat([mean_across_batch_adjusted, mean_across_sequence_adjusted], dim=0)
+        return combined_reduction
 
 def create_train_sequence_mask(padding_mask, train_seq_length):
     """
