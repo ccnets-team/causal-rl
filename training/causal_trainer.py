@@ -58,7 +58,7 @@ class CausalTrainer(BaseTrainer):
     def train_model(self, trajectory: BatchTrajectory):
         """Training method for the model."""
 
-        self.set_train(training=True)
+        self.init_train()
     
         # Selects a trajectory segment optimized for sequence-based model input, focusing on recent experiences.
         states, actions, rewards, next_states, dones, padding_mask, future_value = self.select_train_sequence(trajectory)

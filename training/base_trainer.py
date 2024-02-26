@@ -19,6 +19,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.gammas = torch.tensor(self.discount_factor, device=self.device).expand(self.gpt_seq_length).unsqueeze(0).unsqueeze(-1)
         self.lambdas = torch.tensor(self.advantage_lambda, device=self.device).expand(self.gpt_seq_length).unsqueeze(0).unsqueeze(-1)
         self.sum_reward_weights = calculate_sum_reward_weights(self.gpt_seq_length, self.gammas, self.lambdas, self.device)  
+        
         self.train_iter = 0
 
     def _unpack_rl_params(self, rl_params):
@@ -52,6 +53,14 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         training_start_step = self.training_params.buffer_size // int(batch_size_ratio)
         return training_start_step
     
+    def init_train(self):
+        self.set_train(training=True)
+        
+        self.exploration_rate = self.get_exploration_rate()
+        dynamic_lambda = (1 - self.exploration_rate) + self.advantage_lambda * self.exploration_rate
+        self.lambdas.fill_(dynamic_lambda)
+        self.sum_reward_weights = calculate_sum_reward_weights(self.gpt_seq_length, self.gammas, self.lambdas, self.device)  
+        
     def select_tensor_reduction(self, tensor, mask=None):
         """
         Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
@@ -216,10 +225,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         return estimated_value, expected_value, advantage
 
     @abstractmethod
-    def trainer_calculate_future_value(self, next_state, mask = None):
+    def get_action(self, state, mask = None, training: bool = False):
         pass
 
     @abstractmethod
-    def get_action(self, state, mask = None, training: bool = False):
+    def trainer_calculate_future_value(self, next_state, mask = None):
         pass
-    
