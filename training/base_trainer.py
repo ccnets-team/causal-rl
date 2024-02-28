@@ -213,7 +213,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             
             # Correct the expected value by adjusting with the normalized sum of rewards.
             expected_value = expected_value - sum_rewards + normalized_sum_rewards
-                
+        
+        return expected_value   
+      
     def compute_advantage(self, estimated_value: torch.Tensor, expected_value: torch.Tensor, padding_mask: torch.Tensor):
         
         with torch.no_grad():

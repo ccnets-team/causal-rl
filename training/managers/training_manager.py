@@ -43,16 +43,26 @@ class TrainingManager:
     def get_schedulers(self):
         return self._schedulers
 
-    def clip_gradients(self):
-        for net in self._networks:  
+    def clip_gradients(self, network_idx = None):
+        if network_idx is None:
+            for net in self._networks:  
+                if self._max_grad_norm is not None:
+                    torch.nn.utils.clip_grad_norm_(net.parameters(), self._max_grad_norm)
+                if self._clip_grad_range is not None:
+                    torch.nn.utils.clip_grad_value_(net.parameters(), self._clip_grad_range)
+        else:
+            net = self._networks[network_idx]  
             if self._max_grad_norm is not None:
                 torch.nn.utils.clip_grad_norm_(net.parameters(), self._max_grad_norm)
             if self._clip_grad_range is not None:
                 torch.nn.utils.clip_grad_value_(net.parameters(), self._clip_grad_range)
 
-    def update_optimizers(self):
-        for opt in self._optimizers:
-            opt.step()
+    def update_optimizers(self, network_idx = None):
+        if network_idx is None:
+            for opt in self._optimizers:
+                opt.step()
+        else:
+            self._optimizers[network_idx].step()
 
     def update_schedulers(self):
         for sc in self._schedulers:
