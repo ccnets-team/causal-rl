@@ -3,7 +3,7 @@ from nn.network_utils import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, max_steps=150000, buffer_size=320000):
+    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, max_steps=100000, buffer_size=320000):
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gpt_seq_length=16, discount_factor=0.996, advantage_lambda=0.96, use_deterministic=False, use_masked_exploration=True):
+    def __init__(self, gpt_seq_length=16, discount_factor=0.995, advantage_lambda=0.96, use_deterministic=False, use_masked_exploration=True):
         self.gpt_seq_length = gpt_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) lambda parameter for weighting advantages in policy optimization.
@@ -21,7 +21,7 @@ class AlgorithmParameters:
         self.use_masked_exploration = use_masked_exploration # Enalbes sequence masking-based exploration, dynamically varying input sequence lengths by selective masking to promote internal strategy exploration without external noise.
 
 class NetworkParameters:
-    def __init__(self, num_layers=5, d_model=256, dropout=0.04, network_type=GPT):
+    def __init__(self, num_layers=5, d_model=256, dropout=0.02, network_type=GPT):
         self.critic_network = network_type  # Selected model-based network used for the critic.
         self.actor_network = network_type  # Selected model-based network used for the actor.
         self.rev_env_network = network_type  # Selected model-based network for reverse environment modeling.
@@ -31,7 +31,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=1e-4, min_lr=5e-6, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=1.0): 
+    def __init__(self, lr=1e-4, min_lr=1e-5, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=2.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.min_lr = min_lr  # Minimum learning rate to which the lr will decay.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
@@ -41,7 +41,7 @@ class OptimizationParameters:
         self.max_grad_norm = max_grad_norm  # L2 norm threshold for gradient clipping to prevent exploding gradients.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer=None, sum_reward_normalizer='running_mean_std', advantage_normalizer='running_abs_mean'):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer=None, sum_reward_normalizer='running_mean_std', advantage_normalizer='running_mean_sqrt'):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std' or 'None'.
         self.reward_normalizer = reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'None'.
         self.sum_reward_normalizer = sum_reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'None'.

@@ -184,7 +184,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         return discounted_future_value
         
-    def compute_values(self, states: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor, estimated_value: torch.Tensor, padding_mask: torch.Tensor, future_value: torch.Tensor):
+    def compute_expected_value(self, states: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor, padding_mask: torch.Tensor, future_value: torch.Tensor):
         """
         Computes the expected value and advantage for each state in a given trajectory,
         based on future values and actual rewards. The advantage calculation helps to quantify
@@ -214,6 +214,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             # Correct the expected value by adjusting with the normalized sum of rewards.
             expected_value = expected_value - sum_rewards + normalized_sum_rewards
                 
+    def compute_advantage(self, estimated_value: torch.Tensor, expected_value: torch.Tensor, padding_mask: torch.Tensor):
+        
         with torch.no_grad():
             # Calculate the advantage as the difference between corrected expected values and model estimates.
             # This measures how much better (or worse) an action is compared to the policy's average action.
