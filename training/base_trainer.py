@@ -226,7 +226,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             # Normalize the advantage, improving training stability by adjusting the scale of gradient updates.
             advantage = self.normalize_advantage(advantage, padding_mask)
 
-        return estimated_value, expected_value, advantage
+        return advantage
 
     @abstractmethod
     def get_action(self, state, mask = None, training: bool = False):

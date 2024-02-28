@@ -22,7 +22,7 @@ class CausalTrainer(BaseTrainer):
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
     def __init__(self, rl_params, device):
         self.trainer_name = 'causal_rl'
-        self.network_names = ["critic", "actor", "rev_env"]
+        self.network_names = ['critic', 'actor', 'rev_env']
         critic_network = rl_params.network.critic_network
         actor_network = rl_params.network.actor_network
         rev_env_network = rl_params.network.rev_env_network
@@ -65,7 +65,26 @@ class CausalTrainer(BaseTrainer):
         
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states, padding_mask)
-            
+
+        # Compute the expected value of the next state and the advantage of taking an action in the current state.
+        expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, future_value)
+        
+        # Calculate the value loss based on the difference between estimated and expected values.
+        value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
+
+        # Perform backpropagation to adjust the network parameters based on calculated losses.
+        self.backwards(
+            [self.critic],
+            [[value_loss]])
+
+        self.update_step('critic')
+
+        # Get the estimated value of the current state from the critic network.
+        estimated_value = self.critic(states, padding_mask)
+
+        # Compute the expected value of the next state and the advantage of taking an action in the current state.
+        advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
+
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor(states, estimated_value, padding_mask)
 
@@ -74,15 +93,6 @@ class CausalTrainer(BaseTrainer):
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
         
         coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False)
-
-        # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, future_value)
-            
-        # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
-
-        # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
 
         # Derive the critic loss from the cooperative critic error.
         critic_loss = self.select_tensor_reduction(coop_critic_error, padding_mask)
@@ -96,7 +106,7 @@ class CausalTrainer(BaseTrainer):
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
-            [[value_loss, critic_loss], [actor_loss], [revEnv_loss]])
+            [[critic_loss], [actor_loss], [revEnv_loss]])
 
         # Update the network parameters.
         self.update_step()
@@ -184,13 +194,18 @@ class CausalTrainer(BaseTrainer):
         
         return reversed_state, recurred_state
 
-    def update_step(self):
-        self.clip_gradients()
-        self.update_optimizers()
-        self.update_target_networks()
-        self.update_schedulers()
-        self.train_iter += 1
-
+    def update_step(self, network_name = None):
+        if network_name is not None:
+            network_idx = self.network_names.index(network_name)
+            self.clip_gradients(network_idx)
+            self.update_optimizers(network_idx)
+        else:
+            self.clip_gradients()
+            self.update_optimizers()
+            self.update_target_networks()
+            self.update_schedulers()
+            self.train_iter += 1
+            
     def trainer_calculate_future_value(self, next_state, mask):
         with torch.no_grad():
             future_value = self.target_critic(next_state, mask)
