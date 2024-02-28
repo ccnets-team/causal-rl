@@ -1,7 +1,7 @@
 import torch
 
 class RunningAbsMean:
-    def __init__(self, num_features, scale, device, min_abs_mean=0.5, max_abs_mean=1.0, alpha = 1e-4):
+    def __init__(self, num_features, scale, device, min_abs_mean=1.0, max_abs_mean=None, decay_rate = 1e-3):
         self.device = device
         self.abs_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
@@ -9,7 +9,7 @@ class RunningAbsMean:
         self.scale = scale
         self.min_abs_mean = min_abs_mean    
         self.max_abs_mean = max_abs_mean    
-        self.decay_factor = 1 - alpha
+        self.decay_factor = 1 - decay_rate
 
     def update(self, x, padding_mask=None):
         batch_size, seq_len, feature_size = x.size()

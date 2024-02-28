@@ -7,11 +7,27 @@ from memory.standard_buffer import StandardBuffer
 
 class ExperienceMemory:
     def __init__(self, env_config, training_params, algorithm_params, device):
+        """
+        Initializes an experience memory buffer for storing and managing agent experiences.
+
+        Args:
+            env_config: Configuration containing environment details like number of agents, environments,
+                        state size, and action size.
+            training_params: Training parameters including batch size and buffer size.
+            algorithm_params: Algorithm-specific parameters, used here to determine the combined sequence
+                              length for GPT and TD computations.
+            device: The computational device (CPU or GPU) where the data will be stored.
+
+        The buffer's total capacity and structure are tailored to support efficient experience replay,
+        enabling the model to learn from past interactions. The `gpt_td_seq_length` is set to 1.5 times
+        the GPT sequence length to account for sequence values computed for both the front and rear parts
+        of the sequence, optimizing for computational efficiency and learning effectiveness.
+        """
         self.device = device
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
-        self.gpt_seq_length = algorithm_params.gpt_seq_length
+        self.gpt_td_seq_length = algorithm_params.gpt_seq_length + algorithm_params.gpt_seq_length//4
         
         self.batch_size = training_params.batch_size
 
@@ -23,11 +39,11 @@ class ExperienceMemory:
 
     def _calculate_capacity_per_agent(self, buffer_size):
         # Capacity calculation logic separated for clarity
-        return int(buffer_size) // (self.num_environments * self.num_agents) + self.gpt_seq_length
+        return int(buffer_size) // (self.num_environments * self.num_agents) + self.gpt_td_seq_length
 
     def _initialize_buffers(self):
         # Buffer initialization logic separated for clarity
-        return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.gpt_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
+        return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.gpt_td_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
             
     def __len__(self):
         return sum(len(buf) for env in self.multi_buffers for buf in env)
@@ -66,71 +82,56 @@ class ExperienceMemory:
             buffer.add_transition(*data[2:])
         
     def sample_batch_trajectory(self):
-        samples, buffer_indices = self.sample_trajectory_data()
+        sample_sz = self.batch_size
+        td_steps = self.gpt_td_seq_length 
+        samples = self.balanced_sample_trajectory_data(sample_sz, td_steps)
         if samples is None:
             return None
 
         states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
         return BatchTrajectory(states, actions, rewards, next_states, dones)
-    
-    def sample_trajectory_data(self):
-        sample_sz = self.batch_size
-        td_steps = self.gpt_seq_length 
         
-        # Cumulative size calculation now a separate method for clarity
-        cumulative_sizes, total_buffer_size = self._calculate_cumulative_sizes()
-        if sample_sz > total_buffer_size:
-            return None, None
-        samples, buffer_indices = self.balanced_sample_trajectory_data(sample_sz, td_steps, cumulative_sizes)
-        return samples, buffer_indices  
+    def balanced_sample_trajectory_data(self, sample_size, td_steps):
+        total_sample_list = self._get_sample_list()
         
-    def balanced_sample_trajectory_data(self, sample_size, td_steps, cumulative_sizes):
-        sampling_probabilities = self._calculate_sampling_probabilities()
-
-        # Use torch.multinomial to sample indices
-        sampled_indices_torch = torch.multinomial(sampling_probabilities, sample_size, replacement=True)
-
-        # Convert sampled_indices_torch to a numpy array if necessary
-        sampled_indices = sampled_indices_torch.detach().cpu().numpy()
+        # Filter indices that are marked True (valid)
+        valid_indices = torch.nonzero(total_sample_list, as_tuple=False).squeeze()
         
-        buffer_indices = defaultdict(list)
-        for idx in sampled_indices:
-            buffer_id = next(i for i, cum_size in enumerate(cumulative_sizes) if idx < cum_size)
+        if len(valid_indices) < sample_size:
+            return None
 
-            previous_cumulative_size = cumulative_sizes[buffer_id - 1] if buffer_id > 0 else 0
-            local_idx = idx - previous_cumulative_size
-
-            buffer_indices[buffer_id].append(local_idx)
+        # Generate a random permutation of indices up to the length of valid_indices and select the first sample_size elements
+        permuted_indices = torch.randperm(len(valid_indices), device=self.device)[:sample_size]
         
-        samples = self._fetch_samples(buffer_indices, td_steps)
-        return samples, buffer_indices
+        # Select the actual indices based on the permuted indices
+        buffer_ids = valid_indices[permuted_indices] // self.capacity_per_agent
+        local_indices = valid_indices[permuted_indices] % self.capacity_per_agent
+        
+        buffer_ids = buffer_ids.detach().cpu().numpy()
+        local_indices = local_indices.detach().cpu().numpy()
+        
+        # Initialize a dictionary to hold arrays of local indices for each buffer
+        buffer_local_indices = defaultdict(list)
 
-    def _calculate_cumulative_sizes(self):
-        cumulative_sizes = []
-        total_buffer_size = 0
-        for env_id in range(self.num_environments):
-            for agent_id in range(self.num_agents):
-                total_buffer_size += len(self.multi_buffers[env_id][agent_id])
-                cumulative_sizes.append(total_buffer_size)
-        return cumulative_sizes, total_buffer_size
+        # Accumulate local indices for each buffer
+        for buffer_id, local_idx in zip(buffer_ids, local_indices):
+            buffer_local_indices[buffer_id].append(local_idx)
 
-    def _fetch_samples(self, buffer_indices, td_steps):
+        samples = self._fetch_samples(buffer_local_indices, td_steps)
+        return samples
+        
+    def _fetch_samples(self, buffer_local_indices, td_steps):
         samples = []
-        for buffer_id, local_indices in buffer_indices.items():
+        for buffer_id, local_indices_array in buffer_local_indices.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
-            # Fetch the experience using local indices
-            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices, td_steps)
+            # Assuming sample_trajectory_from_buffer can accept an array of local_indices
+            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices_array, td_steps)
             samples.extend(batch)
-
         return samples
     
-    def _calculate_sampling_probabilities(self):
-        buffer_sample_probs = torch.cat([
-            torch.tensor(buf.sample_probs[buf.size - len(buf):buf.size], dtype=torch.float).to(self.device) 
+    def _get_sample_list(self):
+        buffer_sample_indices = torch.cat([
+            torch.tensor(buf.valid_indices, dtype=torch.bool).to(self.device) 
             for env in self.multi_buffers for buf in env
         ], dim = 0)
-
-        sum_adjusted_td_errors = buffer_sample_probs.sum()
-        
-        probabilities = buffer_sample_probs / sum_adjusted_td_errors
-        return probabilities
+        return buffer_sample_indices

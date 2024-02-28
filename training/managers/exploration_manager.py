@@ -1,4 +1,6 @@
 import torch
+import math
+DECAY_UNIT_STEPS = 100000
 
 def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, decay_percentage):
     decay_steps = decay_percentage * max_steps
@@ -25,11 +27,16 @@ class ExplorationUtils:
         self.decay_mode = 'linear'
         self.exploration_rate = self.initial_exploration
 
+        desired_multiplier = max_steps/DECAY_UNIT_STEPS  # Indicates the desired multiplier for the longest vs. shortest sequence selection probability
+        base_growth_rate = 2  # Base rate of growth for the sequence length preference
+        adjustment_rate = math.log(desired_multiplier) / max(math.log(gpt_seq_length), 1e-8)  # Adjustment to align growth with the desired multiplier
+        self.exponential_factor = base_growth_rate + adjustment_rate
+        
         self.min_sample_ratio = 1
         self.max_sample_ratio = gpt_seq_length
         self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=self.device)
         self.start_ratios = torch.full_like(self.sequence_lengths, fill_value=1)  # Starting from even chance for minimum length
-        self.end_ratios = torch.pow(self.sequence_lengths.float(), 2)  # Ending with linear favoring towards longer lengths
+        self.end_ratios = torch.pow(self.sequence_lengths.float(), self.exponential_factor)  # Ending with linear favoring towards longer lengths
             
     def update_exploration_rate(self):  
         if self.decay_mode == "linear":

@@ -66,14 +66,18 @@ class NormalizerBase:
         self.normalizer = None
         self.feature_size = feature_size
         self.clip_norm_range = CLIP_NORM_RANGE  # The range within which normalized values are clipped, preventing excessively high normalization values.
-
+        if norm_type_key == 'advantage_normalizer':
+            update_decay_rate = 1e-3  # More emphasis on recent observations for advantage normalizer
+        else:
+            update_decay_rate = 1e-5  # Slower decay for other types of normalizers
+                
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
-            self.normalizer = RunningMeanStd(feature_size, scale, device)
+            self.normalizer = RunningMeanStd(feature_size, scale, device, decay_rate=update_decay_rate)
         elif norm_type == "running_abs_mean":
-            self.normalizer = RunningAbsMean(feature_size, scale, device)
+            self.normalizer = RunningAbsMean(feature_size, scale, device, decay_rate=update_decay_rate)
         elif norm_type == "running_square_mean":
-            self.normalizer = RunningSquareMean(feature_size, scale, device)
+            self.normalizer = RunningSquareMean(feature_size, scale, device, decay_rate=update_decay_rate)
             
         self.device = device
                     

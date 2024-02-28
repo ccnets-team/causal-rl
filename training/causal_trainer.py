@@ -15,7 +15,6 @@ from nn.roles.actor import DualInputActor
 from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
-from training.trainer_utils import create_padding_mask_before_dones
 from utils.init import set_seed
         
 class CausalTrainer(BaseTrainer):
@@ -59,11 +58,11 @@ class CausalTrainer(BaseTrainer):
     def train_model(self, trajectory: BatchTrajectory):
         """Training method for the model."""
 
-        self.set_train(training=True)
+        self.init_train()
     
-        # Extract the appropriate trajectory segment based on the use_sequence_batch and done flag.
-        states, actions, rewards, next_states, dones = trajectory
-        padding_mask = create_padding_mask_before_dones(dones)
+        # Selects a trajectory segment optimized for sequence-based model input, focusing on recent experiences.
+        states, actions, rewards, next_states, dones, padding_mask, future_value = self.select_train_sequence(trajectory)
+        
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states, padding_mask)
             
@@ -77,7 +76,7 @@ class CausalTrainer(BaseTrainer):
         coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False)
 
         # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        estimated_value, expected_value, advantage = self.compute_values(trajectory, estimated_value, padding_mask)
+        estimated_value, expected_value, advantage = self.compute_values(states, rewards, dones, estimated_value, padding_mask, future_value)
             
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   

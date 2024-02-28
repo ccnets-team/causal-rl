@@ -1,13 +1,15 @@
 import torch
 
 class RunningSquareMean:
-    def __init__(self, num_features, scale, device, alpha = 1e-4):
+    def __init__(self, num_features, scale, device, min_square_mean=1.0, max_square_mean=None, decay_rate = 1e-3):
         self.device = device
         self.square_mean = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.count = torch.zeros(num_features, device=self.device, dtype=torch.float64)
         self.num_features = num_features
         self.scale = scale
-        self.decay_factor = 1 - alpha
+        self.min_square_mean = min_square_mean    
+        self.max_square_mean = max_square_mean    
+        self.decay_factor = 1 - decay_rate
 
     def update(self, x, padding_mask=None):
         batch_size, seq_len, feature_size = x.size()
@@ -33,7 +35,21 @@ class RunningSquareMean:
         return self
 
     def get_square_mean(self):
-        return (self.square_mean / self.scale + 1e-8)
+        # Apply the minimum absolute mean threshold if min_abs_mean is not None
+        if self.min_square_mean is not None:
+            thresh_min_square_mean = torch.maximum(self.square_mean, self.min_square_mean * torch.ones_like(self.square_mean))
+        else:
+            thresh_min_square_mean = self.square_mean  # If min_square_mean is None, do not apply minimum threshold
+        
+        # Apply the maximum squareolute mean threshold if max_square_mean is not None
+        if self.max_square_mean is not None:
+            thresh_square_mean = torch.minimum(thresh_min_square_mean, self.max_square_mean * torch.ones_like(thresh_min_square_mean))
+        else:
+            thresh_square_mean = thresh_min_square_mean  # If max_square_mean is None, use the min thresholded value or original square_mean
+
+        # Now scale the thresholded squareolute mean
+        scaled_square_mean = (torch.sqrt(thresh_square_mean + 1e-8) / self.scale)
+        return scaled_square_mean
     
     def normalize(self, x):
         if len(x) < 1 or torch.sum(self.count < 1) > 0:
