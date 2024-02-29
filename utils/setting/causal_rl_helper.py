@@ -85,9 +85,6 @@ class CausalRLHelper:
     def should_train_step(self, samples, step: int) -> bool:
         """Checks if the model should be trained on the current step."""
         return samples is not None and (step % self.train_interval == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
-
-    def update_exploration_strategy(self) -> bool:
-        self.parent.trainer.update_exploration_rate()
         
     # Private Helpers
     def _initialize_training_parameters(self):

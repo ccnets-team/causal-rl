@@ -86,8 +86,6 @@ class CausalRL:
             self.trainer.normalize_trajectories(samples)
             train_data = self.trainer.train_model(samples)
             self.helper.add_train_metrics(train_data)
-            
-        self.helper.update_exploration_strategy()
         
     # Environment Interaction
     def interact_environment(self, env, training=True):

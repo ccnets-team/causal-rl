@@ -14,7 +14,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_trainer_specific_params()
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
-        self._init_exploration_utils(self.gpt_seq_length, rl_params.max_steps)
+        self._init_exploration_utils(self.gpt_seq_length)
             
         self.gammas = torch.tensor(self.discount_factor, device=self.device).expand(self.gpt_seq_length).unsqueeze(0).unsqueeze(-1)
         self.lambdas = torch.tensor(self.advantage_lambda, device=self.device).expand(self.gpt_seq_length).unsqueeze(0).unsqueeze(-1)
@@ -27,18 +27,16 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
          self.optimization_params, self.normalization_params) = rl_params
 
     def _init_training_manager(self, networks, target_networks, device):
-        training_start_step = self._compute_training_start_step()
-        total_iterations = max(self.training_params.max_steps - training_start_step, 0)//self.training_params.train_interval
         TrainingManager.__init__(self, networks, target_networks, self.optimization_params.lr, self.optimization_params.min_lr, 
-                                 self.optimization_params.clip_grad_range, self.optimization_params.max_grad_norm, self.optimization_params.tau, total_iterations, self.optimization_params.scheduler_type)
+                                 self.optimization_params.clip_grad_range, self.optimization_params.max_grad_norm, self.optimization_params.tau, self.total_iterations, self.optimization_params.scheduler_type)
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
         NormalizationUtils.__init__(self, env_config.state_size, self.normalization_params, self.gpt_seq_length, device)
 
-    def _init_exploration_utils(self, gpt_seq_length, max_steps):
+    def _init_exploration_utils(self, gpt_seq_length):
         self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationUtils.__init__(self, gpt_seq_length, max_steps, self.device)
+        ExplorationUtils.__init__(self, gpt_seq_length, self.total_iterations, self.device)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
@@ -48,6 +46,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.use_masked_exploration = self.algorithm_params.use_masked_exploration 
         self.reduction_type = 'cross'
 
+        self.training_start_step = self._compute_training_start_step()
+        self.total_iterations = max(self.training_params.max_steps - self.training_start_step, 0)//self.training_params.train_interval
+
     def _compute_training_start_step(self):
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
         training_start_step = self.training_params.buffer_size // int(batch_size_ratio)
@@ -55,11 +56,14 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     
     def init_train(self):
         self.set_train(training=True)
-        
-        self.exploration_rate = self.get_exploration_rate()
-        dynamic_lambda = (1 - self.exploration_rate) + self.advantage_lambda * self.exploration_rate
-        self.lambdas.fill_(dynamic_lambda)
-        self.sum_reward_weights = calculate_sum_reward_weights(self.gpt_seq_length, self.gammas, self.lambdas, self.device)  
+
+    def update_step(self):
+        self.clip_gradients()
+        self.update_optimizers()
+        self.update_target_networks()
+        self.update_schedulers()
+        self.update_exploration_rate()
+        self.train_iter += 1
         
     def select_tensor_reduction(self, tensor, mask=None):
         """
@@ -184,25 +188,29 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         return discounted_future_value
         
-    def compute_values(self, states: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor, estimated_value: torch.Tensor, padding_mask: torch.Tensor, future_value: torch.Tensor):
+    def compute_expected_value(self, states: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor, padding_mask: torch.Tensor, end_value: torch.Tensor):
         """
-        Computes the expected value and advantage for each state in a given trajectory,
-        based on future values and actual rewards. The advantage calculation helps to quantify
-        the relative benefit of each action compared to the average, guiding the policy improvement.
+        Computes the expected value for each state in a batch, utilizing future values and rewards.
+        This function prepares the groundwork for advantage calculation by providing a baseline of expected returns,
+        which are essential for evaluating the relative benefit of actions taken in each state.
+        The inputs are 3D tensors with dimensions [Batch Size, Sequence Length, Feature Dimension], where Batch Size
+        is the number of sequences, Sequence Length is the number of steps in each sequence, and Feature Dimension
+        represents the dimensionality of states, rewards, and dones, except for the end_value which has dimensions [B, 1, Value Dim].
 
-        :param trajectory: A batch of trajectories containing states, actions, rewards, next_states, and dones.
-        :param estimated_value: The value estimates produced by the model for each state.
-        :param padding_mask: A mask indicating valid elements in the trajectory to exclude padding.
-        :return: The estimated value, the corrected expected value, and the computed advantage for the trajectory.
+        :param states: A 3D tensor of states from the environment [B, Seq, State Dim].
+        :param rewards: A 3D tensor of rewards obtained after executing actions from the states [B, Seq, 1].
+        :param dones: A 3D tensor indicating whether a state is terminal (1 if true, 0 otherwise) [B, Seq, 1].
+        :param padding_mask: A 3D mask tensor indicating valid states to consider, used to exclude padding in batched operations [B, Seq, 1].
+        :param end_value: A 3D tensor representing the last future value predicted by the model for each sequence, used for calculating the return from the final state [B, 1, Value Dim].
+        :return: The expected value for each state, adjusted with the normalized sum of rewards [B, Seq, Value Dim].
         """
-        # Extract components from the trajectory
-
+    
         with torch.no_grad():
             # Calculate future values from the model, used to estimate the expected return from each state.
             target_values = self.trainer_calculate_future_value(states, padding_mask)
             
             # Prepare trajectory values for lambda returns calculation, initializing the sequence with zeros.
-            trajectory_values = torch.cat([target_values, future_value], dim=1)
+            trajectory_values = torch.cat([target_values, end_value], dim=1)
             
             # Calculate expected values and sum of rewards using lambda returns method,
             # which blends immediate rewards with future values for a balanced estimate.
@@ -213,7 +221,23 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             
             # Correct the expected value by adjusting with the normalized sum of rewards.
             expected_value = expected_value - sum_rewards + normalized_sum_rewards
+            
+        return expected_value
                 
+    def compute_advantage(self, estimated_value: torch.Tensor, expected_value: torch.Tensor, padding_mask: torch.Tensor):
+        """
+        Calculates the advantage, which measures the benefit of taking specific actions from given states over the policy's average prediction for those states.
+        This is determined by comparing the expected value of actions, as computed from actual outcomes and future predictions, against the value estimated by the model.
+
+        :param estimated_value: A 3D tensor of value estimates for each state as predicted by the model. This tensor has dimensions [B, Seq, Value Dim],
+                                where Value Dim typically equals 1, representing the predicted value of each state within the sequence.
+        :param expected_value: A 3D tensor of expected values for each state, computed considering future rewards and values, with dimensions [B, Seq, Value Dim].
+                            This tensor provides the baseline against which the estimated value is compared to calculate the advantage.
+        :param padding_mask: A 3D mask tensor used to identify valid states and exclude padding when processing batches, with dimensions [B, Seq, 1].
+                            The mask ensures that only valid sequence elements contribute to the advantage calculation, improving the accuracy of training signals.
+        :return: The normalized advantage for each state-action pair within the sequences, indicating the relative effectiveness of actions taken. 
+                The output is a 3D tensor with dimensions [B, Seq, Value Dim], where each element reflects the calculated advantage for the corresponding state.
+        """
         with torch.no_grad():
             # Calculate the advantage as the difference between corrected expected values and model estimates.
             # This measures how much better (or worse) an action is compared to the policy's average action.
@@ -222,7 +246,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             # Normalize the advantage, improving training stability by adjusting the scale of gradient updates.
             advantage = self.normalize_advantage(advantage, padding_mask)
 
-        return estimated_value, expected_value, advantage
+        return advantage
 
     @abstractmethod
     def get_action(self, state, mask = None, training: bool = False):

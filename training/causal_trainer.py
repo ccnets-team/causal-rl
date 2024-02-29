@@ -61,7 +61,7 @@ class CausalTrainer(BaseTrainer):
         self.init_train()
     
         # Selects a trajectory segment optimized for sequence-based model input, focusing on recent experiences.
-        states, actions, rewards, next_states, dones, padding_mask, future_value = self.select_train_sequence(trajectory)
+        states, actions, rewards, next_states, dones, padding_mask, end_value = self.select_train_sequence(trajectory)
         
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states, padding_mask)
@@ -71,12 +71,13 @@ class CausalTrainer(BaseTrainer):
 
         reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
         
-        forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
+        forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = False)
         
         coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False)
 
-        # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        estimated_value, expected_value, advantage = self.compute_values(states, rewards, dones, estimated_value, padding_mask, future_value)
+        expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, end_value)
+        
+        advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
             
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
@@ -126,11 +127,11 @@ class CausalTrainer(BaseTrainer):
     
     def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
         # Calculate the cooperative critic error using forward and reverse costs in relation to the recurrent cost.
-        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)
+        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)/2
         # Calculate the cooperative actor error using recurrent and forward costs in relation to the reverse cost.
-        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)
+        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)/2
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
-        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)      
+        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)/2      
         return coop_critic_error, coop_actor_error, coop_revEnv_error
 
     def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
@@ -180,13 +181,6 @@ class CausalTrainer(BaseTrainer):
             assert False, "Invalid dropout value for reverse environment model."
         
         return reversed_state, recurred_state
-
-    def update_step(self):
-        self.clip_gradients()
-        self.update_optimizers()
-        self.update_target_networks()
-        self.update_schedulers()
-        self.train_iter += 1
 
     def trainer_calculate_future_value(self, next_state, mask):
         with torch.no_grad():
