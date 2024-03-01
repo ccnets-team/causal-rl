@@ -92,6 +92,8 @@ def _wandb_log_data(log_data, metrics, step):
 def wandb_log_train_data(trainer, train_reward_per_step, eval_reward_per_step, train_accumulative_rewards, eval_accumulative_rewards, metrics, step, time_cost):
     epsilon = trainer.get_exploration_rate()
     learning_rate = trainer.get_lr()
+    gamma = trainer.learnable_td.gamma
+    lambd = trainer.learnable_td.lambd
 
     # Creating a dictionary to log scalar data efficiently
     log_data = {
@@ -101,6 +103,8 @@ def wandb_log_train_data(trainer, train_reward_per_step, eval_reward_per_step, t
         'Step/EvalReward': eval_reward_per_step, 
         "Step/Time": time_cost, 
         "Step/LearningRate": learning_rate,
+        "Step/Gamma": gamma,
+        "Step/Lambda": lambd,
         "Step/ExplorationRate": epsilon
     }
 
