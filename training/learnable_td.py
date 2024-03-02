@@ -29,30 +29,31 @@ class LearnableTD(nn.Module):
         dynamic_lambda = self.advantage_lambda + (1 - self.advantage_lambda) * (2 * torch.sigmoid(self.raw_lambd) - 1)
         return GradScaler.apply(dynamic_lambda, 0.5)  # Scales lambda by 0.5 to accelerate its learning rate.
 
+    def get_sum_reward_weights(self, seq_range):
+        start_idx, end_idx = seq_range
+        return self.sum_reward_weights[:, start_idx: end_idx]
+
     def update_sum_reward_weights(self):
         # Parameters are now accessed directly from the class attributes
-        max_seq_len, gamma, td_lambda, device = self.max_seq_len, self.gamma, self.lambd, self.device
+        max_seq_len, gamma, td_lambdas, device = self.max_seq_len, self.gamma, self.lambd, self.device
         
         # (Rest of the method remains the same as your provided code)
         # Initialize tensors for value weights and sum reward weights with zeros.
         value_weights = torch.zeros(max_seq_len + 1, dtype=torch.float, device=device)
-        sum_reward_weights = torch.zeros(max_seq_len, dtype=torch.float, device=device)
+        raw_sum_reward_weights = torch.zeros(max_seq_len, dtype=torch.float, device=device)
         
         # Ensure the final value weight equals 1, setting up a base case for backward calculation.
         value_weights[-1] = 1
 
         # Backward pass to compute weights. This loop calculates the decayed weights for each timestep,
         for t in reversed(range(max_seq_len)):
-            value_weights[t] = gamma * ((1 - td_lambda[t]) + td_lambda[t] * value_weights[t + 1])
-            sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
+            value_weights[t] = gamma * ((1 - td_lambdas[t]) + td_lambdas[t] * value_weights[t + 1])
+            raw_sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
 
-        # Normalize sum reward weights to maintain a consistent scale across sequences.
-        sum_reward_weights /= sum_reward_weights.mean().clamp(min=1e-8)
+        sum_reward_weights = raw_sum_reward_weights.unsqueeze(0).unsqueeze(-1)
+        self.sum_reward_weights = sum_reward_weights / sum_reward_weights.mean().clamp(min=1e-8)
 
-        # Reshape for compatibility with expected input formats.
-        self.sum_reward_weights = sum_reward_weights.unsqueeze(0).unsqueeze(-1)
-
-    def calculate_lambda_returns(self, values, rewards, dones):
+    def calculate_lambda_returns(self, values, rewards, dones, seq_range):
         """
         Calculates lambda returns and sum of rewards for each timestep in a sequence with variable gamma and lambda.
 
@@ -68,28 +69,26 @@ class LearnableTD(nn.Module):
                 - lambda_returns (torch.Tensor): The calculated lambda returns for each timestep.
                 - sum_rewards (torch.Tensor): The cumulative sum of rewards for each timestep.
         """
-        gamma, td_lambda = self.gamma, self.lambd
+        start_idx, end_idx = seq_range
+        gamma, td_lambdas = self.gamma, self.lambd[start_idx:end_idx]
+        segment_length = end_idx - start_idx
         
-        # Determine the batch size and sequence length from the rewards shape
-        batch_size, seq_len, _ = rewards.shape
-
-        # Initialize lambda returns with the same shape as values
+        # Initialize tensors for the segment's lambda returns and sum of rewards
         sum_rewards = torch.zeros_like(values)
         lambda_returns = torch.zeros_like(values)
-
-        # Set the last timestep's lambda return to the last timestep's value
+        
+        # Initialize the last timestep's lambda return to the last timestep's value within the segment
         lambda_returns[:, -1:] = values[:, -1:]
 
-        # Iterate backwards through each timestep in the sequence
-        for t in reversed(range(seq_len)):
+        # Iterate backwards through the segment
+        for t in reversed(range(segment_length)):
             with torch.no_grad():
                 # Calculate lambda return for each timestep:
-                sum_rewards[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * (td_lambda[t] * sum_rewards[:, t + 1, :])
+                sum_rewards[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * (td_lambdas[t] * sum_rewards[:, t + 1, :])
             # Current reward + discounted future value, adjusted by td_lambda
-            lambda_returns[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * ((1 -  td_lambda[t]) * values[:, t + 1, :] + td_lambda[t] * lambda_returns[:, t + 1, :].clone())
+            lambda_returns[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * ((1 -  td_lambdas[t]) * values[:, t + 1, :] + td_lambdas[t] * lambda_returns[:, t + 1, :].clone())
 
-        # Remove the last timestep to align lambda returns with their corresponding states
+        # Remove the last timestep to align sum rewards with their corresponding states.lambda_returns includes the last timestep's value, so it is not shifted.  
         sum_rewards = sum_rewards[:, :-1, :]
-        lambda_returns = lambda_returns[:, :-1, :]
-
+        
         return lambda_returns, sum_rewards        

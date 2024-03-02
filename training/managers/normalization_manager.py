@@ -84,7 +84,7 @@ class NormalizerBase:
             
         self.device = device
                     
-    def _update_normalizer(self, data, padding_mask=None):
+    def _update_normalizer(self, data, padding_mask=None, feature_range = None):
         if self.normalizer is not None:
             # Convert to a PyTorch tensor if it's a NumPy array and move to the specified device
             if not isinstance(data, torch.Tensor):
@@ -92,22 +92,22 @@ class NormalizerBase:
             elif data.device != self.device:
                 data = data.to(self.device)
             # Update the normalizer with the reshaped data
-            self.normalizer.update(data, padding_mask)
+            self.normalizer.update(data, padding_mask, feature_range = feature_range)
                 
-    def _normalize_last_dim(self, data, scale = 1):
+    def _normalize_last_dim(self, data, scale = 1, feature_range = None):
         if self.normalizer is not None:
             # Normalize and clamp data
             clip = self.clip_norm_range * scale
-            data = self.normalizer.normalize(data)
+            data = self.normalizer.normalize(data, feature_range = feature_range)
             data.clamp_(-clip, clip)
         return data
     
 class NormalizationUtils:
-    def __init__(self, state_size, normalization_params, seq_length, device):
+    def __init__(self, state_size, normalization_params, gpt_seq_length, td_seq_length, device):
         self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, STATE_NORM_SCALE, device=device)
         self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, REWARD_NORM_SCALE, device=device)
-        self.sum_reward_manager = NormalizerBase(seq_length, 'sum_reward_normalizer', normalization_params, SUM_REWARD_NORM_SCALE, device=device)
-        self.advantage_manager = NormalizerBase(seq_length, 'advantage_normalizer', normalization_params, ADVANTAGE_NORM_SCALE, device=device)
+        self.sum_reward_manager = NormalizerBase(td_seq_length, 'sum_reward_normalizer', normalization_params, SUM_REWARD_NORM_SCALE, device=device)
+        self.advantage_manager = NormalizerBase(gpt_seq_length, 'advantage_normalizer', normalization_params, ADVANTAGE_NORM_SCALE, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
         self.sum_reward_normalizer = normalization_params.sum_reward_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
@@ -128,9 +128,9 @@ class NormalizationUtils:
     def normalize_rewards(self, reward):
         return self.reward_manager._normalize_last_dim(reward, REWARD_NORM_SCALE)
     
-    def normalize_sum_rewards(self, sum_rewards, padding_mask=None):
+    def normalize_sum_rewards(self, sum_rewards, padding_mask=None, seq_range = None):
         """
-        Applies normalization to estimated and expected values using the specified value normalizer,
+        Applies normalization to estimated and expected values using the specified value normalizer,    
         adjusting for sequence length variability. 
 
         Args:
@@ -154,9 +154,9 @@ class NormalizationUtils:
                 reshaped_padding_mask = None
             else:
                 reshaped_padding_mask = padding_mask.squeeze(-1).unsqueeze(1)
-            self.sum_reward_manager._update_normalizer(reshaped_sum_rewards, reshaped_padding_mask)
+            self.sum_reward_manager._update_normalizer(reshaped_sum_rewards, reshaped_padding_mask, feature_range = seq_range)
 
-            normalized_reshaped_sum_rewards = self.sum_reward_manager._normalize_last_dim(reshaped_sum_rewards, SUM_REWARD_NORM_SCALE)
+            normalized_reshaped_sum_rewards = self.sum_reward_manager._normalize_last_dim(reshaped_sum_rewards, SUM_REWARD_NORM_SCALE, feature_range = seq_range)
             normalized_sum_rewards = normalized_reshaped_sum_rewards.squeeze(1).unsqueeze(-1)
         
         return normalized_sum_rewards

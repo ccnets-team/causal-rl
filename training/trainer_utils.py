@@ -48,7 +48,6 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-
 def masked_tensor_reduction(tensor, mask, reduction="batch"):
     """
     Performs a masked reduction on a tensor according to a specified method.
@@ -78,6 +77,8 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
     masked_tensor = tensor * mask_bool  # Apply mask
     batch_size = mask.size(0)
     seq_size = mask.size(1)
+    total_count = torch.sum(mask_bool).clamp(min=1)
+    total_scale_factor = (seq_size * batch_size / total_count)
 
     if reduction == "all":
         # Directly return mean of the masked elements
@@ -89,7 +90,7 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
         count_per_dim = torch.sum(mask_bool, dim=dim).clamp(min=1)
         mean_across_dim = sum_per_dim / count_per_dim
         
-        dim_scale_factor =  (count_per_dim/batch_size)
+        dim_scale_factor =  (count_per_dim/batch_size) * total_scale_factor
         mean_across_dim_adjusted = GradScaler.apply(mean_across_dim, dim_scale_factor)
         return mean_across_dim_adjusted
 
@@ -102,8 +103,8 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
         count_per_sequence = torch.sum(mask_bool, dim=1).clamp(min=1)
         mean_across_sequence = sum_per_sequence / count_per_sequence 
 
-        batch_scale_factor =  0.5 * (count_per_batch/batch_size)
-        seq_scale_factor =  0.5 * (count_per_sequence/batch_size)
+        batch_scale_factor =  0.5 * (count_per_batch/batch_size) * total_scale_factor
+        seq_scale_factor =  0.5 * (count_per_sequence/batch_size) * total_scale_factor
         
         # Adjust to ensure equal weight for batch and sequence reductions
         mean_across_batch_adjusted = GradScaler.apply(mean_across_batch, batch_scale_factor)

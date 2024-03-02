@@ -13,8 +13,15 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gpt_seq_length=16, discount_factor=0.99, advantage_lambda=0.95, use_deterministic=False, use_masked_exploration=True):
-        self.gpt_seq_length = gpt_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
+    def __init__(self, gpt_seq_length=16, td_seq_length=20, discount_factor=0.99, advantage_lambda=0.95, use_deterministic=False, use_masked_exploration=True):
+        self.gpt_seq_length = gpt_seq_length  
+        # Defines the maximum input sequence length for the Critic, Actor, and Reverse-environment GPT models for causal learning.
+        # This parameter sets the scope of historical and future context that the models can utilize for learning the state transition between current states and future states.
+
+        self.td_seq_length = td_seq_length  
+        # Specifies the sequence length used for calculating Temporal Difference (TD) returns for value estimates.
+        # Intentionally set longer than gpt_seq_length, td_seq_length enables the Critic GPT model to estimate values across two gpt_seq_length intervals for future and current target values.
+                
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) lambda parameter for weighting advantages in policy optimization.
         self.use_deterministic = use_deterministic  # Determines whether to use deterministic actions during training/evaluation.

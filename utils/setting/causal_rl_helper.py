@@ -99,7 +99,8 @@ class CausalRLHelper:
         self.samples_per_step = self.batch_size//self.replay_ratio
         self.training_start_step = self.buffer_size//int(self.batch_size/self.replay_ratio) 
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_interval*self.batch_size))
-
+        self.td_seq_length = self.rl_params.td_seq_length
+        
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
             self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.parent.device)
@@ -114,7 +115,7 @@ class CausalRLHelper:
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
-            self.parent.memory = ExperienceMemory(self.env_config, self.rl_params.training, self.rl_params.algorithm, self.parent.device)
+            self.parent.memory = ExperienceMemory(self.env_config, self.td_seq_length, self.batch_size, self.buffer_size, self.parent.device)
 
     def _save_rl_model_conditional(self, step: int):
         if step % self.save_interval == 0:
