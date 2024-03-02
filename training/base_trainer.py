@@ -5,7 +5,9 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, LearnableTD, GradScaler
+from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, GradScaler
+from .learnable_td import LearnableTD
+UPDATE_LEARNABLE_TD_INTERVAL = 10
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -13,7 +15,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_trainer_specific_params()
 
         self.learnable_td = LearnableTD(self.gpt_seq_length, self.discount_factor, self.advantage_lambda, device)
-        self._init_training_manager(networks + [self.learnable_td], target_networks, device)
+        
+        # Initializing the training manager with the networks involved in the learning process
+        self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils(self.gpt_seq_length)
   
@@ -24,8 +28,27 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
          self.optimization_params, self.normalization_params) = rl_params
 
     def _init_training_manager(self, networks, target_networks, device):
-        TrainingManager.__init__(self, networks, target_networks, self.optimization_params.lr, self.optimization_params.min_lr, 
-                                 self.optimization_params.clip_grad_range, self.optimization_params.max_grad_norm, self.optimization_params.tau, self.total_iterations, self.optimization_params.scheduler_type)
+        # Use 'learning_networks' to emphasize the networks' role in the learning process
+        learning_networks = networks + [self.learnable_td]
+        # Constructing learning parameters for each network, including the learnable_td with adjusted parameters
+        learning_param_list = [
+            {'lr': self.optimization_params.lr, 'decay_rate_100k': self.optimization_params.decay_rate_100k,
+             'scheduler_type': self.optimization_params.scheduler_type, 
+             'clip_grad_range': self.optimization_params.clip_grad_range, 
+             'max_grad_norm': self.optimization_params.max_grad_norm}
+            for _ in networks
+        ]
+        # Adjusting parameters for learnable_td
+        learnable_td_params = {
+            'lr': self.optimization_params.lr * UPDATE_LEARNABLE_TD_INTERVAL, 
+            'decay_rate_100k': self.optimization_params.decay_rate_100k, 
+            'scheduler_type': self.optimization_params.scheduler_type, 
+            'clip_grad_range': self.optimization_params.clip_grad_range, 
+            'max_grad_norm': self.optimization_params.max_grad_norm
+        }
+        learning_param_list.append(learnable_td_params)
+        
+        TrainingManager.__init__(self, learning_networks, target_networks, learning_param_list, self.optimization_params.tau, self.total_iterations)
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
@@ -53,14 +76,39 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     
     def init_train(self):
         self.set_train(training=True)
+        
+        with torch.no_grad():
+            self.learnable_td.update_sum_reward_weights()
   
     def update_step(self):
-        self.clip_gradients()
-        self.update_optimizers()
-        self.update_target_networks()
-        self.update_schedulers()
-        self.update_exploration_rate()
-        self.train_iter += 1
+        """
+        Executes a series of update operations essential for the training iteration.
+
+        This function orchestrates the training process by sequentially:
+        1. Clipping gradients to prevent exploding gradient issues, ensuring stable training.
+        2. Updating the model's optimizers, applying the computed gradients to adjust model parameters.
+        3. Updating target networks, which are used in certain RL algorithms to provide stable targets for learning.
+        4. Adjusting learning rates through schedulers, optimizing the training efficiency over time.
+        5. Modifying the exploration rate, crucial for balancing exploration and exploitation in RL.
+        6. Incrementing the training iteration counter, tracking the progress of the training process.
+
+        Each step plays a vital role in maintaining the health and effectiveness of the training loop, 
+        contributing to the overall performance and convergence of the learning algorithm.
+        """
+        self.clip_gradients()         # Prevents exploding gradients.
+        self.update_optimizers()      # Applies gradients to adjust model parameters.
+        self.update_target_networks() # Updates target networks for stable learning targets.
+        self.update_schedulers()      # Adjusts learning rates for optimal training.
+        self.update_exploration_rate()# Modifies exploration rate for effective exploration-exploitation balance.
+        self.train_iter += 1          # Tracks training progress.
+                
+    def should_update_learnable_td(self):
+        """
+        Checks if learnable TD parameters should be updated based on the current training iteration.
+        Returns:
+            bool: True if it's time to update learnable TD parameters; False otherwise.
+        """
+        return self.train_iter % UPDATE_LEARNABLE_TD_INTERVAL == 0
         
     def select_tensor_reduction(self, tensor, mask=None):
         """
@@ -93,8 +141,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :return: The reduced value loss, after applying optional masking and reduction over the tensor.
         """
         # Compute squared error, a common choice for regression tasks, providing a smooth gradient for optimization.
-        squared_error = (estimated_value - expected_value).square()
-
+        if self.should_update_learnable_td():
+            squared_error = (estimated_value - expected_value).square()
+        else:
+            squared_error = (estimated_value - expected_value.detach()).square()
+            
         # Reduce the squared error tensor to a scalar loss value, applying optional masking to focus loss calculation.
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
 
@@ -168,20 +219,16 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         future_values = self.trainer_calculate_future_value(last_next_states, last_padding_mask)
         trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
 
-        with torch.no_grad():
-            # Calculate expected value from the trajectory, considering rewards and dones
-            expected_value, sum_rewards = self.learnable_td.calculate_lambda_returns(
-                trajectory_values, last_rewards, last_dones)
-        
-                # trajectory_values, last_rewards, last_dones, self.gammas, self.lambdas)
-            sum_reward_weights = self.learnable_td.calculate_sum_reward_weights()
+        # Calculate expected value from the trajectory, considering rewards and dones
+        expected_value, sum_rewards = self.learnable_td.calculate_lambda_returns(trajectory_values, last_rewards, last_dones)
 
+        with torch.no_grad():
             # Normalize the sum of rewards, applying the mask to handle valid sequence lengths.
-            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, last_padding_mask) * sum_reward_weights
-        
-            # Correct the expected value by adjusting with the normalized sum of rewards.
-            expected_value = expected_value - sum_rewards + normalized_sum_rewards
-        
+            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, last_padding_mask) * self.learnable_td.sum_reward_weights.detach()
+
+        # Correct the expected value by adjusting with the normalized sum of rewards.
+        expected_value = expected_value - sum_rewards + normalized_sum_rewards
+    
         # Select the appropriate future value using end_select_idx
         target_idx = (self.gpt_seq_length - next_states.size(1) + selection_end_idx - 1).flatten()
         batch_idx = torch.arange(0, next_states.size(0), device=self.device)
@@ -216,16 +263,14 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         # Calculate expected values and sum of rewards using lambda returns method,
         # which blends immediate rewards with future values for a balanced estimate.
         expected_value, sum_rewards = self.learnable_td.calculate_lambda_returns(trajectory_values, rewards, dones)
-        # expected_value, sum_rewards = self.calculate_lambda_returns(trajectory_values, rewards, dones, self.gammas, self.lambdas)
         
         with torch.no_grad():
-            sum_reward_weights = self.learnable_td.calculate_sum_reward_weights()
-
             # Normalize the sum of rewards, applying the mask to handle valid sequence lengths.
-            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask) * sum_reward_weights
+            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask) * self.learnable_td.sum_reward_weights
         
         # Correct the expected value by adjusting with the normalized sum of rewards.
-        expected_value = expected_value - sum_rewards.detach() + normalized_sum_rewards.detach()
+        # expected_value = expected_value - sum_rewards + normalized_sum_rewards
+        expected_value = expected_value - sum_rewards + normalized_sum_rewards
             
         return expected_value
                 
@@ -243,14 +288,23 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :return: The normalized advantage for each state-action pair within the sequences, indicating the relative effectiveness of actions taken. 
                 The output is a 3D tensor with dimensions [B, Seq, Value Dim], where each element reflects the calculated advantage for the corresponding state.
         """
-        # Calculate the advantage as the difference between corrected expected values and model estimates.
-        # This measures how much better (or worse) an action is compared to the policy's average action.
-        advantage = (expected_value - estimated_value.detach())
-        
-        # Normalize the advantage, improving training stability by adjusting the scale of gradient updates.
+        # Determine the computation mode based on the update status of learnable TD parameters.
+        # If TD parameters are being updated, detach only the estimated value to emphasize the learning signal from actual outcomes.
+        # Otherwise, detach both to stabilize the learning against a static baseline.
+        if self.should_update_learnable_td():
+            advantage = (expected_value - estimated_value.detach())
+        else:
+            advantage = (expected_value.detach() - estimated_value.detach())
+            
+        # Normalize the advantage to enhance training stability, ensuring consistent gradient scales.
         advantage = self.normalize_advantage(advantage, padding_mask)
-        
-        advantage = GradScaler.apply(advantage, -1)
+
+        if self.should_update_learnable_td():
+            # When TD parameters are being updated, apply gradient scaling to the advantage calculation.
+            advantage = GradScaler.apply(advantage, -1)
+        else:
+            # Proceed without gradient scaling when TD parameters are not being updated.
+            advantage = advantage  # This line is effectively a no-op and could be omitted for clarity.
 
         return advantage
 

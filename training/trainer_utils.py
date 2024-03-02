@@ -1,8 +1,5 @@
 
 import torch
-import torch.nn.functional as F
-import torch.nn as nn
-import math
 
 class GradScaler(torch.autograd.Function):
     @staticmethod
@@ -13,95 +10,6 @@ class GradScaler(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         return grad_output * ctx.scale_factor, None  # Scale the gradient by the scale factor
-
-class LearnableTD(nn.Module):
-    def __init__(self, max_seq_len, discount_factor, advantage_lambda, device):
-        super(LearnableTD, self).__init__()
-        self.device = device
-        self.max_seq_len = max_seq_len
-        self.discount_factor = discount_factor
-        self.advantage_lambda = advantage_lambda
-
-        # Initialize raw_gamma and raw_lambda as learnable parameters
-        # Starting from 0 to center the sigmoid output around 0.5
-        self.raw_gamma = nn.Parameter(torch.zeros(1, device=self.device, dtype=torch.float))
-        self.raw_lambd = nn.Parameter(torch.zeros(1, device=self.device, dtype=torch.float))
-
-    @property
-    def gamma(self):
-        # Apply sigmoid to raw_gamma to constrain it within (0, 1)
-        return self.discount_factor + (1 - self.discount_factor) * (2 * torch.sigmoid(self.raw_gamma) - 1)
-
-    @property
-    def lambd(self):
-        # Apply sigmoid to raw_gamma to constrain it within (0, 1)
-        return self.advantage_lambda + (1 - self.advantage_lambda) * (2 * torch.sigmoid(self.raw_lambd) - 1)
-    
-    def calculate_sum_reward_weights(self):
-        # Parameters are now accessed directly from the class attributes
-        max_seq_len, gamma, td_lambda, device = self.max_seq_len, self.gamma, self.lambd, self.device
-        
-        # (Rest of the method remains the same as your provided code)
-        # Initialize tensors for value weights and sum reward weights with zeros.
-        value_weights = torch.zeros(max_seq_len + 1, dtype=torch.float, device=device)
-        sum_reward_weights = torch.zeros(max_seq_len, dtype=torch.float, device=device)
-        
-        # Ensure the final value weight equals 1, setting up a base case for backward calculation.
-        value_weights[-1] = 1
-
-        # Backward pass to compute weights. This loop calculates the decayed weights for each timestep,
-        for t in reversed(range(max_seq_len)):
-            value_weights[t] = gamma * ((1 - td_lambda) + td_lambda * value_weights[t + 1])
-            sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
-
-        # Normalize sum reward weights to maintain a consistent scale across sequences.
-        sum_reward_weights /= sum_reward_weights.mean().clamp(min=1e-8)
-
-        # Reshape for compatibility with expected input formats.
-        return sum_reward_weights.unsqueeze(0).unsqueeze(-1)
-
-    def calculate_lambda_returns(self, values, rewards, dones):
-        """
-        Calculates lambda returns and sum of rewards for each timestep in a sequence with variable gamma and lambda.
-
-        Args:
-            values (torch.Tensor): The value estimates for each timestep.
-            rewards (torch.Tensor): The rewards received at each timestep.
-            dones (torch.Tensor): Indicates whether a timestep is terminal (1 if terminal, 0 otherwise).
-            gammas (torch.Tensor): Discount factors for future rewards, varying per timestep.
-            td_lambdas (torch.Tensor): Lambda parameters for TD(lambda) returns, varying per timestep.
-
-        Returns:
-            tuple: A tuple containing:
-                - lambda_returns (torch.Tensor): The calculated lambda returns for each timestep.
-                - sum_rewards (torch.Tensor): The cumulative sum of rewards for each timestep.
-        """
-        gamma, td_lambda = self.gamma, self.lambd
-        
-        # Determine the batch size and sequence length from the rewards shape
-        batch_size, seq_len, _ = rewards.shape
-
-        # Initialize lambda returns with the same shape as values
-        sum_rewards = torch.zeros_like(values)
-        lambda_returns = torch.zeros_like(values)
-
-        # Set the last timestep's lambda return to the last timestep's value
-        lambda_returns[:, -1:] = values[:, -1:]
-
-        # Iterate backwards through each timestep in the sequence
-        for t in reversed(range(seq_len)):
-            with torch.no_grad():   
-                # Calculate lambda return for each timestep:
-                sum_rewards[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * (td_lambda * sum_rewards[:, t + 1, :])
-            # Current reward + discounted future value, adjusted by td_lambda
-            lambda_returns[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * ((1 -  td_lambda) * values[:, t + 1, :] + td_lambda * lambda_returns[:, t + 1, :].clone())
-
-        # Remove the last timestep to align lambda returns with their corresponding states
-        sum_rewards = sum_rewards[:, :-1, :]
-        lambda_returns = lambda_returns[:, :-1, :]
-
-        return lambda_returns, sum_rewards        
-
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -175,16 +83,13 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
         # Directly return mean of the masked elements
         return torch.mean(tensor[mask_bool])
 
-    total_count = torch.sum(mask_bool).clamp(min=1)
-    total_scale_factor = (seq_size * batch_size / total_count)
-
     if reduction in {"batch", "seq"}:
         dim = 0 if reduction == "batch" else 1
         sum_per_dim = torch.sum(masked_tensor, dim=dim)
         count_per_dim = torch.sum(mask_bool, dim=dim).clamp(min=1)
         mean_across_dim = sum_per_dim / count_per_dim
         
-        dim_scale_factor =  (count_per_dim/batch_size) * total_scale_factor
+        dim_scale_factor =  (count_per_dim/batch_size)
         mean_across_dim_adjusted = GradScaler.apply(mean_across_dim, dim_scale_factor)
         return mean_across_dim_adjusted
 
@@ -197,8 +102,8 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
         count_per_sequence = torch.sum(mask_bool, dim=1).clamp(min=1)
         mean_across_sequence = sum_per_sequence / count_per_sequence 
 
-        batch_scale_factor =  0.5 * (count_per_batch/batch_size) * total_scale_factor
-        seq_scale_factor =  0.5 * (count_per_sequence/batch_size) * total_scale_factor
+        batch_scale_factor =  0.5 * (count_per_batch/batch_size)
+        seq_scale_factor =  0.5 * (count_per_sequence/batch_size)
         
         # Adjust to ensure equal weight for batch and sequence reductions
         mean_across_batch_adjusted = GradScaler.apply(mean_across_batch, batch_scale_factor)

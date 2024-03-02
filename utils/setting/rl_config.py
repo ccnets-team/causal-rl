@@ -31,9 +31,9 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=1e-4, min_lr=1e-5, scheduler_type='exponential', tau=0.1, use_target_network=True, clip_grad_range=None, max_grad_norm=1.0): 
+    def __init__(self, lr=1e-4, decay_rate_100k=0.1, scheduler_type='exponential', tau=0.1, use_target_network=True, clip_grad_range=None, max_grad_norm=1.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
-        self.min_lr = min_lr  # Minimum learning rate to which the lr will decay.
+        self.decay_rate_100k = decay_rate_100k  # Decay rate for the learning rate every 100k steps.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
         self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
