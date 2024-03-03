@@ -103,10 +103,10 @@ class NormalizerBase:
         return data
     
 class NormalizationUtils:
-    def __init__(self, state_size, normalization_params, gpt_seq_length, td_seq_length, device):
+    def __init__(self, state_size, normalization_params, gpt_seq_length, device):
         self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, STATE_NORM_SCALE, device=device)
         self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, REWARD_NORM_SCALE, device=device)
-        self.sum_reward_manager = NormalizerBase(td_seq_length, 'sum_reward_normalizer', normalization_params, SUM_REWARD_NORM_SCALE, device=device)
+        self.sum_reward_manager = NormalizerBase(gpt_seq_length, 'sum_reward_normalizer', normalization_params, SUM_REWARD_NORM_SCALE, device=device)
         self.advantage_manager = NormalizerBase(gpt_seq_length, 'advantage_normalizer', normalization_params, ADVANTAGE_NORM_SCALE, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
         self.sum_reward_normalizer = normalization_params.sum_reward_normalizer
