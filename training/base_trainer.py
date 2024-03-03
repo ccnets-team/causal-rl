@@ -38,14 +38,16 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
              'max_grad_norm': self.optimization_params.max_grad_norm}
             for _ in networks
         ]
+        
         # Adjusting parameters for learnable_td
         learnable_td_params = {
-            'lr': self.optimization_params.lr * UPDATE_LEARNABLE_TD_INTERVAL, 
-            'decay_rate_100k': self.optimization_params.decay_rate_100k, 
-            'scheduler_type': self.optimization_params.scheduler_type, 
-            'clip_grad_range': self.optimization_params.clip_grad_range, 
-            'max_grad_norm': self.optimization_params.max_grad_norm
-        }
+            'lr': self.optimization_params.lr * UPDATE_LEARNABLE_TD_INTERVAL,
+            'decay_rate_100k': self.optimization_params.decay_rate_100k,
+            'scheduler_type': self.optimization_params.scheduler_type,
+            'clip_grad_range': self.optimization_params.clip_grad_range if self.optimization_params.clip_grad_range is not None else self.optimization_params.max_grad_norm, 
+            'max_grad_norm': None # Explicitly set to None if not using max_grad_norm for learnable_td_params
+        }            
+
         learning_param_list.append(learnable_td_params)
         
         TrainingManager.__init__(self, learning_networks, target_networks, learning_param_list, self.optimization_params.tau, self.total_iterations)
@@ -237,7 +239,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         with torch.no_grad():
             # Retrieve normalized sum reward weights for the given sequence range
-            sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=(start_seq_idx, end_seq_idx))
+            sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=(start_seq_idx, end_seq_idx), padding_mask=adjusted_padding_mask)
 
             # Normalize sum rewards with the adjusted mask and weights
             normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, adjusted_padding_mask, seq_range=(start_seq_idx, end_seq_idx)) * sum_reward_weights

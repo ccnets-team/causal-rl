@@ -68,8 +68,10 @@ class CausalRL:
             self.train_off_policy(self.step)
             self.helper.end_step(self.step)  
             self.step += 1 
+        
+        if self.helper.should_save_model_at_train_end():
+            self.helper.save_model()
             
-        self.helper.save_model()
         self._end_environment(self.train_env)
         self._end_environment(self.eval_env)
         

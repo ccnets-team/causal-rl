@@ -100,6 +100,7 @@ class CausalRLHelper:
         self.training_start_step = self.buffer_size//int(self.batch_size/self.replay_ratio) 
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_interval*self.batch_size))
         self.td_seq_length = self.rl_params.td_seq_length
+        self.num_save_models = 0
         
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
@@ -116,10 +117,18 @@ class CausalRLHelper:
     def _ensure_memory_exists(self):
         if not self.parent.memory:
             self.parent.memory = ExperienceMemory(self.env_config, self.td_seq_length, self.batch_size, self.buffer_size, self.parent.device)
-
+    
+    def should_save_model_at_train_end(self) -> bool:
+        """Determines if the model should be saved at the training end."""
+        return self.num_save_models < 1
+    
     def _save_rl_model_conditional(self, step: int):
         if step % self.save_interval == 0:
-            save_path = self.recorder.save_path if self.recorder.is_best_period() else self.recorder.temp_save_path
+            if self.recorder.is_best_period():
+                save_path = self.recorder.save_path
+                self.num_save_models += 1
+            else:
+                save_path = self.recorder.temp_save_path
             try:
                 save_trainer(self.parent.trainer, save_path)
             except Exception as e:
