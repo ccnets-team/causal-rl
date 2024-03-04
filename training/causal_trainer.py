@@ -16,7 +16,9 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from utils.init import set_seed
-        
+from training.trainer_utils import create_transformation_matrix
+import math
+            
 class CausalTrainer(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -31,7 +33,18 @@ class CausalTrainer(BaseTrainer):
         self.rev_env_params = rl_params.rev_env_params
 
         env_config = rl_params.env_config
-        
+        state_size = env_config.state_size
+
+        # Calculate dimensions for transformation matrices with descriptive naming
+        # indicating the purpose or logic behind each dimensionality adjustment
+        target_dim_for_cost = min(state_size, math.ceil(2 * max(math.sqrt(state_size), 1)))
+        target_dim_for_error = min(state_size, math.ceil(max(math.sqrt(state_size), 1)))
+
+        # Create transformation matrices for cost and error calculations, 
+        # naming them to reflect their input and output dimensions and purpose
+        self.cost_transformation_matrix = create_transformation_matrix(state_size, target_dim_for_cost).to(device)
+        self.error_transformation_matrix = create_transformation_matrix(target_dim_for_cost, target_dim_for_error).to(device)
+                        
         self.critic = SingleInputCritic(critic_network, env_config, rl_params.critic_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, rl_params.use_deterministic, rl_params.actor_params).to(device)
         self.revEnv = RevEnv(rev_env_network, env_config, rl_params.rev_env_params).to(device)
@@ -71,9 +84,9 @@ class CausalTrainer(BaseTrainer):
 
         reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
         
-        forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = False)
+        forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
         
-        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False)
+        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True)
 
         expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, end_value)
         
@@ -190,8 +203,10 @@ class CausalTrainer(BaseTrainer):
     def cost_fn(self, predict, target, reduce_feture_dim = False):
         cost = (predict - target.detach()).abs()
         if reduce_feture_dim:
-            cost = cost.mean(dim=-1, keepdim=True)  # Compute the mean across the state_size dimension
-        return cost
+            reduced_cost = torch.matmul(cost, self.cost_transformation_matrix)
+        else:
+            reduced_cost = cost 
+        return reduced_cost
     
     def error_fn(self, predict, target, reduce_feture_dim = False):
         """
@@ -209,8 +224,10 @@ class CausalTrainer(BaseTrainer):
         """
         error = (predict - target.detach()).abs()
         if reduce_feture_dim:
-            error = error.mean(dim=-1, keepdim=True)  # Compute the mean across the state_size dimension
-        return error
+            reduced_error = torch.matmul(error, self.error_transformation_matrix)
+        else:
+            reduced_error = error 
+        return reduced_error
 
     def backwards(self, networks, network_errors):
         """
@@ -224,7 +241,7 @@ class CausalTrainer(BaseTrainer):
         Step-by-step Explanation:
         1. Initially, all networks are set to not require gradients. This ensures that during the error 
         backpropagation, gradients won't be accidentally updated for the wrong network.
-        2. For each network:
+        2. For each network:    
         - The network is set to require gradients, making it the current target for the backpropagation.
         - The gradients of this and all subsequent networks in the list are zeroed out. This ensures 
             that gradient accumulation from any previous passes doesn't interfere with the current backpropagation.

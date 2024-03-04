@@ -2,7 +2,9 @@
 import torch
 import torch.nn as nn
 from .trainer_utils import GradScaler
-LAMBDA_GRAD_SCALE_FACTOR = 0.1  # Scales lambda gradients to adjust learning speed relative to gamma.
+
+GAMMA_GRAD_SCALE_FACTOR = 1.0
+LAMBDA_GRAD_SCALE_FACTOR = 1.0  # Scales lambda gradients to adjust learning speed relative to gamma.
 
 class LearnableTD(nn.Module):
     def __init__(self, max_seq_len, discount_factor, advantage_lambda, device):
@@ -22,7 +24,7 @@ class LearnableTD(nn.Module):
     def gamma(self):
         # Sigmoid transformation of raw_gamma ensures gamma stays within [0, 1].
         dynamic_gamma = self.discount_factor + (1 - self.discount_factor) * (2 * torch.sigmoid(self.raw_gamma) - 1)
-        return GradScaler.apply(dynamic_gamma, 1.0)
+        return GradScaler.apply(dynamic_gamma, GAMMA_GRAD_SCALE_FACTOR)
 
     @property
     def lambd(self):
