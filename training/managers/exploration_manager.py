@@ -11,7 +11,7 @@ def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, de
     return (min_exploration / initial_exploration) ** (1/decay_steps)
 
 class ExplorationUtils:
-    def __init__(self, gpt_seq_length, max_steps, device):
+    def __init__(self, gpt_seq_length, total_iterations, device):
         self.device = device
         self.decay_percentage = None
         self.decay_factor = None
@@ -22,22 +22,35 @@ class ExplorationUtils:
         # Defines the rate at which exploration decreases. A value of 0.8 means 80% of initial exploration will be reduced over max_steps.
         self.decay_percentage = 0.8
         # Default decay mode. 'linear' means exploration rate decreases linearly over time.
-        self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, max_steps, self.decay_percentage)
+        self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, total_iterations, self.decay_percentage)
         
         self.decay_mode = 'linear'
         self.exploration_rate = self.initial_exploration
 
-        desired_multiplier = max_steps/DECAY_UNIT_STEPS  # Indicates the desired multiplier for the longest vs. shortest sequence selection probability
-        base_growth_rate = 2  # Base rate of growth for the sequence length preference
-        adjustment_rate = math.log(desired_multiplier) / max(math.log(gpt_seq_length), 1e-8)  # Adjustment to align growth with the desired multiplier
-        self.exponential_factor = base_growth_rate + adjustment_rate
-        
-        self.min_sample_ratio = 1
-        self.max_sample_ratio = gpt_seq_length
+        # Adjusts preference for sequence lengths based on training duration relative to a fixed step count
+        self.training_extension_factor = total_iterations / DECAY_UNIT_STEPS
+
+        # Sets a neutral starting point for the growth factor of sequence length preference
+        self.base_growth_factor = 1
+
+        # Adjusts the growth factor based on the training duration and sequence complexity
+        self.growth_adjustment_factor = math.log(self.training_extension_factor) / max(math.log(gpt_seq_length), 1e-8)
+
+        # Establishes an initial bias towards longer sequences
+        self.start_exponential_factor = 0.0
+
+        # Calculates the final exponential factor to strongly favor longer sequences by the end of training
+        self.end_exponential_factor = self.base_growth_factor + self.growth_adjustment_factor
+
+        # Generates a tensor of sequence lengths from 1 to the maximum sequence length
         self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=self.device)
-        self.start_ratios = torch.full_like(self.sequence_lengths, fill_value=1)  # Starting from even chance for minimum length
-        self.end_ratios = torch.pow(self.sequence_lengths.float(), self.exponential_factor)  # Ending with linear favoring towards longer lengths
-            
+
+        # Computes the initial preference for each sequence length, slightly favoring longer ones
+        self.start_ratios = torch.pow(self.sequence_lengths.float(), self.start_exponential_factor)
+
+        # Computes the final preference for each sequence length, significantly favoring longer ones
+        self.end_ratios = torch.pow(self.sequence_lengths.float(), self.end_exponential_factor)
+
     def update_exploration_rate(self):  
         if self.decay_mode == "linear":
             self.exploration_rate = max(self.exploration_rate + self.decay_factor, self.min_exploration)

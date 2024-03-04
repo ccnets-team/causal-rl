@@ -1,6 +1,5 @@
 
 import torch
-import torch.nn.functional as F
 
 class GradScaler(torch.autograd.Function):
     @staticmethod
@@ -49,80 +48,6 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-def calculate_sum_reward_weights(max_seq_len, gammas, td_lambdas, device):
-    # Initialize tensors for value weights and sum reward weights with zeros.
-    # Value weights are for calculating discounted future values, and sum reward weights are for scaling rewards.
-    value_weights = torch.zeros(max_seq_len + 1, dtype=torch.float, device=device)
-    sum_reward_weights = torch.zeros(max_seq_len, dtype=torch.float, device=device)
-
-    flattened_gammas = gammas.flatten()
-    flattened_td_lambdas = td_lambdas.flatten()
-    
-    # Ensure the final value weight equals 1, setting up a base case for backward calculation.
-    value_weights[-1] = 1
-
-    # Backward pass to compute weights. This loop calculates the decayed weights for each timestep,
-    # applying the gamma (discount factor) and td_lambda (trade-off between TD and MC) to adjust the contribution of future rewards.
-    for t in reversed(range(max_seq_len)):
-        # Update value_weights by blending the immediate reward (1) and discounted future value weights,
-        # modulated by gamma and td_lambda for each timestep.
-        value_weights[t] = flattened_gammas[t] * ((1 - flattened_td_lambdas[t]) * 1 + flattened_td_lambdas[t] * value_weights[t + 1])
-
-        # Compute the sum reward weights as the complement of value weights, indicating the proportion of reward assigned to each timestep.
-        sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
-
-    # Ensure all sum_reward_weights are within the [0, 1] range, validating the computation logic.
-    assert torch.all(sum_reward_weights >= 0) and torch.all(sum_reward_weights <= 1)
-
-    # Normalize sum reward weights to maintain a consistent scale across sequences, improving stability.
-    # The normalization also ensures that the mean of these weights is adjusted to 1, preventing disproportionate scaling.
-    sum_reward_weights /= sum_reward_weights.mean(dim=0, keepdim=True).clamp(min=1e-8)
-
-    # Reshape sum reward weights for compatibility with expected input formats, preparing for further processing.
-    sum_reward_weights = sum_reward_weights.unsqueeze(0).unsqueeze(-1)
-    
-    return sum_reward_weights
-
-def calculate_lambda_returns(values, rewards, dones, gammas, td_lambdas):
-    """
-    Calculates lambda returns and sum of rewards for each timestep in a sequence with variable gamma and lambda.
-
-    Args:
-        values (torch.Tensor): The value estimates for each timestep.
-        rewards (torch.Tensor): The rewards received at each timestep.
-        dones (torch.Tensor): Indicates whether a timestep is terminal (1 if terminal, 0 otherwise).
-        gammas (torch.Tensor): Discount factors for future rewards, varying per timestep.
-        td_lambdas (torch.Tensor): Lambda parameters for TD(lambda) returns, varying per timestep.
-
-    Returns:
-        tuple: A tuple containing:
-            - lambda_returns (torch.Tensor): The calculated lambda returns for each timestep.
-            - sum_rewards (torch.Tensor): The cumulative sum of rewards for each timestep.
-    """
-    # Determine the batch size and sequence length from the rewards shape
-    batch_size, seq_len, _ = rewards.shape
-
-    # Initialize lambda returns with the same shape as values
-    sum_rewards = torch.zeros_like(values)
-    lambda_returns = torch.zeros_like(values)
-
-    # Set the last timestep's lambda return to the last timestep's value
-    lambda_returns[:, -1:] = values[:, -1:]
-
-    # Iterate backwards through each timestep in the sequence
-    for t in reversed(range(seq_len)):
-        # Calculate lambda return for each timestep:
-        sum_rewards[:, t, :] = rewards[:, t, :] + gammas[:, t, :] * (1 - dones[:, t, :]) * (td_lambdas[:, t, :] * sum_rewards[:, t + 1, :])
-        
-        # Current reward + discounted future value, adjusted by td_lambda
-        lambda_returns[:, t, :] = rewards[:, t, :] + gammas[:, t, :] * (1 - dones[:, t, :]) * ((1 - td_lambdas[:, t, :]) * values[:, t + 1, :] + td_lambdas[:, t, :] * lambda_returns[:, t + 1, :])
-
-    # Remove the last timestep to align lambda returns with their corresponding states
-    sum_rewards = sum_rewards[:, :-1, :]
-    lambda_returns = lambda_returns[:, :-1, :]
-
-    return lambda_returns, sum_rewards
-
 def masked_tensor_reduction(tensor, mask, reduction="batch"):
     """
     Performs a masked reduction on a tensor according to a specified method.
@@ -151,6 +76,9 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
     mask_bool = mask.bool()
     masked_tensor = tensor * mask_bool  # Apply mask
     batch_size = mask.size(0)
+    seq_size = mask.size(1)
+    total_count = torch.sum(mask_bool).clamp(min=1)
+    total_scale_factor = (seq_size * batch_size / total_count)
 
     if reduction == "all":
         # Directly return mean of the masked elements
@@ -162,7 +90,7 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
         count_per_dim = torch.sum(mask_bool, dim=dim).clamp(min=1)
         mean_across_dim = sum_per_dim / count_per_dim
         
-        dim_scale_factor =  (count_per_dim/batch_size)
+        dim_scale_factor =  (count_per_dim/batch_size) * total_scale_factor
         mean_across_dim_adjusted = GradScaler.apply(mean_across_dim, dim_scale_factor)
         return mean_across_dim_adjusted
 
@@ -175,8 +103,8 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
         count_per_sequence = torch.sum(mask_bool, dim=1).clamp(min=1)
         mean_across_sequence = sum_per_sequence / count_per_sequence 
 
-        batch_scale_factor =  0.5 * (count_per_batch/batch_size)
-        seq_scale_factor =  0.5 * (count_per_sequence/batch_size)
+        batch_scale_factor =  0.5 * (count_per_batch/batch_size) * total_scale_factor
+        seq_scale_factor =  0.5 * (count_per_sequence/batch_size) * total_scale_factor
         
         # Adjust to ensure equal weight for batch and sequence reductions
         mean_across_batch_adjusted = GradScaler.apply(mean_across_batch, batch_scale_factor)
@@ -213,3 +141,39 @@ def create_train_sequence_mask(padding_mask, train_seq_length):
 def apply_sequence_mask(component, model_seq_mask, model_seq_length):
     component_shape = component.shape
     return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
+
+def create_transformation_matrix(n, m):
+    transformation_matrix = torch.zeros((n, m), dtype=torch.float)
+    remaining = torch.ones((m), dtype=torch.float)
+                        
+    for i in range(n):  # Iterate, excluding the last iteration
+        if i < n - 1:
+            # Generate a random distribution for the current row
+            random_dist = torch.rand(m) * remaining
+            # Normalize to ensure sum equals (m/n), before applying to remaining
+            random_dist /= random_dist.sum()
+            random_dist *= (m/n)
+            
+            # Calculate excess where random_dist allocation exceeds what's available in remaining
+            excess = random_dist - remaining
+            
+            # Identify positive excess (over-allocation) and negative excess (under-allocation, incorrectly calculated previously)
+            positive_excess = -torch.clamp(excess, max=0)
+            negative_excess = torch.clamp(excess, min=0)
+            
+            # Adjust for positive excess by proportionally redistributing it
+            if negative_excess.sum() > 0:
+                # Proportionally adjust random_dist down where there's positive excess
+                adjustment_factor = (positive_excess.sum() - negative_excess.sum())/positive_excess.sum()
+                random_dist += positive_excess * adjustment_factor
+                random_dist += negative_excess
+            # Update remaining based on adjusted random_dist
+            remaining -= random_dist 
+
+            # Assign adjusted distribution to the transformation matrix
+            transformation_matrix[i] = random_dist
+        else:
+            # For the last row, directly use the remaining distribution
+            transformation_matrix[i] = remaining
+    
+    return transformation_matrix.unsqueeze(0)

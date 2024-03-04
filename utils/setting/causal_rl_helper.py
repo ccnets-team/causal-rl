@@ -85,9 +85,6 @@ class CausalRLHelper:
     def should_train_step(self, samples, step: int) -> bool:
         """Checks if the model should be trained on the current step."""
         return samples is not None and (step % self.train_interval == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
-
-    def update_exploration_strategy(self) -> bool:
-        self.parent.trainer.update_exploration_rate()
         
     # Private Helpers
     def _initialize_training_parameters(self):
@@ -102,7 +99,9 @@ class CausalRLHelper:
         self.samples_per_step = self.batch_size//self.replay_ratio
         self.training_start_step = self.buffer_size//int(self.batch_size/self.replay_ratio) 
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_interval*self.batch_size))
-
+        self.td_seq_length = self.rl_params.td_seq_length
+        self.num_save_models = 0
+        
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
             self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.parent.device)
@@ -117,11 +116,19 @@ class CausalRLHelper:
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
-            self.parent.memory = ExperienceMemory(self.env_config, self.rl_params.training, self.rl_params.algorithm, self.parent.device)
-
+            self.parent.memory = ExperienceMemory(self.env_config, self.td_seq_length, self.batch_size, self.buffer_size, self.parent.device)
+    
+    def should_save_model_at_train_end(self) -> bool:
+        """Determines if the model should be saved at the training end."""
+        return self.num_save_models < 1
+    
     def _save_rl_model_conditional(self, step: int):
         if step % self.save_interval == 0:
-            save_path = self.recorder.save_path if self.recorder.is_best_period() else self.recorder.temp_save_path
+            if self.recorder.is_best_period():
+                save_path = self.recorder.save_path
+                self.num_save_models += 1
+            else:
+                save_path = self.recorder.temp_save_path
             try:
                 save_trainer(self.parent.trainer, save_path)
             except Exception as e:

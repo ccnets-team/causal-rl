@@ -68,8 +68,10 @@ class CausalRL:
             self.train_off_policy(self.step)
             self.helper.end_step(self.step)  
             self.step += 1 
+        
+        if self.helper.should_save_model_at_train_end():
+            self.helper.save_model()
             
-        self.helper.save_model()
         self._end_environment(self.train_env)
         self._end_environment(self.eval_env)
         
@@ -86,8 +88,6 @@ class CausalRL:
             self.trainer.normalize_trajectories(samples)
             train_data = self.trainer.train_model(samples)
             self.helper.add_train_metrics(train_data)
-            
-        self.helper.update_exploration_strategy()
         
     # Environment Interaction
     def interact_environment(self, env, training=True):

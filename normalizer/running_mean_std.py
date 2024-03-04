@@ -10,7 +10,7 @@ class RunningMeanStd:
         self.scale = scale
         self.decay_factor = 1 - decay_rate
 
-    def update(self, x, padding_mask=None):
+    def update(self, x, padding_mask=None, feature_range = None):
         batch_size, seq_len, feature_size = x.size()
         if batch_size == 0:
             return self  # Do not update if the batch size is zero
@@ -29,18 +29,23 @@ class RunningMeanStd:
             # Subtract the mean from x where padding_mask64 is 1, square it, then sum and average it across the valid (non-masked) entries
             diff_sq = (mask * (x - x_mean.unsqueeze(0).unsqueeze(0))) ** 2
             x_var = diff_sq.sum(dim=(0, 1)) / new_adding
-            
-        delta = x_mean - self.mean
-        new_count = self.count + new_adding
-        new_mean = self.mean + delta * new_adding / new_count
 
-        m_a = self.var * self.count
+        # Define the update range
+        start_idx, end_idx = (0, feature_size) if feature_range is None else feature_range
+        delta = x_mean - self.mean[start_idx:end_idx]
+        new_count = self.count[start_idx:end_idx] + new_adding
+
+        # Update mean and variance
+        new_mean = self.mean[start_idx:end_idx] + delta * new_adding / new_count
+        m_a = self.var[start_idx:end_idx] * self.count[start_idx:end_idx]
         m_b = x_var * new_adding
-        M2 = m_a + m_b + delta ** 2 * self.count * new_adding / new_count
+        M2 = m_a + m_b + delta ** 2 * self.count[start_idx:end_idx] * new_adding / new_count
 
-        self.mean = new_mean
-        self.var = M2 / new_count
-        self.count = self.decay_factor *new_count
+        # Apply updates
+        self.mean[start_idx:end_idx] = new_mean
+        self.var[start_idx:end_idx] = M2 / new_count
+        self.count[start_idx:end_idx] = self.decay_factor * new_count
+                    
         return self
 
     def get_mean(self):
@@ -49,12 +54,17 @@ class RunningMeanStd:
     def get_var(self):
         return self.var
 
-    def normalize(self, x):
+    def normalize(self, x, feature_range = None):
         if len(x) < 1 or torch.sum(self.count < 1) > 0:
             return x
         mean = self.get_mean().view(1, 1, self.num_features)
         var = self.get_var().view(1, 1, self.num_features)
-        normalized_x = (x - mean) / (torch.sqrt(var) / self.scale + 1e-8)
+        
+        if feature_range is None:
+            normalized_x = (x - mean) / (torch.sqrt(var) / self.scale + 1e-8)
+        else:
+            (start_idx, end_idx) = feature_range
+            normalized_x = (x - mean[:, :, start_idx:end_idx]) / (torch.sqrt(var[:, :, start_idx:end_idx]) / self.scale + 1e-8)
         return normalized_x.to(dtype=x.dtype)
 
     def save(self, path):

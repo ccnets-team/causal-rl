@@ -13,8 +13,15 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gpt_seq_length=16, discount_factor=0.995, advantage_lambda=0.96, use_deterministic=False, use_masked_exploration=True):
-        self.gpt_seq_length = gpt_seq_length  # Maximum sequence length for training and exploration. In training, it defines the length of sequences used for calculating TD steps. In exploration, it sets the upper limit for sequence length.
+    def __init__(self, gpt_seq_length=16, td_seq_length=20, discount_factor=0.99, advantage_lambda=0.95, use_deterministic=False, use_masked_exploration=True):
+        self.gpt_seq_length = gpt_seq_length  
+        # Defines the maximum input sequence length for the Critic, Actor, and Reverse-environment GPT models for causal learning.
+        # This parameter sets the scope of historical and future context that the models can utilize for learning the state transition between current states and future states.
+
+        self.td_seq_length = td_seq_length  
+        # Specifies the sequence length used for calculating Temporal Difference (TD) returns for value estimates.
+        # Intentionally set longer than gpt_seq_length, td_seq_length enables the Critic GPT model to estimate values across two gpt_seq_length intervals for future and current target values.
+                
         self.discount_factor = discount_factor  # Discount factor for future rewards.
         self.advantage_lambda = advantage_lambda # TD (Temporal Difference) lambda parameter for weighting advantages in policy optimization.
         self.use_deterministic = use_deterministic  # Determines whether to use deterministic actions during training/evaluation.
@@ -31,9 +38,9 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=1e-4, min_lr=1e-5, scheduler_type='exponential', tau=1e-1, use_target_network=True, clip_grad_range=None, max_grad_norm=2.0): 
+    def __init__(self, lr=1e-4, decay_rate_100k=0.1, scheduler_type='exponential', tau=0.1, use_target_network=True, clip_grad_range=None, max_grad_norm=1.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
-        self.min_lr = min_lr  # Minimum learning rate to which the lr will decay.
+        self.decay_rate_100k = decay_rate_100k  # Decay rate for the learning rate every 100k steps.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
         self.tau = tau  # Target network update rate, used in algorithms with target networks.
         self.use_target_network = use_target_network  # Flag to determine whether to use target networks for stability.
@@ -41,7 +48,7 @@ class OptimizationParameters:
         self.max_grad_norm = max_grad_norm  # L2 norm threshold for gradient clipping to prevent exploding gradients.
 
 class NormalizationParameters:
-    def __init__(self, state_normalizer='running_mean_std', reward_normalizer=None, sum_reward_normalizer='running_mean_std', advantage_normalizer='running_mean_sqrt'):
+    def __init__(self, state_normalizer='running_mean_std', reward_normalizer=None, sum_reward_normalizer='running_mean_std', advantage_normalizer=None):
         self.state_normalizer = state_normalizer  # Defines the method for normalizing state values, using approaches like 'running_mean_std' or 'None'.
         self.reward_normalizer = reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'None'.
         self.sum_reward_normalizer = sum_reward_normalizer  # Defines the method for normalizing reward values, using approaches like 'running_mean_std' or 'None'.

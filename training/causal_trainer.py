@@ -16,13 +16,16 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from utils.init import set_seed
-        
+from training.trainer_utils import create_transformation_matrix
+import math
+            
+BASE_DIM_THRESHOLD = 8
 class CausalTrainer(BaseTrainer):
 
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
     def __init__(self, rl_params, device):
         self.trainer_name = 'causal_rl'
-        self.network_names = ['critic', 'actor', 'rev_env']
+        self.network_names = ["critic", "actor", "rev_env"]
         critic_network = rl_params.network.critic_network
         actor_network = rl_params.network.actor_network
         rev_env_network = rl_params.network.rev_env_network
@@ -31,7 +34,17 @@ class CausalTrainer(BaseTrainer):
         self.rev_env_params = rl_params.rev_env_params
 
         env_config = rl_params.env_config
+        state_size = env_config.state_size
+
+        # Calculate dimensions for transformation matrices with descriptive naming
+        # indicating the purpose or logic behind each dimensionality adjustment
+        # better naming than candidate 
+        target_dim_for_cost = max(int(max(math.sqrt(state_size), 1)), BASE_DIM_THRESHOLD)
         
+        # Create transformation matrices for cost calculations, 
+        # naming them to reflect their input and output dimensions and purpose
+        self.cost_transformation_matrix = create_transformation_matrix(state_size, target_dim_for_cost).to(device)
+                        
         self.critic = SingleInputCritic(critic_network, env_config, rl_params.critic_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, rl_params.use_deterministic, rl_params.actor_params).to(device)
         self.revEnv = RevEnv(rev_env_network, env_config, rl_params.rev_env_params).to(device)
@@ -61,30 +74,11 @@ class CausalTrainer(BaseTrainer):
         self.init_train()
     
         # Selects a trajectory segment optimized for sequence-based model input, focusing on recent experiences.
-        states, actions, rewards, next_states, dones, padding_mask, future_value = self.select_train_sequence(trajectory)
+        states, actions, rewards, next_states, dones, padding_mask, end_value = self.select_train_sequence(trajectory)
         
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states, padding_mask)
-
-        # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, future_value)
-        
-        # Calculate the value loss based on the difference between estimated and expected values.
-        value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
-
-        # Perform backpropagation to adjust the network parameters based on calculated losses.
-        self.backwards(
-            [self.critic],
-            [[value_loss]])
-
-        self.update_step('critic')
-
-        # Get the estimated value of the current state from the critic network.
-        estimated_value = self.critic(states, padding_mask)
-
-        # Compute the expected value of the next state and the advantage of taking an action in the current state.
-        advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
-
+            
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor(states, estimated_value, padding_mask)
 
@@ -93,6 +87,13 @@ class CausalTrainer(BaseTrainer):
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
         
         coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False)
+
+        expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, end_value)
+        
+        advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
+            
+        # Calculate the value loss based on the difference between estimated and expected values.
+        value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
 
         # Derive the critic loss from the cooperative critic error.
         critic_loss = self.select_tensor_reduction(coop_critic_error, padding_mask)
@@ -106,7 +107,7 @@ class CausalTrainer(BaseTrainer):
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.critic, self.actor, self.revEnv],
-            [[critic_loss], [actor_loss], [revEnv_loss]])
+            [[value_loss, critic_loss], [actor_loss], [revEnv_loss]])
 
         # Update the network parameters.
         self.update_step()
@@ -194,18 +195,6 @@ class CausalTrainer(BaseTrainer):
         
         return reversed_state, recurred_state
 
-    def update_step(self, network_name = None):
-        if network_name is not None:
-            network_idx = self.network_names.index(network_name)
-            self.clip_gradients(network_idx)
-            self.update_optimizers(network_idx)
-        else:
-            self.clip_gradients()
-            self.update_optimizers()
-            self.update_target_networks()
-            self.update_schedulers()
-            self.train_iter += 1
-            
     def trainer_calculate_future_value(self, next_state, mask):
         with torch.no_grad():
             future_value = self.target_critic(next_state, mask)
@@ -214,8 +203,10 @@ class CausalTrainer(BaseTrainer):
     def cost_fn(self, predict, target, reduce_feture_dim = False):
         cost = (predict - target.detach()).abs()
         if reduce_feture_dim:
-            cost = cost.mean(dim=-1, keepdim=True)  # Compute the mean across the state_size dimension
-        return cost
+            reduced_cost = torch.matmul(cost, self.cost_transformation_matrix)
+        else:
+            reduced_cost = cost 
+        return reduced_cost
     
     def error_fn(self, predict, target, reduce_feture_dim = False):
         """
@@ -233,8 +224,10 @@ class CausalTrainer(BaseTrainer):
         """
         error = (predict - target.detach()).abs()
         if reduce_feture_dim:
-            error = error.mean(dim=-1, keepdim=True)  # Compute the mean across the state_size dimension
-        return error
+            reduced_error = error.mean(dim=-1, keepdim=True)
+        else:
+            reduced_error = error 
+        return reduced_error
 
     def backwards(self, networks, network_errors):
         """
@@ -248,7 +241,7 @@ class CausalTrainer(BaseTrainer):
         Step-by-step Explanation:
         1. Initially, all networks are set to not require gradients. This ensures that during the error 
         backpropagation, gradients won't be accidentally updated for the wrong network.
-        2. For each network:
+        2. For each network:    
         - The network is set to require gradients, making it the current target for the backpropagation.
         - The gradients of this and all subsequent networks in the list are zeroed out. This ensures 
             that gradient accumulation from any previous passes doesn't interfere with the current backpropagation.
