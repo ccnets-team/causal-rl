@@ -143,37 +143,22 @@ def apply_sequence_mask(component, model_seq_mask, model_seq_length):
     return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
 
 def create_transformation_matrix(n, m):
-    transformation_matrix = torch.zeros((n, m), dtype=torch.float)
     remaining = torch.ones((m), dtype=torch.float)
-                        
-    for i in range(n):  # Iterate, excluding the last iteration
-        if i < n - 1:
-            # Generate a random distribution for the current row
-            random_dist = torch.rand(m) * remaining
-            # Normalize to ensure sum equals (m/n), before applying to remaining
-            random_dist /= random_dist.sum()
-            random_dist *= (m/n)
+    transformation_matrix = torch.zeros((n, m))  # Initialize transformation matrix
+    for i in range(n):
+        if i < n-1:
+            # Sort `remaining` to get indices for ascending order
+            sorted_remaining, sorted_indices = torch.sort(remaining)
             
-            # Calculate excess where random_dist allocation exceeds what's available in remaining
-            excess = random_dist - remaining
-            
-            # Identify positive excess (over-allocation) and negative excess (under-allocation, incorrectly calculated previously)
-            positive_excess = -torch.clamp(excess, max=0)
-            negative_excess = torch.clamp(excess, min=0)
-            
-            # Adjust for positive excess by proportionally redistributing it
-            if negative_excess.sum() > 0:
-                # Proportionally adjust random_dist down where there's positive excess
-                adjustment_factor = (positive_excess.sum() - negative_excess.sum())/positive_excess.sum()
-                random_dist += positive_excess * adjustment_factor
-                random_dist += negative_excess
-            # Update remaining based on adjusted random_dist
-            remaining -= random_dist 
-
-            # Assign adjusted distribution to the transformation matrix
-            transformation_matrix[i] = random_dist
+            # Create the distribution
+            distribution = torch.linspace(1, m, steps=m)
+            scaled_distribution = (m/n) * distribution/distribution.sum()
+            # Assign values from the scaled distribution to the sorted positions in the transformation matrix
+            for j in range(m):
+                idx = sorted_indices[j]
+                transformation_matrix[i, idx] = scaled_distribution[j]
+                remaining[idx] -= scaled_distribution[j]
         else:
-            # For the last row, directly use the remaining distribution
             transformation_matrix[i] = remaining
-    
+            
     return transformation_matrix.unsqueeze(0)

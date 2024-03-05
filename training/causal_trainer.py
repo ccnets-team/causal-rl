@@ -18,9 +18,8 @@ from utils.structure.metrics_recorder import create_training_metrics
 from utils.init import set_seed
 from training.trainer_utils import create_transformation_matrix
 import math
-            
+    
 class CausalTrainer(BaseTrainer):
-
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
     def __init__(self, rl_params, device):
         self.trainer_name = 'causal_rl'
@@ -34,13 +33,14 @@ class CausalTrainer(BaseTrainer):
 
         env_config = rl_params.env_config
         state_size = env_config.state_size
-
+        
         # Calculate dimensions for transformation matrices with descriptive naming
         # indicating the purpose or logic behind each dimensionality adjustment
-        target_dim_for_cost = min(state_size, math.ceil(2 * max(math.sqrt(state_size), 1)))
-        target_dim_for_error = min(state_size, math.ceil(max(math.sqrt(state_size), 1)))
-
-        # Create transformation matrices for cost and error calculations, 
+        # better naming than candidate 
+        target_dim_for_cost = min(state_size, int(4*max(math.sqrt(state_size), 1)))
+        target_dim_for_error = min(state_size, int(2*max(math.sqrt(state_size), 1)))
+        
+        # Create transformation matrices for cost calculations, 
         # naming them to reflect their input and output dimensions and purpose
         self.cost_transformation_matrix = create_transformation_matrix(state_size, target_dim_for_cost).to(device)
         self.error_transformation_matrix = create_transformation_matrix(target_dim_for_cost, target_dim_for_error).to(device)
@@ -86,7 +86,7 @@ class CausalTrainer(BaseTrainer):
         
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
         
-        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True)
+        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False)
 
         expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, end_value)
         
@@ -140,11 +140,11 @@ class CausalTrainer(BaseTrainer):
     
     def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
         # Calculate the cooperative critic error using forward and reverse costs in relation to the recurrent cost.
-        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)/2
+        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)
         # Calculate the cooperative actor error using recurrent and forward costs in relation to the reverse cost.
-        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)/2
+        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
-        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)/2      
+        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)      
         return coop_critic_error, coop_actor_error, coop_revEnv_error
 
     def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
