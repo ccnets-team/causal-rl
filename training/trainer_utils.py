@@ -160,5 +160,6 @@ def create_transformation_matrix(n, m):
                 remaining[idx] -= scaled_distribution[j]
         else:
             transformation_matrix[i] = remaining
-            
+    
+    transformation_matrix *= (n/m)
     return transformation_matrix.unsqueeze(0)
