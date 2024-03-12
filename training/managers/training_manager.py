@@ -80,7 +80,7 @@ class TrainingManager:
             if isinstance(net, LearnableTD):
                 # Specific handling for LearnableTD instances
                 if max_grad_norm is not None:
-                    torch.nn.utils.clip_grad_norm_(net.parameters(), max_grad_norm)
+                    net.clip_grad_norm_(max_grad_norm)
                 if clip_grad_range is not None:
                     if net.raw_gamma.grad is not None:
                         net.raw_gamma.grad.clamp_(-clip_grad_range, clip_grad_range)

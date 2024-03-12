@@ -1,10 +1,8 @@
-
 import torch
 import torch.nn as nn
-from .trainer_utils import GradScaler
+from training.trainer_utils import GradScaler
 
-GAMMA_GRAD_SCALE_FACTOR = 1.0
-LAMBDA_GRAD_SCALE_FACTOR = 1.0  # Scales lambda gradients to adjust learning speed relative to gamma.
+UPDATE_LEARNABLE_TD_INTERVAL = 10
 
 class LearnableTD(nn.Module):
     def __init__(self, max_seq_len, discount_factor, advantage_lambda, device):
@@ -14,24 +12,49 @@ class LearnableTD(nn.Module):
         self.discount_factor = discount_factor
         self.advantage_lambda = advantage_lambda
 
-        # Initialize raw_gamma and raw_lambda as learnable parameters
-        # Starting from 0 to center the sigmoid output around 0.5
-        self.raw_gamma = nn.Parameter(torch.zeros(1, device=self.device, dtype=torch.float))
-        self.raw_lambd = nn.Parameter(torch.zeros(max_seq_len, device=self.device, dtype=torch.float))
-        self.sum_reward_weights = None
+        discount_factor_init = discount_factor * torch.ones(1, device=self.device, dtype=torch.float)
+        advantage_lambda_init = advantage_lambda * torch.ones(max_seq_len, device=self.device, dtype=torch.float)
+        
+        self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
+        self.raw_lambd = nn.Parameter(self._init_value_for_tanh(advantage_lambda_init))
+        
+        self.sum_reward_weights = self.update_sum_reward_weights()
 
+    def _init_value_for_tanh(self, target):
+        # Use logit function as the inverse of the sigmoid to initialize the value correctly
+        return torch.atanh(target)
+    
     @property
     def gamma(self):
-        # Sigmoid transformation of raw_gamma ensures gamma stays within [0, 1].
-        dynamic_gamma = self.discount_factor + (1 - self.discount_factor) * (2 * torch.sigmoid(self.raw_gamma) - 1)
-        return GradScaler.apply(dynamic_gamma, GAMMA_GRAD_SCALE_FACTOR)
+        return torch.tanh(self.raw_gamma).clamp_min(0.0)
 
     @property
     def lambd(self):
-        # Sigmoid transformation of raw_lambd, ensuring lambda is within [0, 1].
-        dynamic_lambda = self.advantage_lambda + (1 - self.advantage_lambda) * (2 * torch.sigmoid(self.raw_lambd) - 1)
-        return GradScaler.apply(dynamic_lambda, LAMBDA_GRAD_SCALE_FACTOR)
+        return torch.tanh(self.raw_lambd).clamp_min(0.0)
 
+    def clip_grad_norm_(self, max_grad_norm):
+        if max_grad_norm is None:
+            return
+
+        total_norm = 0.0
+        parameters = [self.raw_gamma, self.raw_lambd]  # Include both parameters
+        scaling_factors = [1, 1 / self.max_seq_len]  # Example scaling for raw_lambd to balance its weight
+
+        for param, scale in zip(parameters, scaling_factors):
+            if param.grad is not None:
+                # Scale the norm of each parameter's gradient by the scaling factor
+                param_norm = (param.grad.data.norm(2) * scale) ** 2
+                total_norm += param_norm
+
+        total_norm = (total_norm ** 0.5)  # Take the square root to get the total norm
+
+        clip_coef = max_grad_norm / (total_norm + 1e-8)  # Adjust for division by zero
+
+        if clip_coef < 1:
+            for param in parameters:
+                if param.grad is not None:
+                    param.grad.data.mul_(clip_coef)
+                    
     def get_sum_reward_weights(self, seq_range, padding_mask=None):
         # Extract the start and end index from the sequence range
         start_idx, end_idx = seq_range
@@ -64,11 +87,12 @@ class LearnableTD(nn.Module):
 
         # Backward pass to compute weights. This loop calculates the decayed weights for each timestep,
         for t in reversed(range(max_seq_len)):
-            value_weights[t] = gamma * ((1 - td_lambdas[t]) + td_lambdas[t] * value_weights[t + 1])
+            value_weights[t] = gamma * ((1 - td_lambdas[t]) + td_lambdas[t] * value_weights[t + 1].clone())
             raw_sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
 
         sum_reward_weights = raw_sum_reward_weights.unsqueeze(0).unsqueeze(-1)
-        self.sum_reward_weights = sum_reward_weights / sum_reward_weights.mean().clamp(min=1e-8)
+        self.sum_reward_weights = sum_reward_weights / sum_reward_weights.mean().clamp_min(1e-8)
+        return self.sum_reward_weights
 
     def calculate_lambda_returns(self, values, rewards, dones, seq_range):
         """

@@ -142,24 +142,84 @@ def apply_sequence_mask(component, model_seq_mask, model_seq_length):
     component_shape = component.shape
     return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
 
-def create_transformation_matrix(n, m):
-    remaining = torch.ones((m), dtype=torch.float)
-    transformation_matrix = torch.zeros((n, m))  # Initialize transformation matrix
-    for i in range(n):
-        if i < n-1:
-            # Sort `remaining` to get indices for ascending order
-            sorted_remaining, sorted_indices = torch.sort(remaining)
-            
-            # Create the distribution
-            distribution = torch.linspace(1, m, steps=m)
-            scaled_distribution = (m/n) * distribution/distribution.sum()
-            # Assign values from the scaled distribution to the sorted positions in the transformation matrix
-            for j in range(m):
-                idx = sorted_indices[j]
-                transformation_matrix[i, idx] = scaled_distribution[j]
-                remaining[idx] -= scaled_distribution[j]
-        else:
-            transformation_matrix[i] = remaining
+def create_transformation_matrix(num_rows, num_cols):
+    """
+    Creates a transformation matrix for applications like image reconstruction, 
+    where selective feature emphasis is desired. This matrix is designed to offer a nuanced approach 
+    to feature transformation, balancing between de-emphasizing and emphasizing different features.
+
+    The matrix is constructed row by row. For each row except the last, the feature emphasis 
+    is distributed based on a dynamic order influenced by a rolling order distribution, 
+    allowing for a diverse emphasis pattern across rows. This pattern aims to provide a 
+    balanced transformation by varying which features are emphasized in each row, preventing 
+    any single feature from being consistently deprioritized or overemphasized.
+
+    In the last row, the remaining weights are assigned to ensure all features receive some level 
+    of emphasis, maintaining the matrix's balance. The transformation matrix is then uniformly scaled 
+    to ensure the intended distributional characteristics are preserved across both rows and columns.
+
+    Parameters:
+    - num_rows (int): The number of rows in the transformation matrix, corresponding to the transformed feature dimension.
+    - num_cols (int): The number of columns in the transformation matrix, corresponding to the original feature dimension.
+
+    Returns:
+    - Tensor: A transformation matrix of shape (num_rows, num_cols), ready for application to data needing feature emphasis transformation.
+
+    This transformation matrix is particularly useful in scenarios where not all input features are of equal relevance, 
+    and a controlled, nuanced approach to feature emphasis is beneficial for the task at hand.
+    """
+    remaining_weights = torch.ones((num_cols), dtype=torch.float)  # Tracks remaining weights for distribution
+    transformation_matrix = torch.zeros((num_rows, num_cols))  # Initialize transformation matrix
     
-    transformation_matrix *= (n/m)
+    order_distribution = torch.linspace(num_cols*1e-8, 1e-8, steps=num_cols)
+
+    for row in range(num_rows):
+        if row < num_rows - 1:
+            # Sort `remaining_weights` to get indices for ascending order
+            sorted_remaining, sorted_indices = torch.sort(remaining_weights + order_distribution)
+            order_distribution = torch.roll(order_distribution, 1, 0)
+            # Define lengths for zero and linearly increasing segments
+            
+            # Create the linearly increasing distribution segment
+            distribution = torch.linspace(1, num_cols, steps=num_cols)
+            
+            # Scale the distribution to ensure sum matches expected proportion
+            scaled_distribution = (num_cols / num_rows) * distribution / distribution.sum()
+            
+            # Assign scaled distribution values to their respective positions in the transformation matrix
+            for col in range(num_cols):
+                sorted_position = sorted_indices[col]
+                transformation_matrix[row, sorted_position] = scaled_distribution[col]
+                remaining_weights[sorted_position] -= scaled_distribution[col]
+        else:
+            # For the last row, directly assign remaining weights
+            transformation_matrix[row] = remaining_weights
+    
+    # Adjust the transformation matrix to ensure overall balance
+    transformation_matrix *= (num_rows / num_cols)
+    
     return transformation_matrix.unsqueeze(0)
+
+def calculate_latent_size(state_size, threshold=256):
+    """
+    Calculates an optimal latent vector size based on the original state size. The calculated latent size 
+    aims to be as close to the square of the state size as possible while considering computational 
+    constraints represented by the threshold.
+
+    The function ensures the latent size does not exceed a specified threshold, balancing between 
+    achieving a square-like growth and maintaining computational efficiency.
+
+    Args:
+    - state_size (int): The size of the original state vector.
+    - threshold (int): The maximum allowable size for the latent vector to ensure computational efficiency.
+
+    Returns:
+    - int: The calculated size of the latent vector, adhering to the computational constraints.
+    """
+    # Attempt to calculate a square-like size of the original state size
+    proposed_latent_size = state_size ** 2
+
+    # Ensure the latent size does not exceed the threshold
+    latent_size = min(proposed_latent_size, threshold)
+
+    return latent_size

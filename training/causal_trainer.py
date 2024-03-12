@@ -16,9 +16,8 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from utils.init import set_seed
-from training.trainer_utils import create_transformation_matrix
-import math
-    
+from training.trainer_utils import create_transformation_matrix, calculate_latent_size
+
 class CausalTrainer(BaseTrainer):
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
     def __init__(self, rl_params, device):
@@ -37,13 +36,11 @@ class CausalTrainer(BaseTrainer):
         # Calculate dimensions for transformation matrices with descriptive naming
         # indicating the purpose or logic behind each dimensionality adjustment
         # better naming than candidate 
-        target_dim_for_cost = min(state_size, int(4*max(math.sqrt(state_size), 1)))
-        target_dim_for_error = min(state_size, int(2*max(math.sqrt(state_size), 1)))
+        target_dim_for_error = calculate_latent_size(state_size)
         
         # Create transformation matrices for cost calculations, 
         # naming them to reflect their input and output dimensions and purpose
-        self.cost_transformation_matrix = create_transformation_matrix(state_size, target_dim_for_cost).to(device)
-        self.error_transformation_matrix = create_transformation_matrix(target_dim_for_cost, target_dim_for_error).to(device)
+        self.cost_transformation_matrix = create_transformation_matrix(state_size, target_dim_for_error).to(device)
                         
         self.critic = SingleInputCritic(critic_network, env_config, rl_params.critic_params).to(device)
         self.actor = DualInputActor(actor_network, env_config, rl_params.use_deterministic, rl_params.actor_params).to(device)
@@ -224,7 +221,7 @@ class CausalTrainer(BaseTrainer):
         """
         error = (predict - target.detach()).abs()
         if reduce_feture_dim:
-            reduced_error = torch.matmul(error, self.error_transformation_matrix)
+            reduced_error = error.mean(dim=-1, keepdim=True)
         else:
             reduced_error = error 
         return reduced_error
@@ -271,7 +268,8 @@ class CausalTrainer(BaseTrainer):
             for err_idx, error in enumerate(errors):
                 # Decide whether to retain the computation graph based on the network and error index
                 retain_graph = (net_idx < num_network - 1) or (err_idx < num_error - 1) 
-
+                if error is None:
+                    continue
                 # Apply the discounted gradients in the backward pass
                 error.backward(torch.ones_like(error), retain_graph=retain_graph)
             # Prevent gradient updates for the current network after its errors have been processed
