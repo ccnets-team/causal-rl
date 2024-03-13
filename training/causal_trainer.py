@@ -20,8 +20,6 @@ from training.trainer_utils import create_transformation_matrix, calculate_laten
 from training.managers.normalization_manager import STATE_NORM_SCALE
 
 class CausalTrainer(BaseTrainer):
-
-class CausalTrainer(BaseTrainer):
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
     def __init__(self, rl_params, device):
         self.trainer_name = 'causal_rl'

@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gpt_seq_length=16, td_seq_length=20, discount_factor=0.99, advantage_lambda=0.95, use_deterministic=False, use_masked_exploration=True):
+    def __init__(self, gpt_seq_length=16, td_seq_length=20, discount_factor=0.99, advantage_lambda=0.9, use_deterministic=False, use_masked_exploration=True):
         self.gpt_seq_length = gpt_seq_length  
         # Defines the maximum input sequence length for the Critic, Actor, and Reverse-environment GPT models for causal learning.
         # This parameter sets the scope of historical and future context that the models can utilize for learning the state transition between current states and future states.
