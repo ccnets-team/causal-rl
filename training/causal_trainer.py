@@ -40,6 +40,7 @@ class CausalTrainer(BaseTrainer):
         target_dim_for_cost = calculate_latent_cost_size(state_size)
         target_dim_for_error = min(target_dim_for_cost, state_size)
         latent_value_size = calculate_latent_value_size(state_size)
+        self.value_layer_norm = torch.nn.LayerNorm(latent_value_size, elementwise_affine=False).to(device)  
         
         # Create transformation matrices for cost calculations, 
         # naming them to reflect their input and output dimensions and purpose
@@ -80,11 +81,12 @@ class CausalTrainer(BaseTrainer):
         # Get the estimated value of the current state from the critic network.
         latent_value = self.critic(states, padding_mask)
         estimated_value = latent_value.mean(dim=-1, keepdim=True)
+        normalized_value = self.value_layer_norm(latent_value)
             
         # Predict the action that the actor would take for the current state and its estimated value.
-        inferred_action = self.actor(states, latent_value, padding_mask)
+        inferred_action = self.actor(states, normalized_value, padding_mask)
 
-        reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, latent_value, padding_mask)
+        reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, normalized_value, padding_mask)
         
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
         
