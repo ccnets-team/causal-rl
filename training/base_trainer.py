@@ -6,8 +6,7 @@ from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, GradScaler
-from .learnable_td import LearnableTD
-UPDATE_LEARNABLE_TD_INTERVAL = 10
+from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -41,11 +40,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         # Adjusting parameters for learnable_td
         learnable_td_params = {
-            'lr': self.optimization_params.lr * UPDATE_LEARNABLE_TD_INTERVAL,
+            'lr': self.optimization_params.lr,
             'decay_rate_100k': self.optimization_params.decay_rate_100k,
             'scheduler_type': self.optimization_params.scheduler_type,
-            'clip_grad_range': self.optimization_params.clip_grad_range if self.optimization_params.clip_grad_range is not None else self.optimization_params.max_grad_norm, 
-            'max_grad_norm': None # Explicitly set to None if not using max_grad_norm for learnable_td_params
+            'clip_grad_range': self.optimization_params.clip_grad_range, 
+            'max_grad_norm': self.optimization_params.max_grad_norm # Explicitly set to None if not using max_grad_norm for learnable_td_params
         }            
 
         learning_param_list.append(learnable_td_params)
@@ -79,7 +78,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     
     def init_train(self):
         self.set_train(training=True)
-        
         with torch.no_grad():
             self.learnable_td.update_sum_reward_weights()
   
@@ -104,7 +102,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.update_schedulers()      # Adjusts learning rates for optimal training.
         self.update_exploration_rate()# Modifies exploration rate for effective exploration-exploitation balance.
         self.train_iter += 1          # Tracks training progress.
-                
+
     def should_update_learnable_td(self):
         """
         Checks if learnable TD parameters should be updated based on the current training iteration.
@@ -112,7 +110,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             bool: True if it's time to update learnable TD parameters; False otherwise.
         """
         return self.train_iter % UPDATE_LEARNABLE_TD_INTERVAL == 0
-        
+                    
     def select_tensor_reduction(self, tensor, mask=None):
         """
         Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
@@ -131,28 +129,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
                 return tensor
             else:
                 return tensor.mean()
-
-    def calculate_value_loss(self, estimated_value, expected_value, mask=None):
-        """
-        Calculates the value loss as the squared difference between estimated and expected values.
-        This loss reflects the accuracy of the model's value predictions against the target values,
-        where a lower loss indicates better prediction accuracy.
-
-        :param estimated_value: The value estimated by the model.
-        :param expected_value: The target value, typically computed from rewards and future values.
-        :param mask: Optional mask to exclude certain elements from loss calculation, e.g., padded elements.
-        :return: The reduced value loss, after applying optional masking and reduction over the tensor.
-        """
-        # Compute squared error, a common choice for regression tasks, providing a smooth gradient for optimization.
-        if self.should_update_learnable_td():
-            squared_error = (estimated_value - expected_value).square()
-        else:
-            squared_error = (estimated_value - expected_value.detach()).square()
-            
-        # Reduce the squared error tensor to a scalar loss value, applying optional masking to focus loss calculation.
-        reduced_loss = self.select_tensor_reduction(squared_error, mask)
-
-        return reduced_loss
 
     def select_train_sequence(self, trajectory):
         """
@@ -242,7 +218,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
             sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=(start_seq_idx, end_seq_idx), padding_mask=adjusted_padding_mask)
 
             # Normalize sum rewards with the adjusted mask and weights
-            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, adjusted_padding_mask, seq_range=(start_seq_idx, end_seq_idx)) * sum_reward_weights
+        normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, adjusted_padding_mask, seq_range=(start_seq_idx, end_seq_idx)).detach() * sum_reward_weights
 
         # Correct the expected value to align with the length of sum_rewards and normalized_sum_rewards
         expected_value[:, :-1, :] = expected_value[:, :-1, :] - sum_rewards + normalized_sum_rewards
@@ -288,14 +264,32 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         with torch.no_grad():
             sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range = (0, gpt_seq_length))
-            # Normalize the sum of rewards, applying the mask to handle valid sequence lengths.
-            normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range = (0, gpt_seq_length)) * sum_reward_weights
+        # Normalize the sum of rewards, applying the mask to handle valid sequence lengths.
+        normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range = (0, gpt_seq_length)).detach() * sum_reward_weights
         
         # Correct the expected value by adjusting with the normalized sum of rewards.
         expected_value = expected_value - sum_rewards + normalized_sum_rewards
 
         return expected_value
-                
+
+    def calculate_value_loss(self, estimated_value, expected_value, mask=None):
+        """
+        Calculates the value loss as the squared difference between estimated and expected values.
+        This loss reflects the accuracy of the model's value predictions against the target values,
+        where a lower loss indicates better prediction accuracy.
+
+        :param estimated_value: The value estimated by the model.
+        :param expected_value: The target value, typically computed from rewards and future values.
+        :param mask: Optional mask to exclude certain elements from loss calculation, e.g., padded elements.
+        :return: The reduced value loss, after applying optional masking and reduction over the tensor.
+        """
+        squared_error = (expected_value.detach() - estimated_value).square()
+            
+        # Reduce the squared error tensor to a scalar loss value, applying optional masking to focus loss calculation.
+        reduced_loss = self.select_tensor_reduction(squared_error, mask)
+
+        return reduced_loss
+    
     def compute_advantage(self, estimated_value: torch.Tensor, expected_value: torch.Tensor, padding_mask: torch.Tensor):
         """
         Calculates the advantage, which measures the benefit of taking specific actions from given states over the policy's average prediction for those states.
@@ -314,19 +308,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         # If TD parameters are being updated, detach only the estimated value to emphasize the learning signal from actual outcomes.
         # Otherwise, detach both to stabilize the learning against a static baseline.
         if self.should_update_learnable_td():
-            advantage = (expected_value - estimated_value.detach())
+            advantage = (GradScaler.apply(expected_value, -1) - estimated_value.detach())
         else:
             advantage = (expected_value.detach() - estimated_value.detach())
             
         # Normalize the advantage to enhance training stability, ensuring consistent gradient scales.
         advantage = self.normalize_advantage(advantage, padding_mask)
-
-        if self.should_update_learnable_td():
-            # When TD parameters are being updated, apply gradient scaling to the advantage calculation.
-            advantage = GradScaler.apply(advantage, -1)
-        else:
-            # Proceed without gradient scaling when TD parameters are not being updated.
-            advantage = advantage  # This line is effectively a no-op and could be omitted for clarity.
 
         return advantage
 

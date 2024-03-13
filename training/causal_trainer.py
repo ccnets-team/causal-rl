@@ -21,6 +21,7 @@ from training.managers.normalization_manager import STATE_NORM_SCALE
 
 class CausalTrainer(BaseTrainer):
 
+class CausalTrainer(BaseTrainer):
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
     def __init__(self, rl_params, device):
         self.trainer_name = 'causal_rl'
@@ -34,7 +35,7 @@ class CausalTrainer(BaseTrainer):
 
         env_config = rl_params.env_config
         state_size = env_config.state_size
-
+        
         # Calculate dimensions for transformation matrices with descriptive naming
         # indicating the purpose or logic behind each dimensionality adjustment
         # better naming than candidate 
@@ -144,11 +145,11 @@ class CausalTrainer(BaseTrainer):
     
     def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
         # Calculate the cooperative critic error using forward and reverse costs in relation to the recurrent cost.
-        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)/2
+        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)
         # Calculate the cooperative actor error using recurrent and forward costs in relation to the reverse cost.
-        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)/2
+        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
-        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)/2      
+        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)      
         return coop_critic_error, coop_actor_error, coop_revEnv_error
 
     def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
@@ -275,7 +276,8 @@ class CausalTrainer(BaseTrainer):
             for err_idx, error in enumerate(errors):
                 # Decide whether to retain the computation graph based on the network and error index
                 retain_graph = (net_idx < num_network - 1) or (err_idx < num_error - 1) 
-
+                if error is None:
+                    continue
                 # Apply the discounted gradients in the backward pass
                 error.backward(torch.ones_like(error), retain_graph=retain_graph)
             # Prevent gradient updates for the current network after its errors have been processed
