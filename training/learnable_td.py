@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
-from training.trainer_utils import GradScaler
 
-UPDATE_LEARNABLE_TD_INTERVAL = 10
+UPDATE_LEARNABLE_TD_INTERVAL = 4
 
 class LearnableTD(nn.Module):
     def __init__(self, max_seq_len, discount_factor, advantage_lambda, device):

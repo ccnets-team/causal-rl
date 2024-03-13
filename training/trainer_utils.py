@@ -200,7 +200,7 @@ def create_transformation_matrix(num_rows, num_cols):
     
     return transformation_matrix.unsqueeze(0)
 
-def calculate_latent_size(state_size, threshold=256):
+def calculate_latent_size(state_size, threshold=1024):
     """
     Calculates an optimal latent vector size based on the original state size. The calculated latent size 
     aims to be as close to the square of the state size as possible while considering computational 
