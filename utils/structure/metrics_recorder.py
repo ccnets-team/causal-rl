@@ -128,33 +128,44 @@ class MetricsTracker:
         avg_metrics /= valid_count
         return avg_metrics
 
+
 def create_training_metrics(**kwargs):
     """Helper method to create TrainingMetrics object."""
+
+    def compute_masked_mean(tensor, mask):
+        reduced_tensor = tensor.mean(dim=-1, keepdim = True)
+        if reduced_tensor.shape == mask.shape:
+            return reduced_tensor[mask > 0].mean() 
+        else:
+            return reduced_tensor.mean()
+
+    padding_mask = kwargs.get('padding_mask')
+
     values = ValueMetrics(
-        estimated_value=kwargs.get('estimated_value'),
-        expected_value=kwargs.get('expected_value'),
-        advantage=kwargs.get('advantage')
+        estimated_value=compute_masked_mean(kwargs.get('estimated_value'), padding_mask),
+        expected_value=compute_masked_mean(kwargs.get('expected_value'), padding_mask),
+        advantage=compute_masked_mean(kwargs.get('advantage'), padding_mask)
     )
     
     losses = LossMetrics(
-        value_loss=kwargs.get('value_loss'),
-        critic_loss=kwargs.get('critic_loss'),
-        actor_loss=kwargs.get('actor_loss'),
-        revEnv_loss=kwargs.get('revEnv_loss')
+        value_loss=compute_masked_mean(kwargs.get('value_loss'), padding_mask),
+        critic_loss=compute_masked_mean(kwargs.get('critic_loss'), padding_mask),
+        actor_loss=compute_masked_mean(kwargs.get('actor_loss'), padding_mask),
+        revEnv_loss=compute_masked_mean(kwargs.get('revEnv_loss'), padding_mask)
     )
     
     costs = TransitionCostMetrics(
-        forward_cost=kwargs.get('forward_cost'),
-        reverse_cost=kwargs.get('reverse_cost'),
-        recurrent_cost=kwargs.get('recurrent_cost')
+        forward_cost=compute_masked_mean(kwargs.get('forward_cost'), padding_mask),
+        reverse_cost=compute_masked_mean(kwargs.get('reverse_cost'), padding_mask),
+        recurrent_cost=compute_masked_mean(kwargs.get('recurrent_cost'), padding_mask)
     )
-    
+                
     errors = CoopErrorMetrics(
-        coop_critic_error=kwargs.get('coop_critic_error'),
-        coop_actor_error=kwargs.get('coop_actor_error'),
-        coop_revEnv_error=kwargs.get('coop_revEnv_error')
+        coop_critic_error=compute_masked_mean(kwargs.get('coop_critic_error'), padding_mask),
+        coop_actor_error=compute_masked_mean(kwargs.get('coop_actor_error'), padding_mask),
+        coop_revEnv_error=compute_masked_mean(kwargs.get('coop_revEnv_error'), padding_mask)
     )
-    
+
     return TrainingMetrics(
         values=values,
         losses=losses,

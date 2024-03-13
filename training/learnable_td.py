@@ -1,10 +1,8 @@
 
 import torch
 import torch.nn as nn
-from .trainer_utils import GradScaler
 
-GAMMA_GRAD_SCALE_FACTOR = 1.0
-LAMBDA_GRAD_SCALE_FACTOR = 1.0  # Scales lambda gradients to adjust learning speed relative to gamma.
+UPDATE_LEARNABLE_TD_INTERVAL = 4
 
 class LearnableTD(nn.Module):
     def __init__(self, max_seq_len, discount_factor, advantage_lambda, device):

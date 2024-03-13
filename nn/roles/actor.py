@@ -14,7 +14,7 @@ LOG_STD_MIN = -20
 LOG_STD_MAX = 2
 
 class _BaseActor(nn.Module):
-    def __init__(self, net, env_config, use_deterministic, network_params, input_size):
+    def __init__(self, net, env_config, value_size, use_deterministic, network_params, input_size):
         super(_BaseActor, self).__init__()
         
         # Environment and network configuration
@@ -28,7 +28,7 @@ class _BaseActor(nn.Module):
         self.mean_layer = create_layer(self.d_model, self.action_size, act_fn='none')
         self.log_std_layer = create_layer(self.d_model, self.action_size, act_fn='none')
         self.net = net(self.num_layers, self.d_model, dropout = network_params.dropout) 
-        self.value_size = 1
+        self.value_size = value_size
         self.relu = nn.ReLU()
 
     def _compute_forward_pass(self, z, mask = None):
@@ -70,9 +70,8 @@ class _BaseActor(nn.Module):
         return action
     
 class DualInputActor(_BaseActor):
-    def __init__(self, net, env_config, use_deterministic, network_params):
-        value_size = 1
-        super().__init__(net, env_config, use_deterministic, network_params, env_config.state_size + value_size)
+    def __init__(self, net, env_config, value_size, use_deterministic, network_params):
+        super().__init__(net, env_config, value_size, use_deterministic, network_params, env_config.state_size + value_size)
         self.apply(init_weights)
         
         # Comment about joint representation for the actor and reverse-env network:
