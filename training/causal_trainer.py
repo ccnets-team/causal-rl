@@ -38,7 +38,8 @@ class CausalTrainer(BaseTrainer):
         # indicating the purpose or logic behind each dimensionality adjustment
         # better naming than candidate 
         target_dim_for_cost = calculate_latent_cost_size(state_size)
-        target_dim_for_error = min(target_dim_for_cost, state_size)
+        target_dim_for_error = max(target_dim_for_cost//4, 1)
+        
         latent_value_size = calculate_latent_value_size(state_size)
         self.value_layer_norm = torch.nn.LayerNorm(latent_value_size, elementwise_affine=False).to(device)  
         
@@ -51,6 +52,8 @@ class CausalTrainer(BaseTrainer):
         self.actor = DualInputActor(actor_network, env_config, latent_value_size, rl_params.use_deterministic, rl_params.actor_params).to(device)
         self.revEnv = RevEnv(rev_env_network, env_config, latent_value_size, rl_params.rev_env_params).to(device)
         self.target_critic = copy.deepcopy(self.critic) 
+        self.cost_to_state_size_ratio = target_dim_for_cost/state_size
+        self.error_to_state_size_ratio = target_dim_for_error/state_size
 
         super(CausalTrainer, self).__init__(env_config, rl_params, 
                                         networks = [self.critic, self.actor, self.revEnv], \
@@ -62,11 +65,11 @@ class CausalTrainer(BaseTrainer):
     # If in training mode, it samples an action based on exploration rate. Otherwise, it simply selects the most likely action.        
     def get_action(self, state, mask = None, training: bool = False):
         with torch.no_grad():
-            estimated_value = self.critic(state, mask)
+            _, normalized_value = self.compute_values(state, mask)
             if training and not self.use_deterministic:
-                action = self.actor.sample_action(state, estimated_value, mask)
+                action = self.actor.sample_action(state, normalized_value, mask)
             else:
-                action = self.actor.select_action(state, estimated_value, mask)
+                action = self.actor.select_action(state, normalized_value, mask)
                 
         return action
 
@@ -79,9 +82,7 @@ class CausalTrainer(BaseTrainer):
         states, actions, rewards, next_states, dones, padding_mask, end_value = self.select_train_sequence(trajectory)
         
         # Get the estimated value of the current state from the critic network.
-        latent_value = self.critic(states, padding_mask)
-        estimated_value = latent_value.sum(dim=-1, keepdim=True)
-        normalized_value = self.value_layer_norm(latent_value) if latent_value.size(-1) > 1 else latent_value 
+        estimated_value, normalized_value = self.compute_values(states, padding_mask)
             
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor(states, normalized_value, padding_mask)
@@ -121,19 +122,31 @@ class CausalTrainer(BaseTrainer):
             expected_value=expected_value,
             advantage=advantage,
             value_loss=value_loss,
-            critic_loss=critic_loss,
-            actor_loss=actor_loss,
-            revEnv_loss=revEnv_loss,
-            forward_cost=forward_cost,
-            reverse_cost=reverse_cost,
-            recurrent_cost=recurrent_cost,
-            coop_critic_error=coop_critic_error,
-            coop_actor_error=coop_actor_error,
-            coop_revEnv_error=coop_revEnv_error,
+            critic_loss=critic_loss * self.error_to_state_size_ratio,
+            actor_loss=actor_loss * self.error_to_state_size_ratio,
+            revEnv_loss=revEnv_loss * self.error_to_state_size_ratio,
+            coop_critic_error=coop_critic_error * self.error_to_state_size_ratio,
+            coop_actor_error=coop_actor_error * self.error_to_state_size_ratio,
+            coop_revEnv_error=coop_revEnv_error * self.error_to_state_size_ratio,
+            forward_cost=forward_cost * self.cost_to_state_size_ratio,
+            reverse_cost=reverse_cost * self.cost_to_state_size_ratio,
+            recurrent_cost=recurrent_cost * self.cost_to_state_size_ratio,
             padding_mask = padding_mask
         )
         return metrics
 
+    def trainer_calculate_future_value(self, next_state, mask):
+        with torch.no_grad():
+            latent_value = self.target_critic(next_state, mask)
+            future_value = latent_value.sum(dim=-1, keepdim=True)
+        return future_value    
+
+    def compute_values(self, states, padding_mask):
+        latent_value = self.critic(states, padding_mask)
+        estimated_value = latent_value.sum(dim=-1, keepdim=True)
+        normalized_value = self.value_layer_norm(latent_value) if latent_value.size(-1) > 1 else latent_value 
+        return estimated_value, normalized_value    
+    
     def compute_transition_costs_from_states(self, states, reversed_state, recurred_state, reduce_feture_dim = True):
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state, reduce_feture_dim)
@@ -145,11 +158,11 @@ class CausalTrainer(BaseTrainer):
     
     def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
         # Calculate the cooperative critic error using forward and reverse costs in relation to the recurrent cost.
-        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)/2
+        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)
         # Calculate the cooperative actor error using recurrent and forward costs in relation to the reverse cost.
-        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)/2
+        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
-        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)/2      
+        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)      
         return coop_critic_error, coop_actor_error, coop_revEnv_error
 
     def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
@@ -199,11 +212,6 @@ class CausalTrainer(BaseTrainer):
             assert False, "Invalid dropout value for reverse environment model."
         
         return reversed_state, recurred_state
-
-    def trainer_calculate_future_value(self, next_state, mask):
-        with torch.no_grad():
-            future_value = self.target_critic(next_state, mask).sum(dim=-1, keepdim=True)
-        return future_value    
 
     def cost_fn(self, predict, target, reduce_feture_dim = False):
         cost = (predict - target.detach()).abs()

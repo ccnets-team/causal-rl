@@ -1,6 +1,7 @@
 import torch
 from normalizer.running_mean_std import RunningMeanStd
 from normalizer.running_abs_mean import RunningAbsMean
+from normalizer.running_mean_sqrt import RunningMeanSqrt
 
 from utils.structure.data_structures  import BatchTrajectory
 
@@ -75,7 +76,9 @@ class NormalizerBase:
             self.normalizer = RunningMeanStd(feature_size, scale, device, decay_rate=update_decay_rate)
         elif norm_type == "running_abs_mean":
             self.normalizer = RunningAbsMean(feature_size, scale, device, decay_rate=update_decay_rate)
-            
+        elif norm_type == "running_mean_sqrt":
+            self.normalizer = RunningMeanSqrt(feature_size, scale, device, decay_rate=update_decay_rate)
+                        
         self.device = device
                     
     def _update_normalizer(self, data, padding_mask=None, feature_range = None):
@@ -85,8 +88,9 @@ class NormalizerBase:
                 data = torch.FloatTensor(data).to(self.device)
             elif data.device != self.device:
                 data = data.to(self.device)
-            # Update the normalizer with the reshaped data
-            self.normalizer.update(data, padding_mask, feature_range = feature_range)
+            with torch.no_grad():
+                # Update the normalizer with the reshaped data
+                self.normalizer.update(data, padding_mask, feature_range = feature_range)
                 
     def _normalize_last_dim(self, data, scale = 1, feature_range = None):
         if self.normalizer is not None:
