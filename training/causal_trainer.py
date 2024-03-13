@@ -80,8 +80,8 @@ class CausalTrainer(BaseTrainer):
         
         # Get the estimated value of the current state from the critic network.
         latent_value = self.critic(states, padding_mask)
-        estimated_value = latent_value.mean(dim=-1, keepdim=True)
-        normalized_value = self.value_layer_norm(latent_value)
+        estimated_value = latent_value.sum(dim=-1, keepdim=True)
+        normalized_value = self.value_layer_norm(latent_value) if latent_value.size(-1) > 1 else latent_value 
             
         # Predict the action that the actor would take for the current state and its estimated value.
         inferred_action = self.actor(states, normalized_value, padding_mask)
@@ -202,7 +202,7 @@ class CausalTrainer(BaseTrainer):
 
     def trainer_calculate_future_value(self, next_state, mask):
         with torch.no_grad():
-            future_value = self.target_critic(next_state, mask).mean(dim=-1, keepdim=True)
+            future_value = self.target_critic(next_state, mask).sum(dim=-1, keepdim=True)
         return future_value    
 
     def cost_fn(self, predict, target, reduce_feture_dim = False):
