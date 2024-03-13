@@ -200,7 +200,7 @@ def create_transformation_matrix(num_rows, num_cols):
     
     return transformation_matrix.unsqueeze(0)
 
-def calculate_latent_size(state_size, threshold=1024):
+def calculate_latent_cost_size(state_size, max_threshold=1024):
     """
     Calculates an optimal latent vector size based on the original state size. The calculated latent size 
     aims to be as close to the square of the state size as possible while considering computational 
@@ -220,11 +220,11 @@ def calculate_latent_size(state_size, threshold=1024):
     proposed_latent_size = state_size ** 2
 
     # Ensure the latent size does not exceed the threshold
-    latent_size = min(proposed_latent_size, threshold)
+    latent_size = min(proposed_latent_size, max_threshold)
 
     return latent_size
 
-def calculate_value_size(state_size, min_threshold=1):
+def calculate_latent_value_size(state_size, min_threshold=1):
     """
     Calculates an optimal latent vector size based on the original state size. The calculated latent size 
     aims to be as close to the square of the state size as possible while considering computational 

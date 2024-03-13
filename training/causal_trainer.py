@@ -16,7 +16,7 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from utils.init import set_seed
-from training.trainer_utils import create_transformation_matrix, calculate_latent_size, calculate_value_size
+from training.trainer_utils import create_transformation_matrix, calculate_latent_cost_size, calculate_latent_value_size
 from training.managers.normalization_manager import STATE_NORM_SCALE
 
 class CausalTrainer(BaseTrainer):
@@ -37,18 +37,18 @@ class CausalTrainer(BaseTrainer):
         # Calculate dimensions for transformation matrices with descriptive naming
         # indicating the purpose or logic behind each dimensionality adjustment
         # better naming than candidate 
-        target_dim_for_cost = calculate_latent_size(state_size)
+        target_dim_for_cost = calculate_latent_cost_size(state_size)
         target_dim_for_error = min(target_dim_for_cost, state_size)
-        value_size = calculate_value_size(state_size)
+        latent_value_size = calculate_latent_value_size(state_size)
         
         # Create transformation matrices for cost calculations, 
         # naming them to reflect their input and output dimensions and purpose
         self.cost_transformation_matrix = create_transformation_matrix(state_size, target_dim_for_cost).to(device)
         self.error_transformation_matrix = create_transformation_matrix(target_dim_for_cost, target_dim_for_error).to(device)
                         
-        self.critic = SingleInputCritic(critic_network, env_config, value_size, rl_params.critic_params).to(device)
-        self.actor = DualInputActor(actor_network, env_config, value_size, rl_params.use_deterministic, rl_params.actor_params).to(device)
-        self.revEnv = RevEnv(rev_env_network, env_config, value_size, rl_params.rev_env_params).to(device)
+        self.critic = SingleInputCritic(critic_network, env_config, latent_value_size, rl_params.critic_params).to(device)
+        self.actor = DualInputActor(actor_network, env_config, latent_value_size, rl_params.use_deterministic, rl_params.actor_params).to(device)
+        self.revEnv = RevEnv(rev_env_network, env_config, latent_value_size, rl_params.rev_env_params).to(device)
         self.target_critic = copy.deepcopy(self.critic) 
 
         super(CausalTrainer, self).__init__(env_config, rl_params, 
@@ -143,11 +143,11 @@ class CausalTrainer(BaseTrainer):
     
     def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
         # Calculate the cooperative critic error using forward and reverse costs in relation to the recurrent cost.
-        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)
+        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)/2
         # Calculate the cooperative actor error using recurrent and forward costs in relation to the reverse cost.
-        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)
+        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)/2
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
-        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)      
+        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)/2      
         return coop_critic_error, coop_actor_error, coop_revEnv_error
 
     def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
