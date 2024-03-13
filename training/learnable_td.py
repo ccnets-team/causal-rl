@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import math
 
 UPDATE_LEARNABLE_TD_INTERVAL = 4
 
@@ -13,6 +14,8 @@ class LearnableTD(nn.Module):
 
         discount_factor_init = discount_factor * torch.ones(1, device=self.device, dtype=torch.float)
         advantage_lambda_init = advantage_lambda * torch.ones(max_seq_len, device=self.device, dtype=torch.float)
+        
+        self.sum_reward_scale = 0.5
         
         self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(advantage_lambda_init))
@@ -90,7 +93,8 @@ class LearnableTD(nn.Module):
             raw_sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
 
         sum_reward_weights = raw_sum_reward_weights.unsqueeze(0).unsqueeze(-1)
-        self.sum_reward_weights = sum_reward_weights / sum_reward_weights.mean().clamp_min(1e-8)
+        self.sum_reward_weights = self.sum_reward_scale * (sum_reward_weights / sum_reward_weights.mean().clamp_min(1e-8))
+         
         return self.sum_reward_weights
 
     def calculate_lambda_returns(self, values, rewards, dones, seq_range):

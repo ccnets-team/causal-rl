@@ -11,7 +11,7 @@ class RunningMeanSqrt:
         self.min_abs_mean = min_abs_mean
         self.max_abs_mean = max_abs_mean
 
-    def update(self, x, padding_mask=None):
+    def update(self, x, padding_mask=None, feature_range=None):
         batch_size, seq_len, feature_size = x.size()
         if batch_size == 0:
             return self  # Do not update if the batch size is zero
@@ -51,7 +51,7 @@ class RunningMeanSqrt:
         scaled_mean_sqrt = torch.sqrt(thresh_abs_mean + 1e-8) / self.scale
         return scaled_mean_sqrt
 
-    def normalize(self, x):
+    def normalize(self, x, feature_range = None):
         if len(x) < 1 or torch.sum(self.count < 1) > 0:
             return x
         mean_sqrt = self.get_mean_sqrt().view(1, 1, self.num_features)

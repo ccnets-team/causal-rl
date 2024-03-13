@@ -11,7 +11,7 @@ class RunningAbsMean:
         self.max_abs_mean = max_abs_mean    
         self.decay_factor = 1 - decay_rate
 
-    def update(self, x, padding_mask=None):
+    def update(self, x, padding_mask=None, feature_range=None):
         batch_size, seq_len, feature_size = x.size()
         if batch_size == 0:
             return self  # Do not update if the batch size is zero
@@ -51,7 +51,7 @@ class RunningAbsMean:
         scaled_abs_mean = (thresh_abs_mean / self.scale) + 1e-8
         return scaled_abs_mean
 
-    def normalize(self, x):
+    def normalize(self, x, feature_range = None):
         if len(x) < 1 or torch.sum(self.count < 1) > 0:
             return x
         abs_mean = self.get_abs_mean().view(1, 1, self.num_features)

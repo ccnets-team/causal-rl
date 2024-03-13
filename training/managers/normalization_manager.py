@@ -92,7 +92,8 @@ class NormalizerBase:
             elif data.device != self.device:
                 data = data.to(self.device)
             # Update the normalizer with the reshaped data
-            self.normalizer.update(data, padding_mask, feature_range = feature_range)
+            with torch.no_grad():
+                self.normalizer.update(data, padding_mask, feature_range = feature_range)
                 
     def _normalize_last_dim(self, data, scale = 1, feature_range = None):
         if self.normalizer is not None:
