@@ -9,10 +9,10 @@ from ..network_utils import init_weights, create_layer
 from ..network_utils import ContinuousFeatureEmbeddingLayer
 
 class BaseCritic(nn.Module):
-    def __init__(self, net, env_config, value_size, critic_params, input_size):
+    def __init__(self, net, env_config, critic_params, input_size):
         super(BaseCritic, self).__init__()  
         self.d_model, self.num_layers = critic_params.d_model, critic_params.num_layers
-        self.value_size = value_size
+        self.value_size = env_config.value_size
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(input_size, self.d_model)
         self.relu = nn.ReLU()
         self.final_layer = create_layer(self.d_model, self.value_size, act_fn = 'none') 
@@ -26,8 +26,8 @@ class BaseCritic(nn.Module):
         return value
 
 class SingleInputCritic(BaseCritic):
-    def __init__(self, net, env_config, value_size, critic_params):
-        super(SingleInputCritic, self).__init__(net, env_config, value_size, critic_params, env_config.state_size)
+    def __init__(self, net, env_config, critic_params):
+        super(SingleInputCritic, self).__init__(net, env_config, critic_params, env_config.state_size)
         self.apply(init_weights)
 
     def forward(self, state, mask = None):
@@ -35,8 +35,8 @@ class SingleInputCritic(BaseCritic):
         return self._compute_forward_pass(_state, mask)
 
 class DualInputCritic(BaseCritic):
-    def __init__(self, net, env_config, value_size, critic_params):
-        super(DualInputCritic, self).__init__(net, env_config, value_size, critic_params, env_config.state_size + env_config.action_size)
+    def __init__(self, net, env_config, critic_params):
+        super(DualInputCritic, self).__init__(net, env_config, critic_params, env_config.state_size + env_config.action_size)
         self.apply(init_weights)
 
     def forward(self, state, action, mask = None):

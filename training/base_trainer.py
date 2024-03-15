@@ -5,7 +5,7 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, GradScaler
+from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, create_transformation_matrix, GradScaler
 from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
@@ -19,7 +19,11 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_utils(env_config, device)
         self._init_exploration_utils(self.gpt_seq_length)
-  
+
+        state_size = env_config.state_size
+        value_size = env_config.value_size
+        self.error_transformation_matrix = create_transformation_matrix(state_size, value_size).to(device)
+        self.error_to_state_size_ratio = value_size/state_size
         self.train_iter = 0
 
     def _unpack_rl_params(self, rl_params):
@@ -53,7 +57,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.device = device
 
     def _init_normalization_utils(self, env_config, device):
-        NormalizationUtils.__init__(self, env_config.state_size, self.normalization_params, self.gpt_seq_length, device)
+        NormalizationUtils.__init__(self, env_config.state_size, env_config.value_size, self.normalization_params, self.gpt_seq_length, device)
 
     def _init_exploration_utils(self, gpt_seq_length):
         self.decay_mode = self.optimization_params.scheduler_type
@@ -212,7 +216,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         # Calculate expected value and sum of rewards for the terminal segment of the trajectory
         expected_value, sum_rewards = self.learnable_td.calculate_lambda_returns(
             adjusted_trajectory_values, adjusted_last_rewards, adjusted_last_dones, seq_range=(start_seq_idx, end_seq_idx))
-        
         with torch.no_grad():
             # Retrieve normalized sum reward weights for the given sequence range
             sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=(start_seq_idx, end_seq_idx), padding_mask=adjusted_padding_mask)
@@ -226,8 +229,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         # Select the appropriate future value using end_select_idx
         target_idx = (selection_end_idx - gpt_seq_length).flatten()
         batch_idx = torch.arange(0, next_states.size(0), device=self.device)
-        discounted_future_value = expected_value[batch_idx, target_idx].unsqueeze(-1)
-        
+        discounted_future_value = expected_value[batch_idx, target_idx].unsqueeze(1)
         return discounted_future_value
         
     def compute_expected_value(self, states: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor, padding_mask: torch.Tensor, end_value: torch.Tensor):
@@ -290,6 +292,51 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         return reduced_loss
     
+    def calculate_bipolar_td_loss(self, estimated_value: torch.Tensor, expected_value: torch.Tensor,
+                                    coop_actor_error: torch.Tensor, padding_mask: torch.Tensor, polar_extent = 1.0):    
+        """
+        Calculates a modified temporal difference (TD) loss incorporating cooperative actor error
+        and learnable TD parameters. This loss assesses the discrepancy between the model's 
+        estimated and expected state values, integrating actual outcomes and future predictions.
+        It adjusts the TD loss for cooperative behavior among actors.
+
+        :param estimated_value: A 3D tensor of model-predicted state value estimates, 
+                                dimensions [B, Seq, Value Dim], where B is batch size, 
+                                Seq is sequence length, and Value Dim typically equals 1.
+        :param expected_value: A 3D tensor of expected state values considering future rewards,
+                               dimensions [B, Seq, Value Dim]. Serves as a comparison baseline.
+        :param coop_actor_error: Error tensor from cooperative actors' actions, adjusting the
+                                 TD loss for multi-agent dynamics.
+        :param padding_mask: A 3D mask tensor, dimensions [B, Seq, 1], excludes padding from loss
+                             calculation to focus on valid states.
+        :return: A tensor of the modified TD loss for each state-action pair, adjusted for 
+                 cooperative behavior and learnable TD parameters, dimensions [B, Seq, Value Dim].
+
+        Determines computation mode based on learnable TD parameters' update status, emphasizing
+        learning from actual outcomes by detaching only the estimated value, or stabilizing learning
+        against a static baseline by detaching both estimated and expected values.
+        """
+        # Inverse represents the conceptual distance between two poles in the adjustment mechanism
+        polarization_factor = 1 / polar_extent        
+        
+        if self.should_update_learnable_td():
+            value_error = (expected_value - estimated_value.detach()).square()
+            td_error = (expected_value - estimated_value.detach()).abs()
+            
+            # Apply the normalization factor to the value error.
+            learnable_td_error = polarization_factor*value_error - td_error
+            
+            action_grad_scale = self.error_to_state_size_ratio*coop_actor_error.detach().mean(dim = -1, keepdim=True)
+            
+            # Adjust the TD error by the cooperative actor's gradient scaling.
+            learnable_td_error = GradScaler.apply(learnable_td_error, action_grad_scale)
+            
+            reduced_loss = self.select_tensor_reduction(learnable_td_error, padding_mask)
+        else:
+            reduced_loss = None
+            
+        return reduced_loss
+        
     def compute_advantage(self, estimated_value: torch.Tensor, expected_value: torch.Tensor, padding_mask: torch.Tensor):
         """
         Calculates the advantage, which measures the benefit of taking specific actions from given states over the policy's average prediction for those states.
@@ -304,15 +351,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :return: The normalized advantage for each state-action pair within the sequences, indicating the relative effectiveness of actions taken. 
                 The output is a 3D tensor with dimensions [B, Seq, Value Dim], where each element reflects the calculated advantage for the corresponding state.
         """
-        # Determine the computation mode based on the update status of learnable TD parameters.
-        # If TD parameters are being updated, detach only the estimated value to emphasize the learning signal from actual outcomes.
-        # Otherwise, detach both to stabilize the learning against a static baseline.
-        if self.should_update_learnable_td():
-            advantage = (GradScaler.apply(expected_value, -1) - estimated_value.detach())
-        else:
-            advantage = (expected_value.detach() - estimated_value.detach())
+        advantage = (expected_value.detach() - estimated_value.detach())
             
-        # Normalize the advantage to enhance training stability, ensuring consistent gradient scales.
+        # # Normalize the advantage to enhance training stability, ensuring consistent gradient scales.
         advantage = self.normalize_advantage(advantage, padding_mask)
 
         return advantage

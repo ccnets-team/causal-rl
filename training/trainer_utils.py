@@ -142,6 +142,30 @@ def apply_sequence_mask(component, model_seq_mask, model_seq_length):
     component_shape = component.shape
     return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
 
+def calculate_value_size(state_size, min_threshold=1):
+    """
+    Calculates an optimal latent vector size based on the original state size. The calculated latent size 
+    aims to be as close to the square of the state size as possible while considering computational 
+    constraints represented by the threshold.
+
+    The function ensures the latent size does not exceed a specified threshold, balancing between 
+    achieving a square-like growth and maintaining computational efficiency.
+
+    Args:
+    - state_size (int): The size of the original state vector.
+    - threshold (int): The maximum allowable size for the latent vector to ensure computational efficiency.
+
+    Returns:
+    - int: The calculated size of the latent vector, adhering to the computational constraints.
+    """
+    # Attempt to calculate a square-like size of the original state size
+    proposed_latent_size = int(state_size ** 0.5)
+
+    # Ensure the latent size does not exceed the threshold
+    latent_size = max(proposed_latent_size, min_threshold)
+
+    return latent_size
+
 def create_transformation_matrix(num_rows, num_cols):
     """
     Creates a transformation matrix for applications like image reconstruction, 
@@ -199,51 +223,3 @@ def create_transformation_matrix(num_rows, num_cols):
     transformation_matrix *= (num_rows / num_cols)
     
     return transformation_matrix.unsqueeze(0)
-
-def calculate_latent_cost_size(state_size, max_threshold=1024):
-    """
-    Calculates an optimal latent vector size based on the original state size. The calculated latent size 
-    aims to be as close to the square of the state size as possible while considering computational 
-    constraints represented by the threshold.
-
-    The function ensures the latent size does not exceed a specified threshold, balancing between 
-    achieving a square-like growth and maintaining computational efficiency.
-
-    Args:
-    - state_size (int): The size of the original state vector.
-    - threshold (int): The maximum allowable size for the latent vector to ensure computational efficiency.
-
-    Returns:
-    - int: The calculated size of the latent vector, adhering to the computational constraints.
-    """
-    # Attempt to calculate a square-like size of the original state size
-    proposed_latent_size = state_size ** 2
-
-    # Ensure the latent size does not exceed the threshold
-    latent_size = min(proposed_latent_size, max_threshold)
-
-    return latent_size
-
-def calculate_latent_value_size(state_size, min_threshold=1):
-    """
-    Calculates an optimal latent vector size based on the original state size. The calculated latent size 
-    aims to be as close to the square of the state size as possible while considering computational 
-    constraints represented by the threshold.
-
-    The function ensures the latent size does not exceed a specified threshold, balancing between 
-    achieving a square-like growth and maintaining computational efficiency.
-
-    Args:
-    - state_size (int): The size of the original state vector.
-    - threshold (int): The maximum allowable size for the latent vector to ensure computational efficiency.
-
-    Returns:
-    - int: The calculated size of the latent vector, adhering to the computational constraints.
-    """
-    # Attempt to calculate a square-like size of the original state size
-    proposed_latent_size = int(state_size ** 0.5)
-
-    # Ensure the latent size does not exceed the threshold
-    latent_size = max(proposed_latent_size, min_threshold)
-
-    return latent_size

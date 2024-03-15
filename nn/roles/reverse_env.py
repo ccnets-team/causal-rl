@@ -10,15 +10,15 @@ from ..network_utils import init_weights, create_layer
 from ..network_utils import ContinuousFeatureEmbeddingLayer
 
 class RevEnv(nn.Module):
-    def __init__(self, net, env_config, value_size, rev_env_params):
+    def __init__(self, net, env_config, rev_env_params):
         super(RevEnv, self).__init__()
         self.use_discrete = env_config.use_discrete
         self.state_size = env_config.state_size
         self.action_size = env_config.action_size
+        self.value_size = env_config.value_size
         self.d_model = rev_env_params.d_model
         self.num_layers = rev_env_params.num_layers
         self.relu = nn.ReLU()
-        self.value_size = value_size
             
         self.embedding_layer = ContinuousFeatureEmbeddingLayer(self.state_size + self.action_size \
             + self.value_size, self.d_model)

@@ -66,3 +66,4 @@ class EnvConfig(ObservationSpecs, ActionSpecs, StateSpecs):
         self.num_environments = num_environments
         self.num_test_environments = 1
         self.samples_per_step = int(self.num_agents * self.num_environments)  
+        self.value_size = 1

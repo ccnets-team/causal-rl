@@ -15,8 +15,8 @@ class LearnableTD(nn.Module):
         discount_factor_init = discount_factor * torch.ones(1, device=self.device, dtype=torch.float)
         advantage_lambda_init = advantage_lambda * torch.ones(max_seq_len, device=self.device, dtype=torch.float)
                 
-        # Set sum reward scaling standard deviation (std) to 0.5
-        self.sum_reward_scale = 0.5  # std = 0.5
+        # Set sum reward scaling standard deviation (std) to 1.0
+        self.sum_reward_scale = 1.0  # std = 1.0
         
         self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(advantage_lambda_init))
@@ -119,7 +119,7 @@ class LearnableTD(nn.Module):
         segment_length = end_idx - start_idx
         
         # Initialize tensors for the segment's lambda returns and sum of rewards
-        sum_rewards = torch.zeros_like(values)
+        sum_rewards = torch.zeros_like(values[:,:,:1])
         lambda_returns = torch.zeros_like(values)
         
         # Initialize the last timestep's lambda return to the last timestep's value within the segment

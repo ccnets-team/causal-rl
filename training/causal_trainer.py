@@ -16,7 +16,6 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from utils.init import set_seed
-from training.trainer_utils import create_transformation_matrix, calculate_latent_cost_size, calculate_latent_value_size
 from training.managers.normalization_manager import STATE_NORM_SCALE
 
 class CausalTrainer(BaseTrainer):
@@ -32,28 +31,11 @@ class CausalTrainer(BaseTrainer):
         self.rev_env_params = rl_params.rev_env_params
 
         env_config = rl_params.env_config
-        state_size = env_config.state_size
-        
-        # Calculate dimensions for transformation matrices with descriptive naming
-        # indicating the purpose or logic behind each dimensionality adjustment
-        # better naming than candidate 
-        target_dim_for_cost = calculate_latent_cost_size(state_size)
-        target_dim_for_error = max(target_dim_for_cost//4, 1)
-        
-        latent_value_size = calculate_latent_value_size(state_size)
-        self.value_layer_norm = torch.nn.LayerNorm(latent_value_size, elementwise_affine=False).to(device)  
-        
-        # Create transformation matrices for cost calculations, 
-        # naming them to reflect their input and output dimensions and purpose
-        self.cost_transformation_matrix = create_transformation_matrix(state_size, target_dim_for_cost).to(device)
-        self.error_transformation_matrix = create_transformation_matrix(target_dim_for_cost, target_dim_for_error).to(device)
-                        
-        self.critic = SingleInputCritic(critic_network, env_config, latent_value_size, rl_params.critic_params).to(device)
-        self.actor = DualInputActor(actor_network, env_config, latent_value_size, rl_params.use_deterministic, rl_params.actor_params).to(device)
-        self.revEnv = RevEnv(rev_env_network, env_config, latent_value_size, rl_params.rev_env_params).to(device)
+                
+        self.critic = SingleInputCritic(critic_network, env_config, rl_params.critic_params).to(device)
+        self.actor = DualInputActor(actor_network, env_config, rl_params.use_deterministic, rl_params.actor_params).to(device)
+        self.revEnv = RevEnv(rev_env_network, env_config, rl_params.rev_env_params).to(device)
         self.target_critic = copy.deepcopy(self.critic) 
-        self.cost_to_state_size_ratio = target_dim_for_cost/state_size
-        self.error_to_state_size_ratio = target_dim_for_error/state_size
 
         super(CausalTrainer, self).__init__(env_config, rl_params, 
                                         networks = [self.critic, self.actor, self.revEnv], \
@@ -65,12 +47,11 @@ class CausalTrainer(BaseTrainer):
     # If in training mode, it samples an action based on exploration rate. Otherwise, it simply selects the most likely action.        
     def get_action(self, state, mask = None, training: bool = False):
         with torch.no_grad():
-            _, normalized_value = self.compute_values(state, mask)
+            esimtaed_value = self.critic(state, mask)
             if training and not self.use_deterministic:
-                action = self.actor.sample_action(state, normalized_value, mask)
+                action = self.actor.sample_action(state, esimtaed_value, mask)
             else:
-                action = self.actor.select_action(state, normalized_value, mask)
-                
+                action = self.actor.select_action(state, esimtaed_value, mask)
         return action
 
     def train_model(self, trajectory: BatchTrajectory):
@@ -82,14 +63,14 @@ class CausalTrainer(BaseTrainer):
         states, actions, rewards, next_states, dones, padding_mask, end_value = self.select_train_sequence(trajectory)
         
         # Get the estimated value of the current state from the critic network.
-        estimated_value, normalized_value = self.compute_values(states, padding_mask)
-            
-        # Predict the action that the actor would take for the current state and its estimated value.
-        inferred_action = self.actor(states, normalized_value, padding_mask)
+        estimated_value = self.critic(states, padding_mask)    
 
-        reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, normalized_value, padding_mask)
+        # Predict the action that the actor would take for the current state and its estimated value.
+        inferred_action = self.actor(states, estimated_value, padding_mask)
+
+        reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
         
-        forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state, reduce_feture_dim = True)
+        forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state)
         
         coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True)
 
@@ -97,6 +78,8 @@ class CausalTrainer(BaseTrainer):
         
         advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
             
+        bipolar_td_loss = self.calculate_bipolar_td_loss(estimated_value, expected_value, coop_actor_error, padding_mask)
+        
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
 
@@ -111,8 +94,8 @@ class CausalTrainer(BaseTrainer):
         
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
-            [self.critic, self.actor, self.revEnv],
-            [[value_loss, critic_loss], [actor_loss], [revEnv_loss]])
+            [self.learnable_td, self.critic, self.actor, self.revEnv],
+            [[bipolar_td_loss], [value_loss, critic_loss], [actor_loss], [revEnv_loss]])
 
         # Update the network parameters.
         self.update_step()
@@ -128,32 +111,25 @@ class CausalTrainer(BaseTrainer):
             coop_critic_error=coop_critic_error * self.error_to_state_size_ratio,
             coop_actor_error=coop_actor_error * self.error_to_state_size_ratio,
             coop_revEnv_error=coop_revEnv_error * self.error_to_state_size_ratio,
-            forward_cost=forward_cost * self.cost_to_state_size_ratio,
-            reverse_cost=reverse_cost * self.cost_to_state_size_ratio,
-            recurrent_cost=recurrent_cost * self.cost_to_state_size_ratio,
+            forward_cost=forward_cost,
+            reverse_cost=reverse_cost,
+            recurrent_cost=recurrent_cost,
             padding_mask = padding_mask
         )
         return metrics
 
     def trainer_calculate_future_value(self, next_state, mask):
         with torch.no_grad():
-            latent_value = self.target_critic(next_state, mask)
-            future_value = latent_value.sum(dim=-1, keepdim=True)
+            future_value = self.target_critic(next_state, mask)
         return future_value    
-
-    def compute_values(self, states, padding_mask):
-        latent_value = self.critic(states, padding_mask)
-        estimated_value = latent_value.sum(dim=-1, keepdim=True)
-        normalized_value = self.value_layer_norm(latent_value) if latent_value.size(-1) > 1 else latent_value 
-        return estimated_value, normalized_value    
-    
-    def compute_transition_costs_from_states(self, states, reversed_state, recurred_state, reduce_feture_dim = True):
+        
+    def compute_transition_costs_from_states(self, states, reversed_state, recurred_state):
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
-        forward_cost = self.cost_fn(recurred_state, reversed_state, reduce_feture_dim)
+        forward_cost = self.cost_fn(recurred_state, reversed_state)
         # Compute the reverse cost by checking the discrepancy between the reversed state and the original state.
-        reverse_cost = self.cost_fn(reversed_state, states/STATE_NORM_SCALE, reduce_feture_dim)
+        reverse_cost = self.cost_fn(reversed_state, states/STATE_NORM_SCALE)
         # Compute the recurrent cost by checking the discrepancy between the recurred state and the original state.
-        recurrent_cost = self.cost_fn(recurred_state, states/STATE_NORM_SCALE, reduce_feture_dim)
+        recurrent_cost = self.cost_fn(recurred_state, states/STATE_NORM_SCALE)
         return forward_cost, reverse_cost, recurrent_cost
     
     def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
@@ -213,13 +189,9 @@ class CausalTrainer(BaseTrainer):
         
         return reversed_state, recurred_state
 
-    def cost_fn(self, predict, target, reduce_feture_dim = False):
+    def cost_fn(self, predict, target):
         cost = (predict - target.detach()).abs()
-        if reduce_feture_dim:
-            reduced_cost = torch.matmul(cost, self.cost_transformation_matrix)
-        else:
-            reduced_cost = cost 
-        return reduced_cost
+        return cost
     
     def error_fn(self, predict, target, reduce_feture_dim = False):
         """

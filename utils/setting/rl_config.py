@@ -3,7 +3,7 @@ from nn.network_utils import ModelParams
 
 class TrainingParameters:
     # Initialize training parameters for a reinforcement learning model.
-    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, max_steps=100000, buffer_size=320000):
+    def __init__(self, batch_size=64, replay_ratio=1, train_interval=1, max_steps=200000, buffer_size=320000):
         self.batch_size = batch_size  # Number of samples processed before model update; larger batch size can lead to more stable but slower training.
         self.replay_ratio = replay_ratio  # Ratio for how often past experiences are reused in training (batch size / samples per step).
         self.train_interval = train_interval  # Frequency of training updates, based on the number of explorations before each update.
@@ -38,7 +38,7 @@ class NetworkParameters:
 
 class OptimizationParameters:
     # Initialize optimization parameters
-    def __init__(self, lr=1e-4, decay_rate_100k=0.1, scheduler_type='exponential', tau=0.1, use_target_network=True, clip_grad_range=None, max_grad_norm=1.0): 
+    def __init__(self, lr=1e-4, decay_rate_100k=0.2, scheduler_type='exponential', tau=0.1, use_target_network=True, clip_grad_range=None, max_grad_norm=1.0): 
         self.lr = lr  # Learning rate for optimization algorithms, crucial for convergence.
         self.decay_rate_100k = decay_rate_100k  # Decay rate for the learning rate every 100k steps.
         self.scheduler_type = scheduler_type  # Type of learning rate scheduler: 'linear', 'exponential', or 'cyclic'.
