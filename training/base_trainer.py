@@ -6,7 +6,7 @@ from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, create_transformation_matrix, GradScaler
-from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
+from .learnable_td import LearnableTD
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -107,14 +107,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.update_exploration_rate()# Modifies exploration rate for effective exploration-exploitation balance.
         self.train_iter += 1          # Tracks training progress.
 
-    def should_update_learnable_td(self):
-        """
-        Checks if learnable TD parameters should be updated based on the current training iteration.
-        Returns:
-            bool: True if it's time to update learnable TD parameters; False otherwise.
-        """
-        return self.train_iter % UPDATE_LEARNABLE_TD_INTERVAL == 0
-                    
     def select_tensor_reduction(self, tensor, mask=None):
         """
         Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
@@ -293,47 +285,50 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         return reduced_loss
     
     def calculate_bipolar_td_loss(self, estimated_value: torch.Tensor, expected_value: torch.Tensor,
-                                    coop_actor_error: torch.Tensor, padding_mask: torch.Tensor, polar_extent = 1.0):    
+                                    coop_actor_error: torch.Tensor, padding_mask: torch.Tensor, polar_distance = 2.0):    
         """
-        Calculates a modified temporal difference (TD) loss incorporating cooperative actor error
-        and learnable TD parameters. This loss assesses the discrepancy between the model's 
-        estimated and expected state values, integrating actual outcomes and future predictions.
-        It adjusts the TD loss for cooperative behavior among actors.
+        This method calculates a loss designed to adjust the expected returns through dynamic optimization of the 
+        `gamma` and `lambda` parameters. By leveraging the concept of bipolar adjustment, this loss function aims 
+        to either increase or decrease the expected returns based on the difference between estimated and expected values, 
+        and the cooperative dynamics among actors. The `polar_distance` parameter controls the sensitivity of `gamma` 
+        and `lambda` adjustments, guiding the optimization process towards achieving a balance between short-term 
+        and long-term rewards.
 
-        :param estimated_value: A 3D tensor of model-predicted state value estimates, 
-                                dimensions [B, Seq, Value Dim], where B is batch size, 
-                                Seq is sequence length, and Value Dim typically equals 1.
-        :param expected_value: A 3D tensor of expected state values considering future rewards,
-                               dimensions [B, Seq, Value Dim]. Serves as a comparison baseline.
-        :param coop_actor_error: Error tensor from cooperative actors' actions, adjusting the
-                                 TD loss for multi-agent dynamics.
-        :param padding_mask: A 3D mask tensor, dimensions [B, Seq, 1], excludes padding from loss
-                             calculation to focus on valid states.
-        :return: A tensor of the modified TD loss for each state-action pair, adjusted for 
-                 cooperative behavior and learnable TD parameters, dimensions [B, Seq, Value Dim].
+        Parameters:
+        - estimated_value: A 3D tensor [B, Seq, Value Dim] representing the model-predicted state value estimates, 
+        where B is the batch size, Seq is the sequence length, and Value Dim is typically 1.
+        - expected_value: A 3D tensor [B, Seq, Value Dim] representing the expected state values based on future rewards, 
+        used as the baseline for comparison.
+        - coop_actor_error: A tensor capturing the error from actions taken by cooperative actors, utilized to adjust 
+        the loss to reflect multi-agent interaction dynamics.
+        - padding_mask: A 3D tensor [B, Seq, 1] used to exclude padding from the loss calculation, focusing on valid states.
+        - polar_distance: A scalar defining the conceptual distance between two bipolar extremes, influencing the 
+        magnitude of adjustments to `gamma` and `lambda`.
 
-        Determines computation mode based on learnable TD parameters' update status, emphasizing
-        learning from actual outcomes by detaching only the estimated value, or stabilizing learning
-        against a static baseline by detaching both estimated and expected values.
+        Returns:
+        - A tensor [Reduced Dim, Value Dim] representing the loss associated with optimizing `gamma` and `lambda` parameters 
+        for adjusting expected returns, taking into account the cooperative behavior and dynamic parameter adjustments.
+        The shape of this tensor can vary depending on the chosen reduction method.
+
+        The loss calculation incorporates a bipolar approach to dynamically modulate the influence of immediate versus 
+        future rewards, facilitating an optimal balance tailored to the current state of the environment and the 
+        strategic dynamics of cooperative behavior among actors.
         """
         # Inverse represents the conceptual distance between two poles in the adjustment mechanism
-        polarization_factor = 1 / polar_extent        
+        polarization_factor = 1 / polar_distance        
         
-        if self.should_update_learnable_td():
-            value_error = (expected_value - estimated_value.detach()).square()
-            td_error = (expected_value - estimated_value.detach()).abs()
-            
-            # Apply the normalization factor to the value error.
-            learnable_td_error = polarization_factor*value_error - td_error
-            
-            action_grad_scale = self.error_to_state_size_ratio*coop_actor_error.detach().mean(dim = -1, keepdim=True)
-            
-            # Adjust the TD error by the cooperative actor's gradient scaling.
-            learnable_td_error = GradScaler.apply(learnable_td_error, action_grad_scale)
-            
-            reduced_loss = self.select_tensor_reduction(learnable_td_error, padding_mask)
-        else:
-            reduced_loss = None
+        value_error = (expected_value - estimated_value.detach()).square()
+        td_error = (expected_value - estimated_value.detach()).abs()
+        
+        # Apply the normalization factor to the value error.
+        learnable_td_error = polarization_factor*value_error - td_error
+        
+        action_grad_scale = self.error_to_state_size_ratio*coop_actor_error.detach().mean(dim = -1, keepdim=True)
+        
+        # Adjust the TD error by the cooperative actor's gradient scaling.
+        learnable_td_error = GradScaler.apply(learnable_td_error, action_grad_scale)
+        
+        reduced_loss = self.select_tensor_reduction(learnable_td_error, padding_mask)
             
         return reduced_loss
         
