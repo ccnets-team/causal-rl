@@ -16,6 +16,9 @@ REWARD_NORM_SCALE = 1
 SUM_REWARD_NORM_SCALE = 1
 ADVANTAGE_NORM_SCALE = 1
 
+RAPID_UPDATE_DECAY_RATE = 1e-3
+GRADUAL_UPDATE_DECAY_RATE = 1e-5
+
 CLIP_NORM_RANGE = 10.0
 
 def _normalize_l1_norm(advantage, padding_mask=None):
@@ -67,9 +70,9 @@ class NormalizerBase:
         self.feature_size = feature_size
         self.clip_norm_range = CLIP_NORM_RANGE  # The range within which normalized values are clipped, preventing excessively high normalization values.
         if norm_type_key == 'advantage_normalizer':
-            update_decay_rate = 1e-3  # More emphasis on recent observations for advantage normalizer
+            update_decay_rate = RAPID_UPDATE_DECAY_RATE  # More emphasis on recent observations for advantage normalizer
         else:
-            update_decay_rate = 1e-5  # Slower decay for other types of normalizers
+            update_decay_rate = GRADUAL_UPDATE_DECAY_RATE  # Slower decay for other types of normalizers
                 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":

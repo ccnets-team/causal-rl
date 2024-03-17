@@ -5,8 +5,8 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, create_transformation_matrix, GradScaler
-from .learnable_td import LearnableTD
+from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, create_transformation_matrix
+from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -85,6 +85,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         with torch.no_grad():
             self.learnable_td.update_sum_reward_weights()
   
+    def should_update_learnable_td(self):
+        return self.train_iter % UPDATE_LEARNABLE_TD_INTERVAL == 0
+    
     def update_step(self):
         """
         Executes a series of update operations essential for the training iteration.
@@ -285,53 +288,54 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         return reduced_loss
     
     def calculate_bipolar_td_loss(self, estimated_value: torch.Tensor, expected_value: torch.Tensor,
-                                    coop_actor_error: torch.Tensor, padding_mask: torch.Tensor, polar_distance = 2.0):    
+                                coop_actor_error: torch.Tensor, padding_mask: torch.Tensor, 
+                                polar_distance: float = 1.0, incentive_bias_weight: float = 0.5):
         """
-        This method calculates a loss designed to adjust the expected returns through dynamic optimization of the 
-        `gamma` and `lambda` parameters. By leveraging the concept of bipolar adjustment, this loss function aims 
-        to either increase or decrease the expected returns based on the difference between estimated and expected values, 
-        and the cooperative dynamics among actors. The `polar_distance` parameter controls the sensitivity of `gamma` 
-        and `lambda` adjustments, guiding the optimization process towards achieving a balance between short-term 
-        and long-term rewards.
-
-        Parameters:
-        - estimated_value: A 3D tensor [B, Seq, Value Dim] representing the model-predicted state value estimates, 
-        where B is the batch size, Seq is the sequence length, and Value Dim is typically 1.
-        - expected_value: A 3D tensor [B, Seq, Value Dim] representing the expected state values based on future rewards, 
-        used as the baseline for comparison.
-        - coop_actor_error: A tensor capturing the error from actions taken by cooperative actors, utilized to adjust 
-        the loss to reflect multi-agent interaction dynamics.
-        - padding_mask: A 3D tensor [B, Seq, 1] used to exclude padding from the loss calculation, focusing on valid states.
-        - polar_distance: A scalar defining the conceptual distance between two bipolar extremes, influencing the 
-        magnitude of adjustments to `gamma` and `lambda`.
-
-        Returns:
-        - A tensor [Reduced Dim, Value Dim] representing the loss associated with optimizing `gamma` and `lambda` parameters 
-        for adjusting expected returns, taking into account the cooperative behavior and dynamic parameter adjustments.
-        The shape of this tensor can vary depending on the chosen reduction method.
-
-        The loss calculation incorporates a bipolar approach to dynamically modulate the influence of immediate versus 
-        future rewards, facilitating an optimal balance tailored to the current state of the environment and the 
-        strategic dynamics of cooperative behavior among actors.
+        Calculates a bipolar TD loss designed to dynamically optimize gamma and lambda parameters, 
+        balancing short-term and long-term rewards. This function adjusts expected returns based on the 
+        difference between estimated and expected values, incorporating cooperative actor dynamics 
+        and a bipolar adjustment strategy. The polar_distance parameter sets the sensitivity of the 
+        bipolar adjustment, and the incentive_bias_weight introduces an incentive to adjust the 
+        expected value direction.
         """
-        # Inverse represents the conceptual distance between two poles in the adjustment mechanism
-        polarization_factor = 1 / polar_distance        
-        
-        value_error = (expected_value - estimated_value.detach()).square()
-        td_error = (expected_value - estimated_value.detach()).abs()
-        
-        # Apply the normalization factor to the value error.
-        learnable_td_error = polarization_factor*value_error - td_error
-        
-        action_grad_scale = self.error_to_state_size_ratio*coop_actor_error.detach().mean(dim = -1, keepdim=True)
-        
-        # Adjust the TD error by the cooperative actor's gradient scaling.
-        learnable_td_error = GradScaler.apply(learnable_td_error, action_grad_scale)
-        
-        reduced_loss = self.select_tensor_reduction(learnable_td_error, padding_mask)
+        if self.should_update_learnable_td():
+            advantage = expected_value - estimated_value.detach()
+
+            # Compute the component of the bipolar TD error influenced by an incentive, 
+            # scaled by the advantage. This encourages or discourages certain actions by 
+            # adjusting the direction of the expected value based on the advantage, aiming 
+            # to preferentially increase the expected value to minimize loss.
+            incentivized_bipolar_error = incentive_bias_weight * advantage
+
+            # Compute the fourth-degree polynomial error component without incentives, 
+            # focusing on the squared difference between squared advantage and squared 
+            # polar distance. This sophisticated error structure aims for a balance at 
+            # specified polar distances, creating a bipolar distribution of advantages.
+            fourth_degree_polynomial_error = (advantage.square() - (polar_distance)**2).square()
             
-        return reduced_loss
+            # Form the total bipolar TD error by combining the fourth-degree polynomial 
+            # error with the incentivized error. Subtracting the incentivized error biases 
+            # the learning towards increasing or decreasing the expected value, as dictated 
+            # by the incentive_bias_weight.
+            bipolar_td_error = fourth_degree_polynomial_error - incentivized_bipolar_error
+            
+            # Calculate a scale based on cooperative actor error, mean-reduced across the 
+            # last dimension. This scaling fine-tunes the bipolar TD error according to the 
+            # magnitude of cooperative actor dynamics.
+            action_grad_scale = self.error_to_state_size_ratio * coop_actor_error.detach().mean(dim=-1, keepdim=True)
+                    
+            # Refine the bipolar TD error with the calculated scale, further adjusting the 
+            # error based on observed cooperative behavior.
+            scaled_bipolar_td_error = action_grad_scale * bipolar_td_error
+            
+            # Aggregate the scaled bipolar TD error to produce a single loss value, taking 
+            # into account padding in the input tensors.
+            bipolar_td_loss = self.select_tensor_reduction(scaled_bipolar_td_error, padding_mask)
+        else:
+            bipolar_td_loss = None
         
+        return bipolar_td_loss
+
     def compute_advantage(self, estimated_value: torch.Tensor, expected_value: torch.Tensor, padding_mask: torch.Tensor):
         """
         Calculates the advantage, which measures the benefit of taking specific actions from given states over the policy's average prediction for those states.
