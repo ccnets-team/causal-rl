@@ -11,12 +11,44 @@ def create_chain_probabilities_from_lambdas(lambda_values):
     adjusted_probabilities = torch.flip(mean_chain_dependent_product, dims=[0])
     return adjusted_probabilities
 
+def gaussian_kernel(size, sigma, device):
+    """Generates a 1D Gaussian kernel."""
+    x = torch.arange(size).to(device) - size // 2
+    kernel = torch.exp(-0.5 * (x / sigma) ** 2)
+    kernel /= kernel.sum()
+    return kernel
+
+def smooth_probs(probs, kernel):
+    """
+    Smooths the probability distribution using a Gaussian kernel and normalizes the result.
+    
+    The kernel size is set to total_length*2 - 1 to ensure each element's contribution to its neighbors
+    is preserved across the entire length of the input.
+    """
+
+    # Ensure probs is a 2D tensor with shape (1, N)
+    probs = probs.unsqueeze(0)
+
+    # Apply convolution to smooth the probabilities
+    smoothed_probs = F.conv1d(probs, kernel, padding=kernel.size(2) // 2)
+    
+    smoothed_probs = smoothed_probs.squeeze(0)
+    
+    # Normalize the smoothed probabilities so their sum equals 1
+    normalized_smoothed_probs = smoothed_probs / smoothed_probs.sum()
+    
+    return normalized_smoothed_probs
+
 class ExplorationUtils:
     def __init__(self, gpt_seq_length, learnable_td, device):
         self.device = device
         self.learnable_td = learnable_td
         self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=self.device)
-        
+        kernel_size = int(gpt_seq_length * 2 - 1)
+        sigma = 0.5
+        # Generate the Gaussian kernel
+        self.kernel = gaussian_kernel(kernel_size, sigma, device).unsqueeze(0).unsqueeze(0)
+            
     def sample_padding_lengths(self, batch_size, gpt_seq_length):
         """
         Samples padding lengths for a batch of sequences based on previously learned Temporal Difference (TD) lambda values.
@@ -41,9 +73,10 @@ class ExplorationUtils:
         # Generate a probability distribution for sequence lengths from the TD(λ) values, facilitating a balanced
         # approach to sampling lengths that optimizes the learning process.
         lambda_sequence_probs = create_chain_probabilities_from_lambdas(learnable_td_lambd)
-
+        smoothed_sequence_probs = smooth_probs(lambda_sequence_probs, self.kernel)
+        
         # Sample sequence lengths based on the TD(λ)-derived probabilities, aiming to dynamically adjust sequence padding.
-        sampled_indices = torch.multinomial(lambda_sequence_probs, batch_size, replacement=True)
+        sampled_indices = torch.multinomial(smoothed_sequence_probs, batch_size, replacement=True)
         sampled_lengths = self.sequence_lengths[sampled_indices]
 
         # Compute padding lengths to adjust sampled sequence lengths to the maximum length, staying within valid bounds.
