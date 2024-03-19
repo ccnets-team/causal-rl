@@ -6,7 +6,7 @@ from utils.structure.data_structures import BatchTrajectory, AgentTransitions
 from memory.standard_buffer import StandardBuffer
 
 class ExperienceMemory:
-    def __init__(self, env_config, td_seq_length, batch_size, buffer_size, device):
+    def __init__(self, env_config, gpt_seq_length, batch_size, buffer_size, device):
         """
         Initializes an experience memory buffer for storing and managing agent experiences.
 
@@ -17,17 +17,12 @@ class ExperienceMemory:
             algorithm_params: Algorithm-specific parameters, used here to determine the combined sequence
                               length for GPT and TD computations.
             device: The computational device (CPU or GPU) where the data will be stored.
-
-        The buffer's total capacity and structure are tailored to support efficient experience replay,
-        enabling the model to learn from past interactions. The `gpt_td_seq_length` is set to 1.5 times
-        the GPT sequence length to account for sequence values computed for both the front and rear parts
-        of the sequence, optimizing for computational efficiency and learning effectiveness.
         """
         self.device = device
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
-        self.td_seq_length = td_seq_length
+        self.gpt_seq_length = gpt_seq_length
         self.batch_size = batch_size
 
         # Capacity calculation now in a separate method for clarity
@@ -38,11 +33,11 @@ class ExperienceMemory:
 
     def _calculate_capacity_per_agent(self, buffer_size):
         # Capacity calculation logic separated for clarity
-        return int(buffer_size) // (self.num_environments * self.num_agents) + self.td_seq_length
+        return int(buffer_size) // (self.num_environments * self.num_agents) + self.gpt_seq_length
 
     def _initialize_buffers(self):
         # Buffer initialization logic separated for clarity
-        return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.td_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
+        return [[StandardBuffer(self.capacity_per_agent, self.state_size, self.action_size, self.gpt_seq_length) for _ in range(self.num_agents)] for _ in range(self.num_environments)]
             
     def __len__(self):
         return sum(len(buf) for env in self.multi_buffers for buf in env)
@@ -82,7 +77,7 @@ class ExperienceMemory:
         
     def sample_batch_trajectory(self):
         sample_sz = self.batch_size
-        td_steps = self.td_seq_length 
+        td_steps = self.gpt_seq_length 
         samples = self.balanced_sample_trajectory_data(sample_sz, td_steps)
         if samples is None:
             return None

@@ -99,7 +99,6 @@ class CausalRLHelper:
         self.samples_per_step = self.batch_size//self.replay_ratio
         self.training_start_step = self.buffer_size//int(self.batch_size/self.replay_ratio) 
         self.total_on_policy_iterations = int((self.buffer_size * self.replay_ratio) // (self.train_interval*self.batch_size))
-        self.td_seq_length = self.rl_params.td_seq_length
         self.num_save_models = 0
         
     def _ensure_train_environment_exists(self):
@@ -116,7 +115,7 @@ class CausalRLHelper:
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
-            self.parent.memory = ExperienceMemory(self.env_config, self.td_seq_length, self.batch_size, self.buffer_size, self.parent.device)
+            self.parent.memory = ExperienceMemory(self.env_config, self.gpt_seq_length, self.batch_size, self.buffer_size, self.parent.device)
     
     def should_save_model_at_train_end(self) -> bool:
         """Determines if the model should be saved at the training end."""

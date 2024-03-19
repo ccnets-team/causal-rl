@@ -223,3 +223,79 @@ def create_transformation_matrix(num_rows, num_cols):
     transformation_matrix *= (num_rows / num_cols)
     
     return transformation_matrix.unsqueeze(0)
+
+def create_padding_mask(sequence_length, padding_lengths):
+    """
+    Creates a new padding mask based on the specified padding lengths for each sequence in a batch.
+
+    Args:
+    - sequence_length (int): The total length of sequences.
+    - padding_lengths (torch.Tensor): A 1D tensor of shape [batch_size] indicating the number of padding elements for each sequence.
+
+    Returns:
+    - torch.Tensor: A padding mask of shape [batch_size, sequence_length] where padding areas are marked with 0s and active areas with 1s.
+    """
+    batch_size = padding_lengths.size(0)
+    # Create a range tensor: [0, 1, 2, ..., sequence_length-1]
+    range_tensor = torch.arange(sequence_length, device=padding_lengths.device).expand(batch_size, -1)
+    # Expand padding_lengths to match the shape of range_tensor
+    expanded_padding_lengths = sequence_length - padding_lengths.unsqueeze(-1)
+    # Create the mask where positions < expanded_padding_lengths are active (1s) and others are padding (0s)
+    padding_mask = (range_tensor < expanded_padding_lengths).to(torch.long)
+
+    return padding_mask
+
+def shift_state_left(state_tensor, shift_amounts):
+    """
+    Shifts each sequence in the state tensor to the left by the specified amounts.
+    Vacated positions are filled with zeros.
+
+    Args:
+    - state_tensor (torch.Tensor): The tensor of states with shape [batch_size, seq_len, feature_dim].
+    - shift_amounts (torch.Tensor): A 1D tensor of shape [batch_size] indicating how many positions to shift left for each sequence.
+
+    Returns:
+    - torch.Tensor: The shifted state tensor with the same shape as state_tensor.
+    """
+    batch_size, seq_len, feature_dim = state_tensor.size()
+    # Ensure shift_amounts is on the same device as state_tensor
+    shift_amounts = shift_amounts.to(state_tensor.device)
+    
+    # Create a range tensor and adjust it for each sequence based on its shift amount
+    range_tensor = torch.arange(seq_len, device=state_tensor.device).expand(batch_size, -1)
+    shifted_indices = range_tensor - shift_amounts.unsqueeze(1)
+    
+    # Use clamp to handle indices outside the original sequence length (i.e., negative indices or those beyond seq_len)
+    # This effectively fills vacated positions with zeros
+    shifted_indices = torch.clamp(shifted_indices, 0, seq_len - 1)
+    
+    # Use gathered indices to align sequences to the left
+    shifted_state_tensor = torch.gather(state_tensor, 1, shifted_indices.unsqueeze(-1).expand(-1, -1, feature_dim))
+    
+    # Create a mask to zero-fill the vacated positions at the end of each sequence caused by the shift
+    # Calculate the valid length for each sequence after the shift
+    valid_lengths = seq_len - shift_amounts
+    # Generate the mask where positions >= valid_lengths are set to zero
+    mask = torch.arange(seq_len, device=state_tensor.device)[None, :] >= valid_lengths[:, None]
+    
+    # Apply the mask
+    shifted_state_tensor[mask.unsqueeze(-1).expand(-1, -1, feature_dim)] = 0
+
+    return shifted_state_tensor
+
+def calculate_shift_amounts(state_tensor, padding_lengths):
+    batch_size, seq_len, feature_dim = state_tensor.size()
+
+    inital_positions = seq_len - 1
+    middle_positions = seq_len//2
+    new_positions = padding_lengths.clamp_min(middle_positions)
+
+    shift_amounts = (inital_positions - new_positions)
+
+    # Compute new padding lengths assuming the shift does not wrap around
+    new_padding_lengths = padding_lengths - shift_amounts
+
+    # Ensure new_padding_lengths do not exceed sequence length
+    new_padding_lengths = torch.clamp(new_padding_lengths, min = 0, max=seq_len-1)
+
+    return shift_amounts, new_padding_lengths
