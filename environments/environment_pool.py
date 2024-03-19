@@ -52,7 +52,8 @@ class EnvironmentPool:
         if training and trainer.use_masked_exploration:
             padding_mask, padding_lengths = trainer.apply_sequence_masking(padding_mask)
         else:
-            padding_lengths = trainer.get_padding_lengths(padding_mask)
+            padding_lengths = trainer.get_optimal_padding_lengths()
+            padding_lengths = padding_lengths.expand(padding_mask.size(0))
             
         state_tensor = trainer.normalize_states(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)

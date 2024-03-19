@@ -5,7 +5,7 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, create_transformation_matrix, GradScaler
+from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, create_transformation_matrix
 from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
@@ -291,7 +291,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
         return reduced_loss
 
-    def calculate_bipolar_td_loss(self, estimated_value: torch.Tensor, expected_value: torch.Tensor,
+    def calculate_advantage_bipolar_loss(self, estimated_value: torch.Tensor, expected_value: torch.Tensor,
                                 padding_mask: torch.Tensor, polar_distance: float = 1.0):
         """
         Calculates a bipolar TD loss that aims to balance short-term and long-term rewards by dynamically optimizing 

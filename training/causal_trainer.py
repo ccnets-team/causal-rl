@@ -78,7 +78,7 @@ class CausalTrainer(BaseTrainer):
         
         advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
             
-        bipolar_td_loss = self.calculate_bipolar_td_loss(estimated_value, expected_value, padding_mask)
+        bipolar_td_loss = self.calculate_advantage_bipolar_loss(estimated_value, expected_value, padding_mask)
         
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
