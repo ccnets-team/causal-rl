@@ -1,94 +1,55 @@
 import torch
-import math
-DECAY_UNIT_STEPS = 100000
+import torch.nn.functional as F
 
-def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, decay_percentage):
-    decay_steps = decay_percentage * max_steps
-    return (min_exploration - initial_exploration) / decay_steps
-
-def compute_exp_decay_factor(initial_exploration, min_exploration, max_steps, decay_percentage):
-    decay_steps = decay_percentage * max_steps
-    return (min_exploration / initial_exploration) ** (1/decay_steps)
+def create_chain_probabilities_from_lambdas(lambda_values):
+    reversed_lambda = torch.flip(lambda_values, dims=[0])
+    reversed_cumulative_product = torch.cumprod(reversed_lambda, dim=0)
+    chain_dependent_product = torch.flip(reversed_cumulative_product, dims=[0])
+    
+    chain_dependent_product[1:] *= (1 - lambda_values[:-1])
+    mean_chain_dependent_product = chain_dependent_product / chain_dependent_product.sum()
+    adjusted_probabilities = torch.flip(mean_chain_dependent_product, dims=[0])
+    return adjusted_probabilities
 
 class ExplorationUtils:
-    def __init__(self, gpt_seq_length, total_iterations, device):
+    def __init__(self, gpt_seq_length, learnable_td, device):
         self.device = device
-        self.decay_percentage = None
-        self.decay_factor = None
-        # Default exploration rate at the start of training. High value (1.0) promotes initial random exploration.
-        self.initial_exploration = 1.0
-        # Minimum exploration rate, ensuring some level of exploration is maintained throughout training.
-        self.min_exploration = 0.01
-        # Defines the rate at which exploration decreases. A value of 0.8 means 80% of initial exploration will be reduced over max_steps.
-        self.decay_percentage = 0.8
-        # Default decay mode. 'linear' means exploration rate decreases linearly over time.
-        self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, total_iterations, self.decay_percentage)
-        
-        self.decay_mode = 'linear'
-        self.exploration_rate = self.initial_exploration
-
-        # Adjusts preference for sequence lengths based on training duration relative to a fixed step count
-        self.training_extension_factor = total_iterations / DECAY_UNIT_STEPS
-
-        # Sets a neutral starting point for the growth factor of sequence length preference
-        self.base_growth_factor = 1
-
-        # Adjusts the growth factor based on the training duration and sequence complexity
-        self.growth_adjustment_factor = math.log(self.training_extension_factor) / max(math.log(gpt_seq_length), 1e-8)
-
-        # Establishes an initial bias towards longer sequences
-        self.start_exponential_factor = 0.0
-
-        # Calculates the final exponential factor to strongly favor longer sequences by the end of training
-        self.end_exponential_factor = self.base_growth_factor + self.growth_adjustment_factor
-
-        # Generates a tensor of sequence lengths from 1 to the maximum sequence length
+        self.learnable_td = learnable_td
         self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=self.device)
-
-        # Computes the initial preference for each sequence length, slightly favoring longer ones
-        self.start_ratios = torch.pow(self.sequence_lengths.float(), self.start_exponential_factor)
-
-        # Computes the final preference for each sequence length, significantly favoring longer ones
-        self.end_ratios = torch.pow(self.sequence_lengths.float(), self.end_exponential_factor)
-
-    def update_exploration_rate(self):  
-        if self.decay_mode == "linear":
-            self.exploration_rate = max(self.exploration_rate + self.decay_factor, self.min_exploration)
-        elif self.decay_mode == "exponential":
-            self.exploration_rate = max(self.decay_factor * self.exploration_rate, self.min_exploration)
-
-    def get_exploration_rate(self):
-        return self.exploration_rate
-
+        
     def sample_padding_lengths(self, batch_size, gpt_seq_length):
         """
-        Dynamically samples sequence lengths, with a bias towards longer sequences as training progresses. 
-        This approach is designed to gradually increase the probability of selecting longer sequence lengths, 
-        thereby encouraging the model to adapt to and explore the complexities of more extended sequences over time. 
-        The adjustment of sampling probabilities is guided by the exploration rate, 
-        which is tuned to strike a balance between exploring the potential of longer sequences and exploiting the benefits of previously identified advantageous lengths. 
-        This method aims to enhance the model's exposure to a wider range of sequence lengths, with a particular emphasis on extending its competency over longer sequences, 
-        which are typically more challenging but potentially more informative.
-        """        
+        Samples padding lengths for a batch of sequences based on previously learned Temporal Difference (TD) lambda values.
+        By leveraging the TD(λ) values obtained during the training phase, this method fine-tunes the distribution of 
+        sequence lengths to exploit the model's learned preferences. This exploitation of learned dynamics aims to enhance 
+        the model's learning efficiency by adjusting sequence padding in a way that is informed by past learning experiences, 
+        promoting a more targeted approach to sequence handling.
+
+        Args:
+        - batch_size (int): The number of sequences in the batch.
+        - gpt_seq_length (int): The maximum sequence length supported by the GPT model.
+
+        Returns:
+        - torch.Tensor: A tensor of clamped padding lengths for each sequence in the batch.
+        """
         max_seq_length = gpt_seq_length
-        
-        # Calculate a weighted preference for each sequence length, influenced by the exploration rate.
-        # This encourages the model to explore a variety of sequence lengths over time.
-        adjusted_ratios = self.exploration_rate * self.start_ratios + (1 - self.exploration_rate) * self.end_ratios
-        
-        # Normalize adjusted ratios to get probabilities for sampling.
-        sequence_probs = adjusted_ratios / adjusted_ratios.sum()
-        
-        # Sample sequence lengths based on the computed probabilities.
-        sampled_indices = torch.multinomial(sequence_probs, batch_size, replacement=True)
-        
+
+        # Detach and clone learnable TD(λ) values to prevent original tensor modification, setting the last value to 1.
+        learnable_td_lambd = self.learnable_td.lambd.detach().clone()
+        learnable_td_lambd[-1] = 1
+
+        # Generate a probability distribution for sequence lengths from the TD(λ) values, facilitating a balanced
+        # approach to sampling lengths that optimizes the learning process.
+        lambda_sequence_probs = create_chain_probabilities_from_lambdas(learnable_td_lambd)
+
+        # Sample sequence lengths based on the TD(λ)-derived probabilities, aiming to dynamically adjust sequence padding.
+        sampled_indices = torch.multinomial(lambda_sequence_probs, batch_size, replacement=True)
         sampled_lengths = self.sequence_lengths[sampled_indices]
-        
+
+        # Compute padding lengths to adjust sampled sequence lengths to the maximum length, staying within valid bounds.
         padding_seq_length = max_seq_length - sampled_lengths
-        
-        # Ensure sampled lengths are within the specified range.
         return torch.clamp(padding_seq_length, 0, max_seq_length - 1)
-    
+
     def get_padding_lengths(self, padding_mask):
         cur_padding_lengths = padding_mask.size(1) - torch.sum(padding_mask, dim=1)
         return cur_padding_lengths

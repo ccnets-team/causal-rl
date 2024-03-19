@@ -26,7 +26,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.error_to_state_size_ratio = value_size/state_size
         self.train_iter = 0
 
-    def _unpack_rl_params(self, rl_params):
+    def _unpack_rl_params(self, rl_params): 
         (self.training_params, self.algorithm_params, self.network_params, 
          self.optimization_params, self.normalization_params) = rl_params
 
@@ -61,7 +61,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def _init_exploration_utils(self, gpt_seq_length):
         self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationUtils.__init__(self, gpt_seq_length, self.total_iterations, self.device)
+        ExplorationUtils.__init__(self, gpt_seq_length, self.learnable_td, self.device)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
@@ -104,7 +104,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.update_optimizers()      # Applies gradients to adjust model parameters.
         self.update_target_networks() # Updates target networks for stable learning targets.
         self.update_schedulers()      # Adjusts learning rates for optimal training.
-        self.update_exploration_rate()# Modifies exploration rate for effective exploration-exploitation balance.
         self.train_iter += 1          # Tracks training progress.
 
     def should_update_learnable_td(self):
@@ -291,51 +290,40 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         reduced_loss = self.select_tensor_reduction(squared_error, mask)
 
         return reduced_loss
-    
+
     def calculate_bipolar_td_loss(self, estimated_value: torch.Tensor, expected_value: torch.Tensor,
-                                    coop_actor_error: torch.Tensor, padding_mask: torch.Tensor, polar_extent = 1.0):    
+                                padding_mask: torch.Tensor, polar_distance: float = 1.0):
         """
-        Calculates a modified temporal difference (TD) loss incorporating cooperative actor error
-        and learnable TD parameters. This loss assesses the discrepancy between the model's 
-        estimated and expected state values, integrating actual outcomes and future predictions.
-        It adjusts the TD loss for cooperative behavior among actors.
-
-        :param estimated_value: A 3D tensor of model-predicted state value estimates, 
-                                dimensions [B, Seq, Value Dim], where B is batch size, 
-                                Seq is sequence length, and Value Dim typically equals 1.
-        :param expected_value: A 3D tensor of expected state values considering future rewards,
-                               dimensions [B, Seq, Value Dim]. Serves as a comparison baseline.
-        :param coop_actor_error: Error tensor from cooperative actors' actions, adjusting the
-                                 TD loss for multi-agent dynamics.
-        :param padding_mask: A 3D mask tensor, dimensions [B, Seq, 1], excludes padding from loss
-                             calculation to focus on valid states.
-        :return: A tensor of the modified TD loss for each state-action pair, adjusted for 
-                 cooperative behavior and learnable TD parameters, dimensions [B, Seq, Value Dim].
-
-        Determines computation mode based on learnable TD parameters' update status, emphasizing
-        learning from actual outcomes by detaching only the estimated value, or stabilizing learning
-        against a static baseline by detaching both estimated and expected values.
+        Calculates a bipolar TD loss that aims to balance short-term and long-term rewards by dynamically optimizing 
+        gamma and lambda parameters. This adjustment is based on the difference between estimated and expected values 
+        and includes a value_incentive component to encourage actions leading to increased returns. The value_incentive 
+        is influenced by the current exploration rate and the advantage (difference between expected and estimated values). 
+        The loss also includes a fourth-degree polynomial error component that seeks to establish a balance at specified 
+        polar distances, fostering a bipolar distribution of advantage values. This function is designed to work without 
+        considering action discrepancy, making it suitable for various environments.
         """
-        # Inverse represents the conceptual distance between two poles in the adjustment mechanism
-        polarization_factor = 1 / polar_extent        
-        
         if self.should_update_learnable_td():
-            value_error = (expected_value - estimated_value.detach()).square()
-            td_error = (expected_value - estimated_value.detach()).abs()
+            advantage = expected_value - estimated_value.detach()
             
-            # Apply the normalization factor to the value error.
-            learnable_td_error = polarization_factor*value_error - td_error
+            # Compute the value_incentive component of the bipolar TD error, scaled by the advantage.
+            # This component aims to encourage actions that increase the expected value.
+            second_degree_polynomial_error = (advantage - polar_distance).square()
             
-            action_grad_scale = self.error_to_state_size_ratio*coop_actor_error.detach().mean(dim = -1, keepdim=True)
+            # Calculate the fourth-degree polynomial error component, focusing on the squared difference
+            # between squared advantage and squared polar distance.
+            fourth_degree_polynomial_error = (advantage.square() + (polar_distance)**2).square()
+
+            # Form the total bipolar TD error by combining the polynomial error with the
+            # value_incentive component, modulating the TD error to guide expected value adjustments.
+            bipolar_td_error = fourth_degree_polynomial_error + second_degree_polynomial_error
             
-            # Adjust the TD error by the cooperative actor's gradient scaling.
-            learnable_td_error = GradScaler.apply(learnable_td_error, action_grad_scale)
-            
-            reduced_loss = self.select_tensor_reduction(learnable_td_error, padding_mask)
+            # Aggregate the scaled bipolar TD error to produce a consolidated loss value,
+            # considering padding in the input tensors for accurate error computation.
+            bipolar_td_loss = self.select_tensor_reduction(bipolar_td_error, padding_mask)
         else:
-            reduced_loss = None
+            bipolar_td_loss = None
             
-        return reduced_loss
+        return bipolar_td_loss
         
     def compute_advantage(self, estimated_value: torch.Tensor, expected_value: torch.Tensor, padding_mask: torch.Tensor):
         """
