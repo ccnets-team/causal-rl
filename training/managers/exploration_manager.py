@@ -19,21 +19,17 @@ def gaussian_kernel(size, sigma, device):
     return kernel
 
 def smooth_probs(probs, kernel):
-    """
-    Smooths the probability distribution using a Gaussian kernel and normalizes the result.
+    probs = probs.unsqueeze(0)  # Ensure probs is a 2D tensor with shape (1, N)
     
-    The kernel size is set to total_length*2 - 1 to ensure each element's contribution to its neighbors
-    is preserved across the entire length of the input.
-    """
+    half_kernel_size = kernel.size(2) // 2
+    # Zero out the right half of the kernel to ensure influence is only from the element and to its left
+    kernel[:, :, half_kernel_size + 1:] = 0
+    
+    # Apply convolution to smooth the probabilities with appropriate padding
+    smoothed_probs = F.conv1d(probs, kernel, padding=half_kernel_size)
+    
+    smoothed_probs = smoothed_probs.squeeze(0)  # Remove the extra dimension
 
-    # Ensure probs is a 2D tensor with shape (1, N)
-    probs = probs.unsqueeze(0)
-
-    # Apply convolution to smooth the probabilities
-    smoothed_probs = F.conv1d(probs, kernel, padding=kernel.size(2) // 2)
-    
-    smoothed_probs = smoothed_probs.squeeze(0)
-    
     # Normalize the smoothed probabilities so their sum equals 1
     normalized_smoothed_probs = smoothed_probs / smoothed_probs.sum()
     
