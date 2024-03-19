@@ -49,7 +49,7 @@ class EnvironmentPool:
         padding_mask = torch.from_numpy(np_mask).to(self.device)
         
         # In your training loop or function
-        if training and trainer.use_masked_exploration:
+        if training:
             padding_mask, padding_lengths = trainer.apply_sequence_masking(padding_mask)
         else:
             padding_lengths = trainer.get_optimal_padding_lengths()

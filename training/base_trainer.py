@@ -7,6 +7,8 @@ from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, create_transformation_matrix
 from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
+DISCOUNT_FACTOR = 0.99
+AVERAGE_LAMBDA = 0.5
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -66,10 +68,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
         self.td_seq_length = self.algorithm_params.td_seq_length 
-        self.advantage_lambda = self.algorithm_params.advantage_lambda
-        self.discount_factor = self.algorithm_params.discount_factor
+        self.advantage_lambda = AVERAGE_LAMBDA
+        self.discount_factor = DISCOUNT_FACTOR
         self.use_deterministic = self.algorithm_params.use_deterministic
-        self.use_masked_exploration = self.algorithm_params.use_masked_exploration 
         self.reduction_type = 'cross'
 
         self.training_start_step = self._compute_training_start_step()
