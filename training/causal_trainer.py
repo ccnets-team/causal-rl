@@ -15,6 +15,7 @@ from nn.roles.actor import DualInputActor
 from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
+from .utils.tensor_util import shorten_tensor_sequences
 from utils.init import set_seed
 from training.managers.normalization_manager import STATE_NORM_SCALE
 
@@ -45,13 +46,30 @@ class CausalTrainer(BaseTrainer):
 
     # This function uses the critic to estimate the value of a state, and then uses the actor to determine the action to take.
     # If in training mode, it samples an action based on exploration rate. Otherwise, it simply selects the most likely action.        
-    def get_action(self, state, mask = None, training: bool = False):
+    def get_action(self, state, mask=None, training: bool = False):
         with torch.no_grad():
-            esimtaed_value = self.critic(state, mask)
+            # Ensure mask is not None and has the correct shape
+            if mask is None:
+                raise ValueError("Mask cannot be None.")
+            
+            original_seq_len = mask.size(1)
+            shortened_state, shortened_mask = shorten_tensor_sequences(mask, state)
+            shortened_seq_len = shortened_mask.size(1)
+            
+            estimated_value = self.critic(shortened_state, shortened_mask)
+            
             if training and not self.use_deterministic:
-                action = self.actor.sample_action(state, esimtaed_value, mask)
+                action = self.actor.sample_action(shortened_state, estimated_value, shortened_mask)
             else:
-                action = self.actor.select_action(state, esimtaed_value, mask)
+                action = self.actor.select_action(shortened_state, estimated_value, shortened_mask)
+            
+            # Calculate the length difference to know how much padding is needed
+            shortened_padding_length = original_seq_len - shortened_seq_len
+            
+            # Extend the action tensor if there was any shortening
+            if shortened_padding_length > 0:
+                # Assuming action tensor shape is [Batch, Seq, Action_dim], adapt if it differs
+                action = torch.cat([torch.zeros_like(action[:,-1:]).repeat(1, shortened_padding_length, 1), action], dim=1)
         return action
 
     def train_model(self, trajectory: BatchTrajectory):
