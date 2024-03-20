@@ -4,15 +4,15 @@ import torch.nn as nn
 UPDATE_LEARNABLE_TD_INTERVAL = 2
 
 class LearnableTD(nn.Module):
-    def __init__(self, max_seq_len, discount_factor, average_lambda, device):
+    def __init__(self, max_seq_len, discount_factor, advantage_lambda, device):
         super(LearnableTD, self).__init__()
         self.device = device
         self.max_seq_len = max_seq_len
         self.discount_factor = discount_factor
-        self.average_lambda = average_lambda
+        self.advantage_lambda = advantage_lambda
     
         discount_factor_init = discount_factor * torch.ones(1, device=self.device, dtype=torch.float)
-        advantage_lambda_init = average_lambda * torch.ones(max_seq_len, device=self.device, dtype=torch.float)
+        advantage_lambda_init = self._create_init_lambda_sequence(advantage_lambda, max_seq_len, device)
 
         self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(advantage_lambda_init))
@@ -30,6 +30,27 @@ class LearnableTD(nn.Module):
     def _init_value_for_tanh(self, target):
         # Use logit function as the inverse of the sigmoid to initialize the value correctly
         return torch.atanh(target)
+            
+    def _create_init_lambda_sequence(self, target_mean, sequence_length, target_device):
+        # Initialize lambda_sequence with zeros on target_device
+        lambda_sequence = torch.zeros(sequence_length, device=target_device, dtype=torch.float)
+
+        # Calculate initial and final values for the lambda sequence, considering target_mean
+        initial_value = 2 * target_mean - 1
+        final_value = 1  # Intended to ensure the last lambda value is 1
+
+        # Adjust the sequence starting from 0 if initial_value is negative
+        if initial_value < 0:
+            initial_value = 0
+            # Adjust final_value to maintain the mean, keeping in mind the explicit setting of the last value to 1
+            final_value = 2 * target_mean
+
+        # Generate a tensor that linearly progresses from initial_value to final_value
+        # Adjust to fill all but the last value of lambda_sequence with the linear progression
+        lambda_sequence[:-1] = torch.linspace(initial_value, final_value, steps=sequence_length - 1, device=target_device, dtype=torch.float)
+        lambda_sequence[-1] = 1.0  # Explicitly set the last value to 1
+
+        return lambda_sequence
 
     def get_sum_reward_weights(self, seq_range, padding_mask=None):
         # Extract the start and end index from the sequence range

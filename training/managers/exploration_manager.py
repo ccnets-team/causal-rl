@@ -41,9 +41,9 @@ class ExplorationUtils:
         self.device = device
         self.learnable_td = learnable_td
         self.gpt_seq_length = gpt_seq_length
-        self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, dtype=torch.long, device=self.device)
+        self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=self.device)
         self.kernel_size = int(gpt_seq_length * 2 - 1)
-        self.sigma = 1.0
+        self.sigma = 0.5
         # Generate the Gaussian kernel
         self.kernel = generate_gaussian_kernel(self.kernel_size, self.sigma, self.device).unsqueeze(0).unsqueeze(0)
 
@@ -80,9 +80,9 @@ class ExplorationUtils:
         return torch.clamp(padding_seq_length, 0, max_seq_length - 1)
 
     def get_current_padding_lengths(self, padding_mask):
-        max_seq_length = padding_mask.size(1)
-        cur_padding_lengths = padding_mask.size(1) - torch.sum(padding_mask, dim=1).long()
-        return torch.clamp(cur_padding_lengths, 0, max_seq_length - 1)
+        """Determines current padding lengths for each sequence based on the padding mask."""
+        cur_padding_lengths = padding_mask.size(1) - torch.sum(padding_mask, dim=1)
+        return cur_padding_lengths
     
     def apply_sequence_masking(self, padding_mask):
         """
@@ -104,4 +104,5 @@ class ExplorationUtils:
         padding_mask[sampled_padding_slots] = 0.0
 
         applied_padding_lengths = torch.max(cur_padding_lengths, padding_lengths)
+
         return padding_mask, applied_padding_lengths

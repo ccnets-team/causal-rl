@@ -1,9 +1,8 @@
-import torch
 import numpy as np
 from .mlagents_wrapper import MLAgentsEnvWrapper
 from .gym_wrapper import GymEnvWrapper
 from utils.structure.data_structures  import AgentTransitions
-from training.trainer_utils import calculate_shift_amounts, shift_state_left, create_padding_mask
+import torch
 
 class EnvironmentPool: 
     def __init__(self, env_config, device, test_env, use_graphics):
@@ -57,29 +56,22 @@ class EnvironmentPool:
             padding_lengths = padding_lengths.expand(padding_mask.size(0))
             
         state_tensor = trainer.normalize_states(state_tensor)
-        
-        shift_amounts, new_padding_lengths = calculate_shift_amounts(state_tensor, padding_lengths)
-        shifted_state_tensor = shift_state_left(state_tensor, shift_amounts)
-        shifted_padding_mask = create_padding_mask(padding_mask.size(1), new_padding_lengths)
-        
-        action_tensor = trainer.get_action(shifted_state_tensor, shifted_padding_mask, training=training)
+        action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
         
         # Apply actions to environments
-        self.apply_actions_to_envs(action_tensor, new_padding_lengths, shift_amounts)
+        self.apply_actions_to_envs(action_tensor, padding_lengths)
 
-    def apply_actions_to_envs(self, action_tensor, padding_lengths, shift_amounts):
+    def apply_actions_to_envs(self, action_tensor, padding_lengths):
+        np_action = action_tensor.cpu().numpy()
+        np_padding_lengths = padding_lengths.cpu().numpy()
         start_idx = 0
         for env in self.env_list:
             end_idx = start_idx + len(env.agent_dec)
-            valid_action = action_tensor[start_idx:end_idx][env.agent_dec]
-            valid_shift_amounts = shift_amounts[start_idx:end_idx][env.agent_dec]
-            valid_padding_lengths = padding_lengths[start_idx:end_idx][env.agent_dec]
+            valid_action = np_action[start_idx:end_idx][env.agent_dec]
+            valid_padding_lengths = np_padding_lengths[start_idx:end_idx][env.agent_dec]
 
-            select_valid_action = valid_action[torch.arange(len(valid_shift_amounts), device = self.device, dtype=torch.long), -(valid_shift_amounts + 1), :]
-            
-            np_valid_action = select_valid_action.cpu().numpy()
-            np_padding_lengths = valid_padding_lengths.cpu().numpy()
-            env.update(np_valid_action, np_padding_lengths)
+            select_valid_action = valid_action[:, -1, :]
+            env.update(select_valid_action, valid_padding_lengths)
             start_idx = end_idx
             
     @staticmethod

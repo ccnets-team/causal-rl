@@ -60,7 +60,7 @@ class CausalTrainer(BaseTrainer):
         self.init_train()
     
         # Selects a trajectory segment optimized for sequence-based model input, focusing on recent experiences.
-        states, actions, rewards, next_states, dones, padding_mask = self.select_train_sequence(trajectory)
+        states, actions, rewards, next_states, dones, padding_mask, end_value = self.select_train_sequence(trajectory)
         
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states, padding_mask)    
@@ -74,7 +74,7 @@ class CausalTrainer(BaseTrainer):
         
         coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True)
 
-        expected_value = self.compute_expected_value(next_states, rewards, dones, padding_mask)
+        expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, end_value)
         
         advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
             
