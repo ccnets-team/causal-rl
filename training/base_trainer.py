@@ -10,7 +10,7 @@ from .utils.sequence_util import create_padding_mask_before_dones, create_train_
 
 from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
 DISCOUNT_FACTOR = 0.99
-AVERAGE_LAMBDA = 0.9
+AVERAGE_LAMBDA = 0.5
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
