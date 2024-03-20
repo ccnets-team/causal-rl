@@ -5,7 +5,8 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, create_transformation_matrix
+from .utils.tensor_utils import masked_tensor_reduction, create_transformation_matrix
+from .utils.sequence_utils import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask
 from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
 DISCOUNT_FACTOR = 0.99
 AVERAGE_LAMBDA = 0.5
