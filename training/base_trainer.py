@@ -8,7 +8,7 @@ from utils.setting.rl_params import RLParameters
 from .trainer_utils import masked_tensor_reduction, create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, create_transformation_matrix
 from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
 DISCOUNT_FACTOR = 0.99
-AVERAGE_LAMBDA = 0.9
+AVERAGE_LAMBDA = 0.5
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -199,9 +199,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         # Extract the last segment of the trajectory based on the training sequence length
         last_segment = slice(-gpt_seq_length, None)
         last_next_states = next_states[:, last_segment]
-        last_dones = dones[:, last_segment]
         last_rewards = rewards[:, last_segment]
-
+        last_dones = dones[:, last_segment]
+        
         # Calculate future values for the last states and construct trajectory values for lambda returns calculation
         last_padding_mask = create_padding_mask_before_dones(last_dones)
         future_values = self.trainer_calculate_future_value(last_next_states, last_padding_mask)
@@ -216,9 +216,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         # Calculate expected value and sum of rewards for the terminal segment of the trajectory
         expected_value, sum_rewards = self.learnable_td.calculate_lambda_returns(
             adjusted_trajectory_values, adjusted_last_rewards, adjusted_last_dones, seq_range=(start_seq_idx, end_seq_idx))
+        
         with torch.no_grad():
             # Retrieve normalized sum reward weights for the given sequence range
-            sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=(start_seq_idx, end_seq_idx), padding_mask=adjusted_padding_mask)
+            sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=(start_seq_idx, end_seq_idx))
 
             # Normalize sum rewards with the adjusted mask and weights
         normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, adjusted_padding_mask, seq_range=(start_seq_idx, end_seq_idx)).detach() * sum_reward_weights
