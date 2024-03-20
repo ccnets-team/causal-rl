@@ -5,8 +5,9 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .utils.tensor_utils import masked_tensor_reduction, create_transformation_matrix
-from .utils.sequence_utils import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask
+from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix
+from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, adjust_padding_mask_based_on_lambda
+
 from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
 DISCOUNT_FACTOR = 0.99
 AVERAGE_LAMBDA = 0.5
@@ -167,6 +168,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         sel_next_states = apply_sequence_mask(next_states, train_seq_mask, train_seq_length)
         sel_dones = apply_sequence_mask(dones, train_seq_mask, train_seq_length)
         sel_padding_mask = apply_sequence_mask(padding_mask, train_seq_mask, train_seq_length)
+        sel_padding_mask = adjust_padding_mask_based_on_lambda(self.learnable_td.lambd, sel_padding_mask)
         
         end_value = self.calculate_sequence_end_value(trajectory, selection_end_idx)
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
@@ -205,6 +207,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         # Calculate future values for the last states and construct trajectory values for lambda returns calculation
         last_padding_mask = create_padding_mask_before_dones(last_dones)
+        last_padding_mask = adjust_padding_mask_based_on_lambda(self.learnable_td.lambd, last_padding_mask)
+        
         future_values = self.trainer_calculate_future_value(last_next_states, last_padding_mask)
         trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
 

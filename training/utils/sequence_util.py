@@ -79,3 +79,31 @@ def create_train_sequence_mask(padding_mask, train_seq_length):
     select_mask = (range_tensor >= first_select_idx) & (range_tensor < end_select_idx)
     
     return select_mask, end_select_idx
+
+def adjust_padding_mask_based_on_lambda(lambda_sequence, padding_mask, threshold=1e-5):
+    """
+    Adjusts the padding mask based on the cumulative product of lambda values in the sequence. If the cumulative
+    product of lambda values from a specific index onwards (when considering the sequence in reverse order) is smaller 
+    than a threshold, that part of the sequence is considered as padding and the mask is updated to reflect this, 
+    aligning padding to the left.
+
+    :param lambda_sequence: A tensor of lambda values for the sequence with shape [Seq Len].
+    :param padding_mask: The original padding mask tensor with shape [Batch Size, Seq Len, 1], where 0 indicates padding.
+    :param threshold: The threshold below which the cumulative product indicates the need for padding.
+    :return: An updated padding mask with potentially more padding based on lambda sequence analysis.
+    """
+    # Reverse the lambda sequence for cumulative product calculation from the end
+    reversed_lambda = lambda_sequence.detach().clone().flip(dims=[0])
+    # Calculate the cumulative product in the reversed order
+    reversed_cumulative_product = torch.cumprod(reversed_lambda, dim=0)
+    # Flip the cumulative product back to match the original sequence order
+    chain_dependent_product = reversed_cumulative_product.flip(dims=[0])
+    # Identify positions that do not meet the threshold
+    padding_criteria = chain_dependent_product > threshold
+    # Adjust dimensions to match the padding mask
+    padding_criteria = padding_criteria.unsqueeze(0).unsqueeze(-1).float()
+
+    # Update the padding mask based on the criteria
+    padding_mask[:,:-1] *= padding_criteria[:,:-1]
+
+    return padding_mask

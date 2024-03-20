@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from .utils.value_utils import compute_lambda_based_returns
+from .utils.value_util import compute_lambda_based_returns
 
 UPDATE_LEARNABLE_TD_INTERVAL = 2
 
