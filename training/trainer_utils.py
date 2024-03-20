@@ -115,24 +115,38 @@ def masked_tensor_reduction(tensor, mask, reduction="batch"):
 
 def create_train_sequence_mask(padding_mask, train_seq_length):
     """
-    Creates a selection mask for trajectories.
+    Creates a selection mask for trajectories based on the specified training sequence length.
 
-    :param padding_mask: Mask tensor from create_padding_mask_before_dones, shape [B, S, 1].
-    :param train_seq_length: Length of the train sequence to select.
-    :return: Selection mask tensor, shape [B, train_seq_length, 1].
+    :param padding_mask: Mask tensor indicating padding positions (0s for padding, 1s for data) 
+                         from create_padding_mask_before_dones, shape [B, S, 1].
+    :param train_seq_length: Length of the training sequence to select.
+    :return: Selection mask tensor indicating the selected training sequence, shape [B, S, 1],
+             and the end selection index tensor.
     """
     batch_size, seq_len, _ = padding_mask.shape
 
-    # Find the index of the first non-padding point after 'done'
-    first_non_padding_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
-    end_non_padding_idx = first_non_padding_idx + train_seq_length
-    end_select_idx = torch.clamp(end_non_padding_idx, max=seq_len)
+    # Find the index of the first valid data point (non-padding) following a 'done' signal
+    first_valid_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
+    valid_sequence_part = (seq_len - first_valid_idx).float()
+    
+    # Calculate the ratio of the sequence length remaining after subtracting the training sequence length
+    ratio = (seq_len - train_seq_length) / seq_len
+    # Determine the end selection index based on the ratio and the left part of the sequence
+    
+    td_sequence_part = (ratio * valid_sequence_part).long()
+    
+    end_select_idx = seq_len - td_sequence_part
+    
+    # Ensure the end selection index is within valid range
+    end_select_idx = torch.clamp(end_select_idx, min=train_seq_length, max=seq_len)
+    
+    # Calculate the start selection index for the training sequence
     first_select_idx = end_select_idx - train_seq_length
 
-    # Create a range tensor of shape [S]
+    # Create a range tensor of the sequence length [S]
     range_tensor = torch.arange(seq_len, device=padding_mask.device).unsqueeze(0).unsqueeze(-1)
 
-    # Broadcast to shape [B, S, 1] and compare
+    # Broadcast the range tensor to match the batch size and compare to generate the selection mask
     select_mask = (range_tensor >= first_select_idx) & (range_tensor < end_select_idx)
     
     return select_mask, end_select_idx
