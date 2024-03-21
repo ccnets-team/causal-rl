@@ -135,7 +135,7 @@ def create_transformation_matrix(num_rows, num_cols):
     
     return transformation_matrix.unsqueeze(0)
 
-def shorten_tensor_sequences(padding_mask, *tensors):
+def shorten_tensor_sequences(padding_mask, *tensors, min_length=1):
     """
     Truncates sequences in the provided tensors based on a shared padding mask, removing padded elements
     from the start of each sequence. Optionally, also returns the truncated padding mask.
@@ -149,19 +149,29 @@ def shorten_tensor_sequences(padding_mask, *tensors):
     :return: The truncated padding mask, and a single tensor directly or a tuple of tensors, 
              with sequences truncated to remove leading padding, based on the padding mask.
     """
-    # Calculate idx based on your logic
-    idx = torch.argmax((padding_mask.squeeze(-1).sum(dim=0) > 0).float()).item()
+    original_length = padding_mask.size(1)
     
+    # Calculate the index of the first non-zero sum across the sequences
+    first_non_zero_index = torch.argmax((padding_mask.squeeze(-1).sum(dim=0) > 0).float()).item()
+
+    shortened_length = original_length - first_non_zero_index
+
+    # Determine the minimum sequence length after truncation, considering the provided min_length
+    target_length = max(min(min_length, original_length), shortened_length)
+
+    # Calculate the starting index for truncation to maintain the target length
+    # Ensuring we do not exceed the original sequence length
+    truncate_start_idx = max(original_length - target_length, 0)
     # Apply truncation based on the calculated idx
     if len(tensors) == 1:
         # If there's only one tensor, access it directly and apply the truncation
-        truncated_tensors = tensors[0][:, idx:]
+        truncated_tensors = tensors[0][:, truncate_start_idx:]
     else:
         # If there are multiple tensors, truncate each tensor and pack them into a tuple
-        truncated_tensors = tuple(tensor[:, idx:] for tensor in tensors)
+        truncated_tensors = tuple(tensor[:, truncate_start_idx:] for tensor in tensors)
 
     # Truncate the padding mask using the same idx
-    truncated_padding_mask = padding_mask[:, idx:]
+    truncated_padding_mask = padding_mask[:, truncate_start_idx:]
 
     # Return the truncated tensors followed by the truncated padding mask
     # If there's only one tensor, it returns that tensor directly without wrapping it in a tuple

@@ -150,9 +150,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         states, actions, rewards, next_states, dones = trajectory
         padding_mask = create_padding_mask_before_dones(dones)
 
-        states, actions, rewards, next_states, dones, padding_mask =\
-            shorten_tensor_sequences(padding_mask, states, actions, rewards, next_states, dones)
-
         train_seq_length = min(padding_mask.size(1), self.gpt_seq_length)
         train_seq_mask, selection_end_idx = create_train_sequence_mask(padding_mask, train_seq_length)
 
@@ -164,7 +161,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         sel_next_states = apply_sequence_mask(next_states, train_seq_mask, train_seq_length)
         sel_dones = apply_sequence_mask(dones, train_seq_mask, train_seq_length)
         sel_padding_mask = apply_sequence_mask(padding_mask, train_seq_mask, train_seq_length)
-        
+
+        sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask =\
+                shorten_tensor_sequences(sel_padding_mask, sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones)
+                
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
 
     def calculate_normalized_lambda_returns(self, trajectory_values, rewards, dones, padding_mask, seq_range):
@@ -184,11 +184,21 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         return expected_value
     
-    def calculate_trajectory_values(self, states, padding_mask):
-        future_values = self.trainer_calculate_future_value(states, padding_mask)
-        trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
+    def calculate_trajectory_values(self, states, padding_mask, shorten_sequence=False):
+        if shorten_sequence:
+            shortened_states, shortened_padding_mask = shorten_tensor_sequences(padding_mask, states)
+        else:
+            shortened_states = states
+            shortened_padding_mask = padding_mask
+        future_values = self.trainer_calculate_future_value(shortened_states, shortened_padding_mask)
+        shortened_length = states.size(1) - shortened_states.size(1)
+        if shortened_length > 0:
+            trajectory_values = torch.cat([torch.zeros_like(future_values[:,:1]).repeat(1, shortened_length + 1 , 1), future_values], dim=1)
+        else:
+            trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
+    
         return trajectory_values
- 
+    
     def calculate_sequence_end_value(self, rewards, next_states, dones, selection_end_idx):
         """
         Computes the future value for TD calculations from the terminal segment of a trajectory sampled at 'gpt_td_seq_length'.
@@ -221,7 +231,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         last_padding_mask = create_padding_mask_before_dones(last_dones)
         last_next_padding_mask = shift_left_padding_mask(last_padding_mask)
             
-        trajectory_values = self.calculate_trajectory_values(last_next_states, last_next_padding_mask)
+        trajectory_values = self.calculate_trajectory_values(last_next_states, last_next_padding_mask, shorten_sequence=True)
         
         # Optimize trajectory adjustments for TD calculations by focusing on the differential segment (`td_seq_length` - `gpt_seq_length`). 
         adjusted_trajectory_values = select_sequence_range(slice(-(diff_seq_length + 1), None), trajectory_values)
