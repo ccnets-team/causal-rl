@@ -15,10 +15,10 @@ def mark_padded_as_done(dones_slices, padding_length_slices):
     broadcasted_indices = trajectory_indices + np.zeros((batch_size, td_steps), dtype=int)
     
     # Calculate the last valid index for each trajectory
-    last_valid_indices = td_steps - padding_length_slices[:, -1, 0]  # Assuming padding length is uniform across td_steps
+    last_valid_indices = padding_length_slices[:, -1, 0]  # Assuming padding length is uniform across td_steps
     
     # Create a mask where each element is True if its index is >= the last valid index for its trajectory
-    mask = broadcasted_indices >= (last_valid_indices[:, None] - 1)  # Subtract 1 because indices are 0-based
+    mask = broadcasted_indices < (last_valid_indices[:, None])  # Subtract 1 because indices are 0-based
     
     # Apply the mask to the 'dones' slices
     dones_slices[mask] = True
