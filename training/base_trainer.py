@@ -203,7 +203,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         future_values = self.trainer_calculate_future_value(shortened_states, shortened_padding_mask)
         shortened_length = states.size(1) - shortened_states.size(1)
         if shortened_length > 0:
-            trajectory_values = torch.cat([torch.zeros_like(future_values[:,:1]).repeat(1, shortened_length, 1), future_values], dim=1)
+            trajectory_values = torch.cat([torch.zeros_like(future_values[:,:1]).repeat(1, shortened_length + 1 , 1), future_values], dim=1)
         else:
             trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
         return trajectory_values
