@@ -6,7 +6,7 @@ from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shorten_tensor_sequences, shift_left_padding_mask
-from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range
+from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range, adjust_padding_mask_based_on_lambda
 
 from .learnable_td import LearnableTD
 DISCOUNT_FACTOR = 0.99
@@ -151,7 +151,8 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         """
         states, actions, rewards, next_states, dones = trajectory
         padding_mask = create_padding_mask_before_dones(dones)
-
+        padding_mask = adjust_padding_mask_based_on_lambda(padding_mask, lambda_sequence=self.learnable_td.lambd)
+        
         states, actions, rewards, next_states, dones, padding_mask =\
                 shorten_tensor_sequences(padding_mask, states, actions, rewards, next_states, dones)
                 
@@ -173,13 +174,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         # Calculate expected value and sum of rewards for the terminal segment of the trajectory
         expected_value, sum_rewards = self.learnable_td.calculate_lambda_returns(
             trajectory_values, rewards, dones, seq_range=seq_range)
-        
-        with torch.no_grad():
-            # Retrieve normalized sum reward weights for the given sequence range
-            sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=seq_range)
 
             # Normalize sum rewards with the adjusted mask and weights
-        normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range=seq_range).detach() * sum_reward_weights
+        normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range=seq_range).detach() 
 
         # Correct the expected value to align with the length of sum_rewards and normalized_sum_rewards
         expected_value[:, :-1, :] = expected_value[:, :-1, :] - sum_rewards + normalized_sum_rewards
@@ -216,7 +213,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         # Calculate future values for the last states and construct trajectory values for lambda returns calculation
         last_padding_mask = create_padding_mask_before_dones(last_dones)
         last_next_padding_mask = shift_left_padding_mask(last_padding_mask)
-
+        
         future_values = self.trainer_calculate_future_value(last_next_states, last_next_padding_mask)
         trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
         
