@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 from .utils.value_util import compute_lambda_based_returns
 
-UPDATE_LEARNABLE_TD_INTERVAL = 2
-
 class LearnableTD(nn.Module):
     def __init__(self, max_seq_len, discount_factor, advantage_lambda, device):
         super(LearnableTD, self).__init__()
@@ -53,23 +51,14 @@ class LearnableTD(nn.Module):
 
         return lambda_sequence
     
-    def get_sum_reward_weights(self, seq_range, padding_mask=None):
+    def get_sum_reward_weights(self, seq_range):
         # Extract the start and end index from the sequence range
         start_idx, end_idx = seq_range
         
         # Select the relevant portion of sum reward weights based on the sequence range
         sum_reward_weights = self.sum_reward_weights[:, start_idx:end_idx]
-
-        if padding_mask is None:
-            return sum_reward_weights
-        else:
-            # Adjust the sum reward weights based on the padding mask
-            masked_sum_reward_weights = sum_reward_weights * padding_mask
-            # Normalize the masked sum reward weights relative to their original sum, adjusted for the valid (non-padded) parts
-            normalization_factor = masked_sum_reward_weights.sum(dim=1, keepdim=True) / sum_reward_weights.sum(dim=1, keepdim=True).clamp(min=1e-8)
-            adjusted_sum_reward_weights = masked_sum_reward_weights / normalization_factor.clamp(min=1e-8)
         
-        return adjusted_sum_reward_weights
+        return sum_reward_weights
 
     def calculate_sum_reward_weights(self):
         # Parameters are now accessed directly from the class attributes

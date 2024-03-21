@@ -6,9 +6,9 @@ from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shorten_tensor_sequences, shift_left_padding_mask
-from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, adjust_padding_mask_based_on_lambda, select_sequence_range
+from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range
 
-from .learnable_td import LearnableTD, UPDATE_LEARNABLE_TD_INTERVAL
+from .learnable_td import LearnableTD
 DISCOUNT_FACTOR = 0.99
 AVERAGE_LAMBDA = 0.5
 
@@ -108,15 +108,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.update_target_networks() # Updates target networks for stable learning targets.
         self.update_schedulers()      # Adjusts learning rates for optimal training.
         self.train_iter += 1          # Tracks training progress.
-
-    def should_update_learnable_td(self):
-        """
-        Checks if learnable TD parameters should be updated based on the current training iteration.
-        Returns:
-            bool: True if it's time to update learnable TD parameters; False otherwise.
-        """
-        return self.train_iter % UPDATE_LEARNABLE_TD_INTERVAL == 0
-                    
+    
     def select_tensor_reduction(self, tensor, mask=None):
         """
         Applies either masked_tensor_reduction or adaptive_masked_tensor_reduction 
@@ -170,8 +162,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         sel_dones = apply_sequence_mask(dones, train_seq_mask, train_seq_length)
         sel_padding_mask = apply_sequence_mask(padding_mask, train_seq_mask, train_seq_length)
         
-        sel_padding_mask = adjust_padding_mask_based_on_lambda(sel_padding_mask, self.learnable_td.lambd)
-        
         sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask =\
             shorten_tensor_sequences(sel_padding_mask, sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones)
         
@@ -184,7 +174,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         with torch.no_grad():
             # Retrieve normalized sum reward weights for the given sequence range
-            sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=seq_range, padding_mask=padding_mask)
+            sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=seq_range)
 
             # Normalize sum rewards with the adjusted mask and weights
         normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range=seq_range).detach() * sum_reward_weights
@@ -328,26 +318,23 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         that effectively navigates between maximizing and minimizing expected returns based on the situational context.
         :return: The computed bipolar advantage loss, or None if an update to the learnable parameters is not deemed necessary.
         """
-        if self.should_update_learnable_td():
-            advantage = expected_value - estimated_value.detach()
-            
-            # Compute the value_incentive component of the bipolar TD error, scaled by the advantage.
-            # This component aims to encourage actions that increase the expected value.
-            second_degree_polynomial_error = (advantage - polar_point).square()
-            
-            # Calculate the fourth-degree polynomial error component, focusing on the squared difference
-            # between squared advantage and squared polar distance.
-            fourth_degree_polynomial_error = (advantage.square() + (polar_point)**2).square()
+        advantage = expected_value - estimated_value.detach()
+        
+        # Compute the value_incentive component of the bipolar TD error, scaled by the advantage.
+        # This component aims to encourage actions that increase the expected value.
+        second_degree_polynomial_error = (advantage - polar_point).square()
+        
+        # Calculate the fourth-degree polynomial error component, focusing on the squared difference
+        # between squared advantage and squared polar distance.
+        fourth_degree_polynomial_error = (advantage.square() + (polar_point)**2).square()
 
-            # Form the total bipolar TD error by combining the polynomial error with the
-            # value_incentive component, modulating the TD error to guide expected value adjustments.
-            bipolar_advantage_error = fourth_degree_polynomial_error + second_degree_polynomial_error
-            
-            # Aggregate the scaled bipolar TD error to produce a consolidated loss value,
-            # considering padding in the input tensors for accurate error computation.
-            bipolar_advantage_loss = self.select_tensor_reduction(bipolar_advantage_error, padding_mask)
-        else:
-            bipolar_advantage_loss = None
+        # Form the total bipolar TD error by combining the polynomial error with the
+        # value_incentive component, modulating the TD error to guide expected value adjustments.
+        bipolar_advantage_error = fourth_degree_polynomial_error + second_degree_polynomial_error
+        
+        # Aggregate the scaled bipolar TD error to produce a consolidated loss value,
+        # considering padding in the input tensors for accurate error computation.
+        bipolar_advantage_loss = self.select_tensor_reduction(bipolar_advantage_error, padding_mask)
             
         return bipolar_advantage_loss
         
