@@ -10,7 +10,25 @@ class GradScaler(torch.autograd.Function):
     @staticmethod
     def backward(ctx, grad_output):
         return grad_output * ctx.scale_factor, None  # Scale the gradient by the scale factor
+
+class LambdaGradScaler(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input_tensor):
+        return input_tensor
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        # Apply a different scaling based on the direction of the gradient
+        scaled_grad_output = grad_output.clone()  # Clone to avoid in-place operations
+        # Scale down negative gradients less (making the decrease slower)
+        scaled_grad_output[grad_output < 0] *= 1
+        # Apply normal scaling to positive gradients
+        scaled_grad_output[grad_output >= 0] *= 0.5
+        return scaled_grad_output, None
     
+def shift_left_padding_mask(padding_mask):
+    return torch.cat([padding_mask[:, 1:], torch.ones_like(padding_mask[:, -1:])], dim=1)
+
 def masked_tensor_reduction(tensor, mask, reduction="batch"):
     """
     Performs a masked reduction on a tensor according to a specified method.
@@ -177,10 +195,7 @@ def shorten_tensor_sequences(padding_mask, *tensors, min_length=1):
     # If there's only one tensor, it returns that tensor directly without wrapping it in a tuple
     return (*truncated_tensors, truncated_padding_mask) if len(tensors) > 1 else (truncated_tensors, truncated_padding_mask)
 
-def shift_left_padding_mask(padding_mask):
-    return torch.cat([padding_mask[:, 1:], torch.ones_like(padding_mask[:, -1:])], dim=1)
-
-def adjust_padding_up_to_end_idx(padding_mask, end_indices):
+def fill_up_to_end_idx(padding_mask, end_indices, fill_value):
     batch_size, seq_len, _ = padding_mask.shape
     
     seq_indices = torch.arange(seq_len).unsqueeze(0).unsqueeze(-1).to(padding_mask.device)
@@ -190,6 +205,20 @@ def adjust_padding_up_to_end_idx(padding_mask, end_indices):
 
     mask = seq_indices_expanded < end_indices_expanded
     
-    padding_mask[mask] = 0
+    padding_mask[mask] = fill_value
+
+    return padding_mask
+
+def fill_from_start_idx(padding_mask, start_indices, fill_value):
+    batch_size, seq_len, _ = padding_mask.shape
+    
+    seq_indices = torch.arange(seq_len).unsqueeze(0).unsqueeze(-1).to(padding_mask.device)
+
+    seq_indices_expanded = seq_indices.expand_as(padding_mask)
+    end_indices_expanded = start_indices.expand_as(padding_mask)
+
+    mask = seq_indices_expanded >= end_indices_expanded
+    
+    padding_mask[mask] = fill_value
 
     return padding_mask

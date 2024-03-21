@@ -43,7 +43,7 @@ class ExplorationUtils:
         self.gpt_seq_length = gpt_seq_length
         self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=self.device)
         self.kernel_size = int(gpt_seq_length * 2 - 1)
-        self.sigma = 1.0
+        self.sigma = 0.5
         # Generate the Gaussian kernel
         self.kernel = generate_gaussian_kernel(self.kernel_size, self.sigma, self.device).unsqueeze(0).unsqueeze(0)
 

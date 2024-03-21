@@ -104,16 +104,7 @@ def adjust_padding_mask_based_on_lambda(padding_mask, lambda_sequence, padding_t
     # Adjust dimensions to match the padding mask
     padding_criteria = padding_criteria.unsqueeze(0).unsqueeze(-1).float()
 
-    # Calculate common length for updating the padding mask
-    common_length = max(min(padding_mask.size(1), padding_criteria.size(1)) - 1, 0)
-    
-    # Update the padding mask based on the criteria
-    # Ensuring the update is applied correctly according to the calculated common_length
-    if common_length > 0:
-        padding_mask[:, :common_length] *= padding_criteria[:, -common_length:]
-    else:
-        # Handle the case where common_length is 0; decide if you need to adjust anything here based on your requirements
-        pass
+    padding_mask[:, :1] *= padding_criteria[:, 1:]
     
     return padding_mask
 

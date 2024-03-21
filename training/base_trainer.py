@@ -5,8 +5,8 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shorten_tensor_sequences, shift_left_padding_mask, adjust_padding_up_to_end_idx
-from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range, adjust_padding_mask_based_on_lambda
+from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shift_left_padding_mask
+from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range
 
 from .learnable_td import LearnableTD
 DISCOUNT_FACTOR = 0.99
@@ -119,14 +119,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :reduction_type: Type of reduction to apply ('batch', 'seq', or 'all').
         :return: The reduced tensor.
         """
-        
-        if mask is not None:
-            return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
-        else:
-            if self.reduction_type == 'none':
-                return tensor
-            else:
-                return tensor.mean()
+        return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
 
     def select_train_sequence(self, trajectory):
         """
@@ -161,23 +154,16 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         sel_dones = apply_sequence_mask(dones, train_seq_mask, train_seq_length)
         sel_padding_mask = apply_sequence_mask(padding_mask, train_seq_mask, train_seq_length)
 
-        sel_padding_mask = adjust_padding_mask_based_on_lambda(sel_padding_mask, lambda_sequence=self.learnable_td.lambd)
-        sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask =\
-                shorten_tensor_sequences(sel_padding_mask, sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones)
-
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
 
-    def calculate_normalized_lambda_returns(self, trajectory_values, rewards, dones, padding_mask, seq_range, normalize_sum_reward_weights=False):
+    def calculate_normalized_lambda_returns(self, trajectory_values, rewards, dones, padding_mask, seq_range):
         # Calculate expected value and sum of rewards for the terminal segment of the trajectory
         expected_value, sum_rewards = self.learnable_td.calculate_lambda_returns(
             trajectory_values, rewards, dones, seq_range=seq_range)
 
         with torch.no_grad():
             # Retrieve normalized sum reward weights for the given sequence range
-            if normalize_sum_reward_weights:
-                sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=seq_range, padding_mask=padding_mask)
-            else:
-                sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=seq_range)
+            sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=seq_range)
             
             # Normalize sum rewards with the adjusted mask and weights
         normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range=seq_range).detach() * sum_reward_weights
@@ -221,11 +207,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         future_values = self.trainer_calculate_future_value(last_next_states, last_next_padding_mask)
         trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
         
-        adjusted_last_padding_mask = adjust_padding_up_to_end_idx(last_padding_mask, local_end_idx)
-        
         trajectory_values = select_sequence_range(slice(-(diff_seq_length + 1), None), trajectory_values)
-        last_rewards, last_dones, adjusted_last_padding_mask = select_sequence_range(slice(-diff_seq_length, None), last_rewards, last_dones, adjusted_last_padding_mask)
-        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, last_rewards, last_dones, adjusted_last_padding_mask, seq_range = (start_seq_idx, end_seq_idx), normalize_sum_reward_weights=True)
+        selected_rewards, selected_dones, selected_padding_mask = select_sequence_range(slice(-diff_seq_length, None), last_rewards, last_dones, last_padding_mask)
+        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, selected_rewards, selected_dones, selected_padding_mask, seq_range = (start_seq_idx, end_seq_idx))
         
         # Select the appropriate future value using end_select_idx
         target_idx = local_end_idx.flatten()

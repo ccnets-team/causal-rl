@@ -4,25 +4,6 @@
         PARK, JunHo
 '''
 import numpy as np
-
-def mark_padded_as_done(dones_slices, padding_length_slices):
-    # Vectorized operation to update 'dones' based on padding length
-    # Generate an array of indices for each trajectory
-    batch_size, td_steps, _ = dones_slices.shape
-    trajectory_indices = np.arange(td_steps)
-    
-    # Broadcast to match shapes (batch_size, td_steps)
-    broadcasted_indices = trajectory_indices + np.zeros((batch_size, td_steps), dtype=int)
-    
-    # Calculate the last valid index for each trajectory
-    last_valid_indices = padding_length_slices[:, -1, 0]  # Assuming padding length is uniform across td_steps
-    
-    # Create a mask where each element is True if its index is >= the last valid index for its trajectory
-    mask = broadcasted_indices < (last_valid_indices[:, None])  # Subtract 1 because indices are 0-based
-    
-    # Apply the mask to the 'dones' slices
-    dones_slices[mask] = True
-    return dones_slices
     
 class BaseBuffer:
     def __init__(self, buffer_type, capacity, state_size, action_size, seq_len):
@@ -59,8 +40,6 @@ class BaseBuffer:
         self.padding_length = np.empty(self.capacity)       
         self.valid_indices.fill(False)  # Reset all indices to invalid
 
-
-
     def _fetch_trajectory_slices(self, indices, td_steps):
         batch_size = len(indices)
         buffer_size = self.capacity
@@ -89,8 +68,6 @@ class BaseBuffer:
         truncated_slices[:, -1] = False
         dones_slices = np.logical_or(terminated_slices, truncated_slices)
 
-        dones_slices = mark_padded_as_done(dones_slices, padding_length_slices)
-                
         transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions
     
