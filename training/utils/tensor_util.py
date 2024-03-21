@@ -166,3 +166,6 @@ def shorten_tensor_sequences(padding_mask, *tensors):
     # Return the truncated tensors followed by the truncated padding mask
     # If there's only one tensor, it returns that tensor directly without wrapping it in a tuple
     return (*truncated_tensors, truncated_padding_mask) if len(tensors) > 1 else (truncated_tensors, truncated_padding_mask)
+
+def shift_left_padding_mask(padding_mask):
+    return torch.cat([padding_mask[:, 1:], torch.ones_like(padding_mask[:, -1:])], dim=1)

@@ -69,7 +69,7 @@ class CausalTrainer(BaseTrainer):
             # Extend the action tensor if there was any shortening
             if shortened_padding_length > 0:
                 # Assuming action tensor shape is [Batch, Seq, Action_dim], adapt if it differs
-                action = torch.cat([torch.zeros_like(action[:,-1:]).repeat(1, shortened_padding_length, 1), action], dim=1)
+                action = torch.cat([torch.zeros_like(action[:,:1]).repeat(1, shortened_padding_length, 1), action], dim=1)
         return action
 
     def train_model(self, trajectory: BatchTrajectory):
