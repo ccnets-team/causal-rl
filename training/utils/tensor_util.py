@@ -179,3 +179,17 @@ def shorten_tensor_sequences(padding_mask, *tensors, min_length=1):
 
 def shift_left_padding_mask(padding_mask):
     return torch.cat([padding_mask[:, 1:], torch.ones_like(padding_mask[:, -1:])], dim=1)
+
+def adjust_padding_up_to_end_idx(padding_mask, end_indices):
+    batch_size, seq_len, _ = padding_mask.shape
+    
+    seq_indices = torch.arange(seq_len).unsqueeze(0).unsqueeze(-1).to(padding_mask.device)
+
+    seq_indices_expanded = seq_indices.expand_as(padding_mask)
+    end_indices_expanded = end_indices.expand_as(padding_mask)
+
+    mask = seq_indices_expanded < end_indices_expanded
+    
+    padding_mask[mask] = 0
+
+    return padding_mask
