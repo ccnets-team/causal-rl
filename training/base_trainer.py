@@ -11,7 +11,6 @@ from .utils.sequence_util import create_padding_mask_before_dones, create_train_
 from .learnable_td import LearnableTD
 DISCOUNT_FACTOR = 0.99
 AVERAGE_LAMBDA = 0.5
-GPT_TD_INPUT_RATIO = 2/3
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -30,7 +29,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.error_transformation_matrix = create_transformation_matrix(state_size, value_size).to(device)
         self.error_to_state_size_ratio = value_size/state_size
         self.train_iter = 0
-        self.gpt_legnth_ratio = GPT_TD_INPUT_RATIO
         
     def _unpack_rl_params(self, rl_params): 
         (self.training_params, self.algorithm_params, self.network_params, 
@@ -151,10 +149,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         """
         states, actions, rewards, next_states, dones = trajectory
         padding_mask = create_padding_mask_before_dones(dones)
-        states, actions, rewards, next_states, dones, padding_mask =\
-                shorten_tensor_sequences(padding_mask, states, actions, rewards, next_states, dones)
-                
-        train_seq_length = int(max(self.gpt_legnth_ratio * float(padding_mask.size(1)), 1))
+        train_seq_length = self.gpt_seq_length
         train_seq_mask, selection_end_idx = create_train_sequence_mask(padding_mask, train_seq_length)
 
         end_value = self.calculate_sequence_end_value(rewards, next_states, dones, selection_end_idx, train_seq_length)
@@ -165,7 +160,10 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         sel_next_states = apply_sequence_mask(next_states, train_seq_mask, train_seq_length)
         sel_dones = apply_sequence_mask(dones, train_seq_mask, train_seq_length)
         sel_padding_mask = apply_sequence_mask(padding_mask, train_seq_mask, train_seq_length)
+
         sel_padding_mask = adjust_padding_mask_based_on_lambda(sel_padding_mask, lambda_sequence=self.learnable_td.lambd)
+        sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask =\
+                shorten_tensor_sequences(sel_padding_mask, sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones)
 
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
 
@@ -215,9 +213,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         local_end_idx = selection_end_idx - train_seq_length
         # Extract the last segment of the trajectory based on the training sequence length
         last_next_states, last_rewards, last_dones = select_sequence_range(slice(-train_seq_length, None), next_states, rewards, dones)
-        
         # Calculate future values for the last states and construct trajectory values for lambda returns calculation
         last_padding_mask = create_padding_mask_before_dones(last_dones)
+        
         last_next_padding_mask = shift_left_padding_mask(last_padding_mask)
         
         future_values = self.trainer_calculate_future_value(last_next_states, last_next_padding_mask)
