@@ -21,7 +21,7 @@ class LambdaGradScaler(torch.autograd.Function):
         # Apply a different scaling based on the direction of the gradient
         scaled_grad_output = grad_output.clone()  # Clone to avoid in-place operations
         # Scale down negative gradients less (making the decrease slower)
-        scaled_grad_output[grad_output < 0] *= 1
+        scaled_grad_output[grad_output < 0] *= 1.5
         # Apply normal scaling to positive gradients
         scaled_grad_output[grad_output >= 0] *= 0.5
         return scaled_grad_output, None
@@ -223,7 +223,7 @@ def fill_from_start_idx(padding_mask, start_indices, fill_value):
 
     return padding_mask
 
-def pad_up_to_first_content(padding_mask, first_seq_idx, content_lengths, wiggling_factor=0.2):
+def pad_up_to_first_content(padding_mask, first_seq_idx, content_lengths):
     """
     Updates the padding_mask based on first_seq_idx and content_lengths.
     """
@@ -238,8 +238,6 @@ def pad_up_to_first_content(padding_mask, first_seq_idx, content_lengths, wiggli
 
     # Calculate the actual indices to fill up to, considering content_lengths
     end_indices = adjusted_first_seq_idx - selected_content_length + 1 # +1 to include the first content index itself in the non-padded area
-    
-    end_indices = end_indices - (wiggling_factor * selected_content_length).ceil().long()
     
     padding_mask = fill_up_to_end_idx(padding_mask, end_indices, fill_value=0.0)
     
@@ -277,8 +275,7 @@ def prioritize_tensor_sequence(tensor, padding_mask):
     # Calculate offsets from the min non-zero value, adding back the padding mask
     adusted_masked_tensor = (range_tensor - min_values + 1) * padding_mask
     
-    # Calculate the gradient priority, normalizing by the mean, avoiding division by zero
-    grad_priority = adusted_masked_tensor / adusted_masked_tensor.mean(dim=1, keepdim=True).clamp(min=1e-8)
+    grad_priority = adusted_masked_tensor * padding_mask.sum(dim=1, keepdim=True)/adusted_masked_tensor.sum(dim=1, keepdim=True).clamp(min=1e-8)
     
     # Placeholder for applying grad_priority: Assuming you have a custom implementation for this
     prioritized_tensor = GradScaler.apply(tensor, grad_priority)

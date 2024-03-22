@@ -63,8 +63,9 @@ class LearnableTD(nn.Module):
         return sum_reward_scale
 
     def update_sum_reward_weights(self):
-        raw_sum_reward_weights = self.calculate_sum_reward_weights()
-        normalized_reward_scale = self.calculate_sum_reward_scale(raw_sum_reward_weights)
+        with torch.no_grad():
+            raw_sum_reward_weights = self.calculate_sum_reward_weights()
+            normalized_reward_scale = self.calculate_sum_reward_scale(raw_sum_reward_weights)
         self.sum_reward_weights = normalized_reward_scale * raw_sum_reward_weights
     
     def calculate_lambda_returns(self, values, rewards, dones, seq_range):

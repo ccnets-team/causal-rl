@@ -1,5 +1,5 @@
 import torch
-PADDING_LAMBDA_CAHIN_VAL_THRESHOLD = 1e-6
+PADDING_LAMBDA_CAHIN_VAL_THRESHOLD = 1e-5
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
