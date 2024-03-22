@@ -153,7 +153,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         sel_next_states = apply_sequence_mask(next_states, train_seq_mask, train_seq_length)
         sel_dones = apply_sequence_mask(dones, train_seq_mask, train_seq_length)
         sel_padding_mask = apply_sequence_mask(padding_mask, train_seq_mask, train_seq_length)
-        sel_padding_mask = adjust_padding_mask_based_on_lambda(sel_padding_mask, self.learnable_td.lambd)
 
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
 
