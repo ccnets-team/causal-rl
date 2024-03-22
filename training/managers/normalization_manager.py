@@ -206,7 +206,7 @@ class NormalizationUtils:
         return trajectories
 
     def update_normalizer(self, trajectories: BatchTrajectory):
-        states, actions, rewards, next_states, dones = trajectories
+        states, _, rewards, next_states, _, _ = trajectories
         # Update state normalizer
         for index in self.state_indices:
             if index == TRANSITION_STATE_IDX:

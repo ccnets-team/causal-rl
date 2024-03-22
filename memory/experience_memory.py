@@ -57,9 +57,9 @@ class ExperienceMemory:
         return self.multi_buffers[env_id][agent_id].sample_trajectories(indices, td_steps)
 
     def _create_batch_trajectory_components(self, samples):
-        components = [np.stack([b[i] for b in samples], axis=0) for i in range(5)]
-        states, actions, rewards, next_states, dones = map(lambda x: torch.FloatTensor(x).to(self.device), components)
-        return states, actions, rewards, next_states, dones
+        components = [np.stack([b[i] for b in samples], axis=0) for i in range(6)]
+        states, actions, rewards, next_states, dones, content_lengths = map(lambda x: torch.FloatTensor(x).to(self.device), components)
+        return states, actions, rewards, next_states, dones, content_lengths
 
     def _get_env_agent_ids(self, buffer_id):
         # Retrieve environment and agent IDs from the global index
@@ -87,8 +87,8 @@ class ExperienceMemory:
         if samples is None:
             return None
 
-        states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
-        return BatchTrajectory(states, actions, rewards, next_states, dones)
+        states, actions, rewards, next_states, dones, content_lengths = self._create_batch_trajectory_components(samples)
+        return BatchTrajectory(states, actions, rewards, next_states, dones, content_lengths)
         
     def balanced_sample_trajectory_data(self, sample_size, td_steps):
         total_sample_list = self._get_sample_list()

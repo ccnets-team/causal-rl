@@ -222,3 +222,8 @@ def fill_from_start_idx(padding_mask, start_indices, fill_value):
     padding_mask[mask] = fill_value
 
     return padding_mask
+
+def pad_up_to_first_content(padding_mask, first_seq_idx, content_lengths):
+    first_content_idx = torch.gather(content_lengths, 1, first_seq_idx.expand(-1, -1, content_lengths.size(2)))
+    padding_mask = fill_up_to_end_idx(padding_mask, first_content_idx, fill_value=0.0)
+    return padding_mask

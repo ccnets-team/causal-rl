@@ -5,7 +5,7 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shift_left_padding_mask
+from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shift_left_padding_mask, pad_up_to_first_content
 from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range
 
 from .learnable_td import LearnableTD
@@ -140,10 +140,12 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :return: A tuple of selected and masked trajectory components (states, actions, rewards, next_states, dones, 
                 padding_mask), each trimmed to 'gpt_seq_length' to fit the model's input specifications.
         """
-        states, actions, rewards, next_states, dones = trajectory
+        states, actions, rewards, next_states, dones, content_lengths = trajectory
         padding_mask = create_padding_mask_before_dones(dones)
         train_seq_length = self.gpt_seq_length
         train_seq_mask, selection_end_idx = create_train_sequence_mask(padding_mask, train_seq_length)
+
+        padding_mask = pad_up_to_first_content(padding_mask, selection_end_idx - 1, content_lengths)
 
         end_value = self.calculate_sequence_end_value(rewards, next_states, dones, selection_end_idx, train_seq_length)
         # Apply the mask to each trajectory component
