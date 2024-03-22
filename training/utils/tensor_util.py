@@ -223,7 +223,7 @@ def fill_from_start_idx(padding_mask, start_indices, fill_value):
 
     return padding_mask
 
-def pad_up_to_first_content(padding_mask, first_seq_idx, content_lengths):
+def pad_up_to_first_content(padding_mask, first_seq_idx, content_lengths, wiggling_factor=0.2):
     """
     Updates the padding_mask based on first_seq_idx and content_lengths.
     """
@@ -234,10 +234,53 @@ def pad_up_to_first_content(padding_mask, first_seq_idx, content_lengths):
     adjusted_first_seq_idx = torch.clamp(adjusted_first_seq_idx, 0, padding_mask.shape[1] - 1)
     
     # Use adjusted_first_seq_idx for gathering
-    first_content_idx = torch.gather(content_lengths, 1, adjusted_first_seq_idx.expand(-1, -1, content_lengths.size(2)))
+    selected_content_length = torch.gather(content_lengths, 1, adjusted_first_seq_idx)
 
     # Calculate the actual indices to fill up to, considering content_lengths
-    end_indices = adjusted_first_seq_idx - first_content_idx + 1 # +1 to include the first content index itself in the non-padded area
+    end_indices = adjusted_first_seq_idx - selected_content_length + 1 # +1 to include the first content index itself in the non-padded area
+    
+    end_indices = end_indices - (wiggling_factor * selected_content_length).ceil().long()
     
     padding_mask = fill_up_to_end_idx(padding_mask, end_indices, fill_value=0.0)
+    
     return padding_mask
+
+def pad_up_to_avg_content(padding_mask, content_lengths):
+    """
+    Updates the padding_mask based on first_seq_idx and content_lengths.
+    """
+    seq_len = padding_mask.size(1)
+    range_tensor = torch.arange(1, seq_len + 1).unsqueeze(0).unsqueeze(-1).float().to(padding_mask.device)
+    weight_tensor = range_tensor / range_tensor.mean().clamp(min=1e-8)
+    weighted_content_lengths = weight_tensor * content_lengths
+    mean_weighted_content_lengths = weighted_content_lengths.mean(dim = 1, keepdim = True)
+    padding_lengths = seq_len - mean_weighted_content_lengths.long()
+    
+    mask = range_tensor <= padding_lengths
+    padding_mask[mask] = 0
+    
+    return padding_mask
+
+def prioritize_tensor_sequence(tensor, padding_mask):
+    seq_len = tensor.size(1)
+    device = tensor.device
+    # Creating a range tensor [1, 2, ..., seq_len]
+    range_tensor = torch.arange(1, seq_len + 1).unsqueeze(0).unsqueeze(-1).to(device).float()
+    
+    # Apply padding mask to range_tensor, setting padded positions to 0
+    masked_range_tensor = padding_mask * range_tensor
+    
+    # Find the minimum non-zero (non-padded) value for each sequence
+    # We replace 0s with inf to ensure they're not considered as minima
+    min_values, _ = torch.where(masked_range_tensor > 0, masked_range_tensor, torch.full_like(masked_range_tensor, float('inf'))).min(dim=1, keepdim=True)
+    
+    # Calculate offsets from the min non-zero value, adding back the padding mask
+    adusted_masked_tensor = (range_tensor - min_values + 1) * padding_mask
+    
+    # Calculate the gradient priority, normalizing by the mean, avoiding division by zero
+    grad_priority = adusted_masked_tensor / adusted_masked_tensor.mean(dim=1, keepdim=True).clamp(min=1e-8)
+    
+    # Placeholder for applying grad_priority: Assuming you have a custom implementation for this
+    prioritized_tensor = GradScaler.apply(tensor, grad_priority)
+    
+    return prioritized_tensor # Return the grad_priority for inspection or further use

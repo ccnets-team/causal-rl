@@ -38,10 +38,28 @@ def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     
     return mask
 
-# Function to apply selection mask to a trajectory component
-def apply_sequence_mask(component, model_seq_mask, model_seq_length):
-    component_shape = component.shape
-    return component[model_seq_mask.expand_as(component) > 0].reshape(component_shape[0], model_seq_length, component_shape[2])
+def apply_sequence_mask(model_seq_mask, model_seq_length, *tensors):
+    """
+    Applies a selection mask to each tensor in `tensors`, reshaping them based on the `model_seq_length`.
+    
+    Args:
+        model_seq_mask: A boolean mask indicating selected sequence positions.
+        model_seq_length: The target sequence length after masking.
+        tensors: A variable number of tensors to apply the mask on. Each tensor should have the shape [B, S, ...], 
+                 where B is the batch size, and S is the sequence length.
+    
+    Returns:
+        A tuple of tensors with the mask applied, each reshaped to [B, model_seq_length, ...]. If only one tensor is 
+        provided, that tensor is returned directly instead of a tuple.
+    """
+    # Ensure the mask is expanded and reshaped appropriately for each tensor
+    if len(tensors) == 1:
+        # If there's only one tensor, apply the mask and reshape
+        reshaped_tensor = tensors[0][model_seq_mask.expand_as(tensors[0])].reshape(tensors[0].shape[0], model_seq_length, -1)
+        return reshaped_tensor
+    else:    
+        reshaped_tensors = tuple(tensor[model_seq_mask.expand_as(tensor)].reshape(tensor.shape[0], model_seq_length, -1) for tensor in tensors)
+        return reshaped_tensors
 
 def create_train_sequence_mask(padding_mask, train_seq_length):
     """
@@ -133,3 +151,6 @@ def create_prob_dist_from_lambdas(lambda_values):
     mean_chain_dependent_product = chain_dependent_product / chain_dependent_product.sum()
     adjusted_probabilities = torch.flip(mean_chain_dependent_product, dims=[0])
     return adjusted_probabilities
+
+    
+    
