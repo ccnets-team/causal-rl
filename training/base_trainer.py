@@ -10,7 +10,7 @@ from .utils.sequence_util import create_padding_mask_before_dones, create_train_
 
 from .learnable_td import LearnableTD
 DISCOUNT_FACTOR = 0.99
-AVERAGE_LAMBDA = 0.5
+AVERAGE_LAMBDA = 0.9
 
 class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
@@ -87,7 +87,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.set_train(training=True)
         with torch.no_grad():
             self.learnable_td.update_sum_reward_weights()
-  
+    
     def update_step(self):
         """
         Executes a series of update operations essential for the training iteration.
@@ -153,6 +153,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         sel_next_states = apply_sequence_mask(next_states, train_seq_mask, train_seq_length)
         sel_dones = apply_sequence_mask(dones, train_seq_mask, train_seq_length)
         sel_padding_mask = apply_sequence_mask(padding_mask, train_seq_mask, train_seq_length)
+        sel_padding_mask = adjust_padding_mask_based_on_lambda(sel_padding_mask, self.learnable_td.lambd)
 
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
 
@@ -203,7 +204,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         last_padding_mask = create_padding_mask_before_dones(last_dones)
         
         last_next_padding_mask = shift_left_padding_mask(last_padding_mask)
-        
         future_values = self.trainer_calculate_future_value(last_next_states, last_next_padding_mask)
         trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
         

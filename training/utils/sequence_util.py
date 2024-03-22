@@ -104,7 +104,7 @@ def adjust_padding_mask_based_on_lambda(padding_mask, lambda_sequence, padding_t
     # Adjust dimensions to match the padding mask
     padding_criteria = padding_criteria.unsqueeze(0).unsqueeze(-1).float()
 
-    padding_mask[:, :1] *= padding_criteria[:, 1:]
+    padding_mask[:, :-1] *= padding_criteria[:, 1:]
     
     return padding_mask
 

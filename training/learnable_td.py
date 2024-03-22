@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 from .utils.value_util import compute_lambda_based_returns
-from .utils.tensor_util import LambdaGradScaler
 
 class LearnableTD(nn.Module):
     def __init__(self, max_seq_len, discount_factor, advantage_lambda, device):
@@ -12,7 +11,7 @@ class LearnableTD(nn.Module):
         self.advantage_lambda = advantage_lambda
     
         discount_factor_init = discount_factor * torch.ones(1, device=self.device, dtype=torch.float)
-        advantage_lambda_init = self._create_init_lambda_sequence(advantage_lambda, max_seq_len, device)
+        advantage_lambda_init = advantage_lambda * torch.ones(max_seq_len, device=self.device, dtype=torch.float)
                 
         self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(advantage_lambda_init))
@@ -25,7 +24,7 @@ class LearnableTD(nn.Module):
 
     @property
     def lambd(self):
-        return LambdaGradScaler.apply(torch.tanh(self.raw_lambd).clamp_min(0.0))
+        return torch.tanh(self.raw_lambd).clamp_min(0.0)
 
     def _init_value_for_tanh(self, target):
         # Use logit function as the inverse of the sigmoid to initialize the value correctly
