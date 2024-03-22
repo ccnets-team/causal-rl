@@ -224,6 +224,20 @@ def fill_from_start_idx(padding_mask, start_indices, fill_value):
     return padding_mask
 
 def pad_up_to_first_content(padding_mask, first_seq_idx, content_lengths):
-    first_content_idx = torch.gather(content_lengths, 1, first_seq_idx.expand(-1, -1, content_lengths.size(2)))
-    padding_mask = fill_up_to_end_idx(padding_mask, first_seq_idx - first_content_idx, fill_value=0.0)
+    """
+    Updates the padding_mask based on first_seq_idx and content_lengths.
+    """
+    # Adjust for zero-based indexing if first_seq_idx is one-based
+    adjusted_first_seq_idx = first_seq_idx - 1
+    
+    # Ensure indices are within the valid range before gathering
+    adjusted_first_seq_idx = torch.clamp(adjusted_first_seq_idx, 0, padding_mask.shape[1] - 1)
+    
+    # Use adjusted_first_seq_idx for gathering
+    first_content_idx = torch.gather(content_lengths, 1, adjusted_first_seq_idx.expand(-1, -1, content_lengths.size(2)))
+
+    # Calculate the actual indices to fill up to, considering content_lengths
+    end_indices = adjusted_first_seq_idx - first_content_idx + 1 # +1 to include the first content index itself in the non-padded area
+    
+    padding_mask = fill_up_to_end_idx(padding_mask, end_indices, fill_value=0.0)
     return padding_mask
