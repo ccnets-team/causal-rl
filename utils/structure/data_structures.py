@@ -1,13 +1,12 @@
 import numpy as np
 
 class BatchTrajectory:
-    def __init__(self, state, action, reward, next_state, done, content_length):
+    def __init__(self, state, action, reward, next_state, done):
         self.state = state
         self.action = action
         self.reward = reward
         self.next_state = next_state
         self.done = done
-        self.content_length = content_length
 
     def __iter__(self):
         yield self.state
@@ -15,7 +14,6 @@ class BatchTrajectory:
         yield self.reward
         yield self.next_state
         yield self.done
-        yield self.content_length
         
 class AgentTransitions:
     def __init__(self, env_ids=None, agent_ids=None, states=None, actions=None, rewards=None, next_states=None, 

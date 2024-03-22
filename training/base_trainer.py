@@ -140,7 +140,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         :return: A tuple of selected and masked trajectory components (states, actions, rewards, next_states, dones, 
                 padding_mask), each trimmed to 'gpt_seq_length' to fit the model's input specifications.
         """
-        states, actions, rewards, next_states, dones, content_lengths = trajectory
+        states, actions, rewards, next_states, dones = trajectory
         train_seq_length = self.gpt_seq_length
         
         padding_mask = create_padding_mask_before_dones(dones)

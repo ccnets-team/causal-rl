@@ -68,6 +68,6 @@ class BaseBuffer:
         truncated_slices[:, -1] = False
         dones_slices = np.logical_or(terminated_slices, truncated_slices)
         
-        transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices, content_length_slices))
+        transitions = list(zip(states_slices, actions_slices, rewards_slices, next_states_slices, dones_slices))
         return transitions
     
