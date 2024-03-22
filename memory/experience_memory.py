@@ -75,7 +75,7 @@ class ExperienceMemory:
                         agent_transitions.states, agent_transitions.actions,
                         agent_transitions.rewards, agent_transitions.next_states,
                         agent_transitions.dones_terminated, agent_transitions.dones_truncated,
-                        agent_transitions.padding_length):
+                        agent_transitions.content_length):
             env_id, agent_id = data[:2]
             buffer = self.multi_buffers[env_id][agent_id]
             buffer.add_transition(*data[2:])

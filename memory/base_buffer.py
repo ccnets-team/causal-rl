@@ -37,7 +37,7 @@ class BaseBuffer:
         self.next_states = np.empty((self.capacity, self.state_size))
         self.terminated = np.empty(self.capacity)       
         self.truncated = np.empty(self.capacity)       
-        self.padding_length = np.empty(self.capacity)       
+        self.content_length = np.empty(self.capacity)       
         self.valid_indices.fill(False)  # Reset all indices to invalid
 
     def _fetch_trajectory_slices(self, indices, td_steps):
@@ -54,7 +54,7 @@ class BaseBuffer:
         next_states_slices = self.next_states[expanded_indices]
         terminated_slices = self.terminated[expanded_indices]
         truncated_slices = self.truncated[expanded_indices]
-        padding_length_slices = self.padding_length[expanded_indices]
+        content_length_slices = self.content_length[expanded_indices]
 
         states_slices = states_slices.reshape(batch_size, td_steps, -1)
         actions_slices = actions_slices.reshape(batch_size, td_steps, -1)
@@ -62,7 +62,7 @@ class BaseBuffer:
         next_states_slices = next_states_slices.reshape(batch_size, td_steps, -1)
         terminated_slices = terminated_slices.reshape(batch_size, td_steps, -1)
         truncated_slices = truncated_slices.reshape(batch_size, td_steps, -1)
-        padding_length_slices = padding_length_slices.reshape(batch_size, td_steps, -1)
+        content_length_slices = content_length_slices.reshape(batch_size, td_steps, -1)
 
         # Ensure the last element of truncated_slices is False to prevent truncation
         truncated_slices[:, -1] = False

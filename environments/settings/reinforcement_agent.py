@@ -15,7 +15,7 @@ class ReinforcementAgent:
         self.observations = EnvObservation(self.obs_shapes, self.obs_types, self.num_agents, self.gpt_seq_length)
         self.agent_ids = np.array(range(self.num_agents), dtype=int)
         self.actions = np.zeros((self.num_agents, self.action_size), dtype = np.float32)
-        self.padding_lengths = np.zeros((self.num_agents), dtype = np.int32)
+        self.content_lengths = np.zeros((self.num_agents), dtype = np.int32)
         self.agent_life = np.zeros((self.num_agents), dtype=bool)
         self.agent_dec = np.zeros((self.num_agents), dtype=bool)
 
@@ -27,7 +27,7 @@ class ReinforcementAgent:
 
     def reset_agent(self):
         self.actions.fill(0)
-        self.padding_lengths.fill(0)
+        self.content_lengths.fill(0)
         self.observations.reset()
         self.agent_life.fill(False) 
         self.agent_dec.fill(False) 

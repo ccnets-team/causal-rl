@@ -17,7 +17,7 @@ class BatchTrajectory:
         
 class AgentTransitions:
     def __init__(self, env_ids=None, agent_ids=None, states=None, actions=None, rewards=None, next_states=None, 
-                 dones_terminated=None, dones_truncated=None, padding_length=None):
+                 dones_terminated=None, dones_truncated=None, content_length=None):
         self.env_ids = env_ids 
         self.agent_ids = agent_ids 
         self.states = states 
@@ -26,7 +26,7 @@ class AgentTransitions:
         self.next_states = next_states 
         self.dones_terminated = dones_terminated 
         self.dones_truncated = dones_truncated 
-        self.padding_length = padding_length 
+        self.content_length = content_length 
 
     def _add_attribute(self, attr_name, val):
         attr = getattr(self, attr_name)
@@ -45,7 +45,7 @@ class AgentTransitions:
                 # concatenate existing attribute and new values
                 setattr(self, attr_name, np.concatenate((attr, val), axis=0))
 
-    def add(self, env_ids, agent_ids, states, actions, rewards, next_states, dones_terminated, dones_truncated, padding_length):
+    def add(self, env_ids, agent_ids, states, actions, rewards, next_states, dones_terminated, dones_truncated, content_length):
         self._add_attribute('env_ids', env_ids)
         self._add_attribute('agent_ids', agent_ids)
         self._add_attribute('states', states)
@@ -54,6 +54,6 @@ class AgentTransitions:
         self._add_attribute('next_states', next_states)
         self._add_attribute('dones_terminated', dones_terminated)
         self._add_attribute('dones_truncated', dones_truncated)
-        self._add_attribute('padding_length', padding_length)
+        self._add_attribute('content_length', content_length)
 
     

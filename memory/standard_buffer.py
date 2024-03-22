@@ -14,7 +14,7 @@ class StandardBuffer(BaseBuffer):
     def reset_buffer(self):
         self._reset_buffer()
     
-    def add_transition(self, state, action, reward, next_state, terminated, truncated, padding_length):        
+    def add_transition(self, state, action, reward, next_state, terminated, truncated, content_length):        
         self._reset_sample_prob(self.index)
         
         # Update the buffer with the new transition data
@@ -24,7 +24,7 @@ class StandardBuffer(BaseBuffer):
         self.next_states[self.index] = next_state
         self.terminated[self.index] = terminated
         self.truncated[self.index] = truncated
-        self.padding_length[self.index] = padding_length
+        self.content_length[self.index] = content_length
         
         self._assign_sample_prob(self.index)
         

@@ -19,7 +19,7 @@ class AgentExperienceCollector:
         self.agent_next_obs = np.zeros((self.num_agents, state_size), dtype=np.float32)
         self.agent_done_terminated = np.zeros((self.num_agents), dtype=bool)
         self.agent_done_truncated = np.zeros((self.num_agents), dtype=bool)
-        self.agent_padding_length = np.zeros((self.num_agents), dtype=int)
+        self.agent_content_lengths = np.zeros((self.num_agents), dtype=int)
         self.agent_data_check = np.zeros((self.num_agents), dtype=int)
 
     def init_observation(self, observations):
@@ -45,14 +45,14 @@ class AgentExperienceCollector:
         agent_ids_ls = agent_ids.tolist()
         return [agent_ids_ls.index(selected_id) for selected_id in selected_next_agent_ids]
 
-    def select_data(self, agent_ids, selected_agent_indices, obs, action, reward, terminated, trucated, padding_length):
+    def select_data(self, agent_ids, selected_agent_indices, obs, action, reward, terminated, trucated, content_lengths):
         selected_agent_ids = agent_ids[selected_agent_indices]
         selected_obs = obs[selected_agent_indices]
         action = action[selected_agent_indices]
-        padding_length = padding_length[selected_agent_indices]
+        content_lengths = content_lengths[selected_agent_indices]
         terminated = np.ones_like(reward, dtype=np.bool8) if terminated else np.zeros_like(reward, dtype=np.bool8)
         trucated = np.ones_like(reward, dtype=np.bool8) if trucated else np.zeros_like(reward, dtype=np.bool8)
-        return selected_agent_ids, selected_obs, action, reward, terminated, trucated, padding_length
+        return selected_agent_ids, selected_obs, action, reward, terminated, trucated, content_lengths
         
     def select_observations(self, struct_observations):
         vector_obervations = []
@@ -66,7 +66,7 @@ class AgentExperienceCollector:
         cat_obervation = np.concatenate(vector_obervations, axis=1)
         return cat_obervation
 
-    def append_transitions(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, padding_length):
+    def append_transitions(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, content_lengths):
         # Ensure all inputs are NumPy arrays and properly reshaped or flattened as needed
         # This example assumes obs and next_obs need flattening to match the pre-allocated array shapes
         obs_flat = obs.reshape(len(agent_ids), -1)  # Reshape obs to ensure it fits into the agent_obs array
@@ -78,10 +78,10 @@ class AgentExperienceCollector:
         self.agent_next_obs[agent_ids] = next_obs_flat
         self.agent_done_terminated[agent_ids] = done_terminated
         self.agent_done_truncated[agent_ids] = done_truncated
-        self.agent_padding_length[agent_ids] = padding_length
+        self.agent_content_lengths[agent_ids] = content_lengths
         self.agent_data_check[agent_ids] = True
 
-    def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, done_terminated, done_truncated, padding_length):
+    def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, done_terminated, done_truncated, content_lengths):
         if len(next_agent_ids) == 0: return
         if done_truncated is None:
             done_truncated = [False] * len(agent_ids)
@@ -89,17 +89,17 @@ class AgentExperienceCollector:
         selected_next_agent_ids, reward, next_obs = self.filter_agents(agent_ids, next_agent_ids, reward, next_obs)
         
         selected_agent_indices = self.find_indices(agent_ids, selected_next_agent_ids)
-        selected_agent_ids, obs, action, reward, done_terminated, done_truncated, padding_length = self.select_data(agent_ids, selected_agent_indices, obs, action, reward, done_terminated, done_truncated, padding_length)
-        self.append_transitions(selected_agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, padding_length)
+        selected_agent_ids, obs, action, reward, done_terminated, done_truncated, content_lengths = self.select_data(agent_ids, selected_agent_indices, obs, action, reward, done_terminated, done_truncated, content_lengths)
+        self.append_transitions(selected_agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, content_lengths)
 
-    def add_transition(self, agent_id, obs, action, reward, next_obs, done_terminated, done_truncated, padding_length):
+    def add_transition(self, agent_id, obs, action, reward, next_obs, done_terminated, done_truncated, content_lengths):
         self.agent_obs[agent_id] = obs
         self.agent_action[agent_id] = action
         self.agent_reward[agent_id] = reward
         self.agent_next_obs[agent_id] = next_obs
         self.agent_done_terminated[agent_id] = done_terminated
         self.agent_done_truncated[agent_id] = done_truncated
-        self.agent_padding_length[agent_id] = padding_length
+        self.agent_content_lengths[agent_id] = content_lengths
         self.agent_data_check[agent_id] = True
 
     def output_transitions(self):
@@ -107,4 +107,4 @@ class AgentExperienceCollector:
         agent_ids = np.where(self.agent_data_check)[0]
         self.agent_data_check.fill(False)
         return agent_ids, self.agent_obs[agent_ids], self.agent_action[agent_ids], self.agent_reward[agent_ids], \
-            self.agent_next_obs[agent_ids], self.agent_done_terminated[agent_ids], self.agent_done_truncated[agent_ids], self.agent_padding_length[agent_ids]
+            self.agent_next_obs[agent_ids], self.agent_done_terminated[agent_ids], self.agent_done_truncated[agent_ids], self.agent_content_lengths[agent_ids]

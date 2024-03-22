@@ -79,7 +79,7 @@ class GymEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
         Steps the environment with the given action input.
         """
         
-    def update(self, action, padding_lengths) -> bool:
+    def update(self, action, content_lengths) -> bool:
         """
         Updates the environment state with the given action.
 
@@ -101,7 +101,7 @@ class GymEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
         """
         self.running_cnt += 1
         action_input = self._get_action_input(action)
-        self.padding_lengths = padding_lengths
+        self.content_lengths = content_lengths
         
         _next_obs, _reward, _terminated, _truncated, _info = self.env.step(action_input)
         np_terminated = np.array(_terminated, np.bool8)
@@ -126,12 +126,12 @@ class GymEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
                     next_observation[idx] = _info["final_observation"][idx]
         
         if not self.test_env:
-            self.append_transitions(self.agent_ids, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated, padding_lengths)
+            self.append_transitions(self.agent_ids, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated, content_lengths)
         else:
             if self.use_graphics:
-                self.add_transition(0, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated, padding_lengths)
+                self.add_transition(0, self.observations[:, -1].to_vector(), action, np_reward, next_observation, np_terminated, np_truncated, content_lengths)
             else:
-                self.add_transition(0, self.observations[:, -1].to_vector()[0], action[0], np_reward[0], next_observation[0], np_terminated[0], np_truncated[0], padding_lengths[0])
+                self.add_transition(0, self.observations[:, -1].to_vector()[0], action[0], np_reward[0], next_observation[0], np_terminated[0], np_truncated[0], content_lengths[0])
 
         self.process_terminated_and_decision_agents(np_done, np_next_obs)            
 
