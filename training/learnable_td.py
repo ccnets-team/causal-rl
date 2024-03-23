@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from .utils.value_util import compute_lambda_based_returns
 from .utils.tensor_util import LambdaGradScaler
+LEARNABLE_TD_UPDATE_INTERVAL = 2
 
 class LearnableTD(nn.Module):
     def __init__(self, max_seq_len, discount_factor, average_lambda, device):
