@@ -1,24 +1,56 @@
 import torch
-from ..utils.sequence_util import create_prob_dist_from_lambdas
+from ..utils.distribution_util import create_prob_dist_from_lambdas, generate_gaussian_kernel, smooth_prob_dist
+
+def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, decay_percentage):
+    decay_steps = decay_percentage * max_steps
+    return (min_exploration - initial_exploration) / decay_steps
 
 class ExplorationUtils:
-    def __init__(self, gpt_seq_length, learnable_td, device):
+    def __init__(self, gpt_seq_length, learnable_td, total_iterations, device):
         self.device = device
+        self.initial_exploration = 1.0
+        self.min_exploration = 0.01 
+        self.decay_percentage = 0.8
+        self.total_iterations = total_iterations 
+        self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, self.total_iterations, self.decay_percentage)
+        self.exploration_rate = self.initial_exploration
+        
         self.learnable_td = learnable_td
         self.gpt_seq_length = gpt_seq_length
         self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=self.device)
 
-    def sample_sequence_probabilities(self):
+        self.kernel_size = int((gpt_seq_length//2) * 2 + 1)
+        self.smoothing_scale = 8
+        self.initial_sigma = gpt_seq_length/self.smoothing_scale
+
+    def get_exploration_rate(self):
+        return self.exploration_rate
+
+    def get_gaussian_kernel(self):
+        sigma = self.initial_sigma * self.get_exploration_rate()
+        kernel = generate_gaussian_kernel(self.kernel_size, sigma, self.device)
+        return kernel
+    
+    def update_exploration_rate(self):
+        self.exploration_rate = max(self.exploration_rate + self.decay_factor, self.min_exploration)
+            
+    def sample_sequence_probabilities(self, use_smoothed_probs=False):
         """Generates or samples from a probability distribution for sequence lengths based on TD(λ) values.
         Optionally smooths the distribution using a Gaussian kernel for a more generalized probability curve."""
         learnable_td_lambda = self.learnable_td.lambd
         lambda_sequence_probs = create_prob_dist_from_lambdas(learnable_td_lambda)
-        return lambda_sequence_probs
+        
+        if use_smoothed_probs:
+            kernel = self.get_gaussian_kernel()
+            smoothed_sequence_probs = smooth_prob_dist(lambda_sequence_probs, kernel)
+        else:
+            smoothed_sequence_probs = lambda_sequence_probs
+        return smoothed_sequence_probs
 
     def sample_content_lengths(self, batch_size):
         """Samples padding lengths for a batch of sequences based on a probability distribution,
         allowing for dynamic adjustments to sequence padding based on learned TD(λ) values."""
-        sampled_sequence_probs = self.sample_sequence_probabilities()
+        sampled_sequence_probs = self.sample_sequence_probabilities(use_smoothed_probs=True)
         sampled_indices = torch.multinomial(sampled_sequence_probs, batch_size, replacement=True)
         sampled_lengths = self.sequence_lengths[sampled_indices]
         return sampled_lengths
@@ -26,7 +58,7 @@ class ExplorationUtils:
     def get_optimal_content_lengths(self):
         """Calculates optimal padding lengths for sequences, aiming to align with the most likely
         sequence length based on the smoothed probability distribution."""
-        sampled_sequence_probs = self.sample_sequence_probabilities()
+        sampled_sequence_probs = self.sample_sequence_probabilities(use_smoothed_probs=False)
         sampled_indices = torch.argmax(sampled_sequence_probs, dim=0)
         content_lengths = self.sequence_lengths[sampled_indices]
         return content_lengths

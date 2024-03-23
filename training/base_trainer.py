@@ -62,7 +62,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
 
     def _init_exploration_utils(self, gpt_seq_length):
         self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationUtils.__init__(self, gpt_seq_length, self.learnable_td, self.device)
+        ExplorationUtils.__init__(self, gpt_seq_length, self.learnable_td, self.total_iterations, self.device)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
@@ -101,6 +101,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.update_optimizers()      # Applies gradients to adjust model parameters.
         self.update_target_networks() # Updates target networks for stable learning targets.
         self.update_schedulers()      # Adjusts learning rates for optimal training.
+        self.update_exploration_rate() # Modifies the exploration rate for effective exploration.   
         self.train_iter += 1          # Tracks training progress.
     
     def select_tensor_reduction(self, tensor, mask=None):

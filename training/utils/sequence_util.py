@@ -135,21 +135,6 @@ def select_sequence_range(seq_range, *tensors):
 
     return truncated_tensors
 
-def create_prob_dist_from_lambdas(lambda_values):
-    """Generates a probability distribution from a sequence of lambda values. This
-    distribution reflects the likelihood of chain dependencies influenced by the lambda values,
-    adjusted to ensure the entire distribution sums to 1."""
-    lambda_sequence = lambda_values.detach().clone()
-    lambda_sequence[-1] = 1  # Ensure stability by fixing the last lambda to 1
-    reversed_lambda = torch.flip(lambda_sequence, dims=[0])
-    reversed_cumulative_product = torch.cumprod(reversed_lambda, dim=0)
-    chain_dependent_product = torch.flip(reversed_cumulative_product, dims=[0])
-    
-    chain_dependent_product[1:] *= (1 - lambda_sequence[:-1])
-    mean_chain_dependent_product = chain_dependent_product / chain_dependent_product.sum()
-    adjusted_probabilities = torch.flip(mean_chain_dependent_product, dims=[0])
-    return adjusted_probabilities
-
 def create_init_lambda_sequence(target_mean, sequence_length, target_device):
     # Initialize lambda_sequence with zeros on target_device
     lambda_sequence = torch.zeros(sequence_length, device=target_device, dtype=torch.float)
