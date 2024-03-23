@@ -1,19 +1,21 @@
 import torch
 import torch.nn as nn
 from .utils.value_util import compute_lambda_based_returns
-from .utils.tensor_util import LambdaGradScaler
-LEARNABLE_TD_UPDATE_INTERVAL = 2
+from .utils.sequence_util import create_init_lambda_sequence
+
+DISCOUNT_FACTOR = 0.99
+AVERAGE_LAMBDA = 0.5
 
 class LearnableTD(nn.Module):
-    def __init__(self, max_seq_len, discount_factor, average_lambda, device):
+    def __init__(self, max_seq_len, device):
         super(LearnableTD, self).__init__()
         self.device = device
         self.max_seq_len = max_seq_len
-        self.discount_factor = discount_factor
-        self.average_lambda = average_lambda
+        self.discount_factor = DISCOUNT_FACTOR
+        self.average_lambda = AVERAGE_LAMBDA
     
-        discount_factor_init = discount_factor * torch.ones(1, device=self.device, dtype=torch.float)
-        advantage_lambda_init = average_lambda * torch.ones(max_seq_len, device=self.device, dtype=torch.float)
+        discount_factor_init = self.discount_factor * torch.ones(1, device=self.device, dtype=torch.float)
+        advantage_lambda_init = create_init_lambda_sequence(self.average_lambda, self.max_seq_len, self.device)
                 
         self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(advantage_lambda_init))
@@ -26,7 +28,7 @@ class LearnableTD(nn.Module):
 
     @property
     def lambd(self):
-        return LambdaGradScaler.apply(torch.tanh(self.raw_lambd).clamp_min(0.0))
+        return torch.tanh(self.raw_lambd).clamp_min(0.0)
 
     def _init_value_for_tanh(self, target):
         # Use logit function as the inverse of the sigmoid to initialize the value correctly

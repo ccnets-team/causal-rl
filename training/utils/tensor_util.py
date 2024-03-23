@@ -275,7 +275,7 @@ def prioritize_tensor_sequence(tensor, padding_mask):
     # Calculate offsets from the min non-zero value, adding back the padding mask
     adusted_masked_tensor = (range_tensor - min_values + 1) * padding_mask
     
-    grad_priority = adusted_masked_tensor * padding_mask.sum(dim=1, keepdim=True)/adusted_masked_tensor.sum(dim=1, keepdim=True).clamp(min=1e-8)
+    grad_priority = adusted_masked_tensor/adusted_masked_tensor.mean(dim=1, keepdim=True).clamp(min=1e-8)
     
     # Placeholder for applying grad_priority: Assuming you have a custom implementation for this
     prioritized_tensor = GradScaler.apply(tensor, grad_priority)
