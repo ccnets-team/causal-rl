@@ -5,8 +5,8 @@ from training.managers.exploration_manager import ExplorationUtils
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
-from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shift_left_padding_mask, prioritize_tensor_sequence, fill_from_start_idx
-from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range, adjust_padding_mask_based_on_lambda
+from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shift_left_padding_mask, prioritize_tensor_sequence
+from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range
 from .learnable_td import LearnableTD
 
 DISCOUNT_FACTOR = 0.99
@@ -153,8 +153,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask = \
             apply_sequence_mask(train_seq_mask, train_seq_length, states, actions, rewards, next_states, dones, padding_mask)
         
-        sel_padding_mask = adjust_padding_mask_based_on_lambda(sel_padding_mask, self.learnable_td.lambd)
-        
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
     
     def calculate_sequence_end_value(self, rewards, next_states, dones, selection_end_indices, train_steps):
@@ -186,9 +184,6 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         td_next_states, td_rewards, td_dones = select_sequence_range(slice(-train_steps, None), next_states, rewards, dones)
         # Calculate future values for the last states and construct trajectory values for lambda returns calculation
         td_padding_mask = create_padding_mask_before_dones(td_dones)
-        
-        td_padding_mask = adjust_padding_mask_based_on_lambda(td_padding_mask, self.learnable_td.lambd)
-        td_padding_mask = fill_from_start_idx(td_padding_mask, selection_end_indices - step_difference, fill_value=1)
         
         td_next_padding_mask = shift_left_padding_mask(td_padding_mask)
         future_values = self.trainer_calculate_future_value(td_next_states, td_next_padding_mask)
