@@ -4,7 +4,7 @@ from .utils.value_util import compute_lambda_based_returns
 from .utils.sequence_util import create_init_lambda_sequence
 
 DISCOUNT_FACTOR = 0.99
-AVERAGE_LAMBDA = 0.5
+AVERAGE_LAMBDA = 0.75
 
 class LearnableTD(nn.Module):
     def __init__(self, max_seq_len, device):
@@ -24,11 +24,11 @@ class LearnableTD(nn.Module):
         
     @property
     def gamma(self):
-        return torch.tanh(self.raw_gamma).clamp_min(0.0)
+        return torch.tanh(self.raw_gamma).clamp_min(1e-8)
 
     @property
     def lambd(self):
-        return torch.tanh(self.raw_lambd).clamp_min(0.0)
+        return torch.tanh(self.raw_lambd).clamp_min(1e-8)
 
     def _init_value_for_tanh(self, target):
         # Use logit function as the inverse of the sigmoid to initialize the value correctly

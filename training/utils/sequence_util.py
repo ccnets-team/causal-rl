@@ -1,5 +1,5 @@
 import torch
-PADDING_LAMBDA_CAHIN_VAL_THRESHOLD = 1e-5
+LEARNABLE_LAMBDA_CHAIN_THRESHOLD = 1e-5
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -99,32 +99,30 @@ def create_train_sequence_mask(padding_mask, train_seq_length):
     
     return select_mask, end_select_idx
 
-def adjust_padding_mask_based_on_lambda(padding_mask, lambda_sequence, padding_threshold=PADDING_LAMBDA_CAHIN_VAL_THRESHOLD):
+def calculate_learnable_sequence_length(lambda_transitions, lambda_chain_threshold=LEARNABLE_LAMBDA_CHAIN_THRESHOLD):
     """
-    Adjusts the padding mask based on the cumulative product of lambda values in the sequence. If the cumulative
-    product of lambda values from a specific index onwards (when considering the sequence in reverse order) is smaller 
-    than a padding_threshold, that part of the sequence is considered as padding and the mask is updated to reflect this, 
-    aligning padding to the left.
+    Calculates the required sequence length for effective training of critic, actor, and reverse-envrionment networks in a
+    reinforcement learning environment. This length is determined based on the lambda values associated with
+    state transitions, ensuring only the relevant portion of the trajectory is considered for training, thereby
+    optimizing computational resources and focusing learning on significant associations between states.
 
-    :param lambda_sequence: A tensor of lambda values for the sequence with shape [Seq Len].
-    :param padding_mask: The original padding mask tensor with shape [Batch Size, Seq Len, 1], where 0 indicates padding.
-    :param padding_threshold: The threshold below which the cumulative product indicates the need for padding.
-    :return: An updated padding mask with potentially more padding based on lambda sequence analysis.
+    :param lambda_transitions: A tensor of lambda values representing the relevance of state transitions in a trajectory.
+    :param lambda_chain_threshold: The threshold below which a state transition is considered irrelevant for training.
+    :return: The optimal sequence length required for training, based on the relevance of state transitions.
     """
-    # Reverse the lambda sequence for cumulative product calculation from the end
-    reversed_lambda = lambda_sequence.detach().clone().flip(dims=[0])
-    # Calculate the cumulative product in the reversed order
-    reversed_cumulative_product = torch.cumprod(reversed_lambda, dim=0)
-    # Flip the cumulative product back to match the original sequence order
-    chain_dependent_product = reversed_cumulative_product.flip(dims=[0])
-    # Identify positions that do not meet the padding_threshold
-    padding_criteria = chain_dependent_product > padding_threshold
-    # Adjust dimensions to match the padding mask
-    padding_criteria = padding_criteria.unsqueeze(0).unsqueeze(-1).float()
-
-    padding_mask[:, :-1] *= padding_criteria[:, 1:]
+    # Reverse the sequence of lambda values to calculate the cumulative product from the end
+    reversed_lambdas = lambda_transitions.detach().clone().flip(dims=[0])
+    # Calculate the cumulative product in reversed order to assess the relevance of state transitions
+    cumulative_relevance = torch.cumprod(reversed_lambdas, dim=0)
+    # Restore the original sequence order for relevance assessment
+    relevant_transitions = cumulative_relevance.flip(dims=[0])
+    # Determine which transitions exceed the lambda_chain_threshold
+    relevance_mask = (relevant_transitions > lambda_chain_threshold).float()
     
-    return padding_mask
+    # Sum the relevance mask to determine the required sequence length, adjusting for the sequence's total length
+    optimal_length = min(relevance_mask.sum().int().item() + 1, len(lambda_transitions))
+
+    return optimal_length
 
 def select_sequence_range(seq_range, *tensors):
     # Apply truncation based on the calculated idx
@@ -161,10 +159,10 @@ def create_init_lambda_sequence(target_mean, sequence_length, target_device):
     final_value = 1  # Intended to ensure the last lambda value is 1
 
     # Adjust the sequence starting from 0 if initial_value is negative
-    if initial_value < 0:
-        initial_value = 0
+    if initial_value <= 0:
+        initial_value = target_mean/sequence_length
         # Adjust final_value to maintain the mean, keeping in mind the explicit setting of the last value to 1
-        final_value = 2 * target_mean
+        final_value = 2 * target_mean *(1 - 1/(2 * sequence_length))
 
     # Generate a tensor that linearly progresses from initial_value to final_value
     # Adjust to fill all but the last value of lambda_sequence with the linear progression
