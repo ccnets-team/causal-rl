@@ -1,7 +1,8 @@
 import torch
 from training.managers.training_manager import TrainingManager 
-from training.managers.normalization_manager import NormalizationUtils 
-from training.managers.exploration_manager import ExplorationUtils 
+from training.managers.normalization_manager import NormalizationManager 
+from training.managers.exploration_manager import ExplorationManager 
+from training.managers.sequence_manager import SequenceManager 
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
@@ -9,7 +10,7 @@ from .utils.tensor_util import masked_tensor_reduction, create_transformation_ma
 from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range
 from .learnable_td import LearnableTD
 
-class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
+class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, SequenceManager):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
         self._unpack_rl_params(rl_params)
         self._init_trainer_specific_params()
@@ -18,8 +19,9 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         
         # Initializing the training manager with the networks involved in the learning process
         self._init_training_manager(networks, target_networks, device)
-        self._init_normalization_utils(env_config, device)
-        self._init_exploration_utils(self.gpt_seq_length)
+        self._init_normalization_manager(env_config, device)
+        self._init_exploration_manager(self.gpt_seq_length)
+        self._init_sequence_manager(self.gpt_seq_length, self.td_seq_length)
 
         state_size = env_config.state_size
         value_size = env_config.value_size
@@ -57,12 +59,15 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         TrainingManager.__init__(self, learning_networks, target_networks, learning_param_list, self.optimization_params.tau, self.total_iterations)
         self.device = device
 
-    def _init_normalization_utils(self, env_config, device):
-        NormalizationUtils.__init__(self, env_config.state_size, env_config.value_size, self.normalization_params, self.gpt_seq_length, device)
+    def _init_normalization_manager(self, env_config, device):
+        NormalizationManager.__init__(self, env_config.state_size, env_config.value_size, self.normalization_params, self.gpt_seq_length, device)
 
-    def _init_exploration_utils(self, gpt_seq_length):
+    def _init_exploration_manager(self, gpt_seq_length):
         self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationUtils.__init__(self, gpt_seq_length, self.learnable_td, self.total_iterations, self.device)
+        ExplorationManager.__init__(self, gpt_seq_length, self.learnable_td, self.total_iterations, self.device)
+
+    def _init_sequence_manager(self, gpt_seq_length, td_seq_length):
+        SequenceManager.__init__(self, self.learnable_td, gpt_seq_length, td_seq_length)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
@@ -102,6 +107,7 @@ class BaseTrainer(TrainingManager, NormalizationUtils, ExplorationUtils):
         self.update_target_networks() # Updates target networks for stable learning targets.
         self.update_schedulers()      # Adjusts learning rates for optimal training.
         self.update_exploration_rate() # Modifies the exploration rate for effective exploration.   
+        self.update_learnable_length() # Updates the learnable sequence length based on learnable_td parameters.
         self.train_iter += 1          # Tracks training progress.
     
     def select_tensor_reduction(self, tensor, mask=None):

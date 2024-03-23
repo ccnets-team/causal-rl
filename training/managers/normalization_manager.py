@@ -100,7 +100,7 @@ class NormalizerBase:
             data.clamp_(-clip, clip)
         return data
     
-class NormalizationUtils:
+class NormalizationManager:
     def __init__(self, state_size, value_size, normalization_params, gpt_seq_length, device):
         self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, STATE_NORM_SCALE, device=device)
         self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, REWARD_NORM_SCALE, device=device)

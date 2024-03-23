@@ -1,11 +1,11 @@
 import torch
-from ..utils.distribution_util import create_prob_dist_from_lambdas, generate_gaussian_kernel, smooth_prob_dist
+from ..utils.distribution_util import create_prob_dist_from_lambdas, generate_asymmetric_gaussian_kernel, smooth_prob_dist
 
 def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, decay_percentage):
     decay_steps = decay_percentage * max_steps
     return (min_exploration - initial_exploration) / decay_steps
 
-class ExplorationUtils:
+class ExplorationManager:
     def __init__(self, gpt_seq_length, learnable_td, total_iterations, device):
         self.device = device
         self.initial_exploration = 1.0
@@ -28,7 +28,7 @@ class ExplorationUtils:
 
     def get_gaussian_kernel(self):
         sigma = self.initial_sigma * self.get_exploration_rate()
-        kernel = generate_gaussian_kernel(self.kernel_size, sigma, self.device)
+        kernel = generate_asymmetric_gaussian_kernel(self.kernel_size, sigma, self.device)
         return kernel
     
     def update_exploration_rate(self):

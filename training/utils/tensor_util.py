@@ -195,6 +195,31 @@ def shorten_tensor_sequences(padding_mask, *tensors, min_length=1):
     # If there's only one tensor, it returns that tensor directly without wrapping it in a tuple
     return (*truncated_tensors, truncated_padding_mask) if len(tensors) > 1 else (truncated_tensors, truncated_padding_mask)
 
+def keep_right_tensor_sequences(learnable_length, *tensors):
+    """
+    Truncates sequences in the provided tensors to keep only the specified amount of data from the right side,
+    based on the learnable_length. This function is useful for focusing on the most relevant portions of each
+    sequence for learning.
+
+    :param learnable_length: The length of the sequence to keep from the right side.
+    :param tensors: A variable number of tensors with shapes [B, S, ?] to be truncated. Each tensor must have
+                    the same batch size and sequence length dimensions but can differ in other dimensions.
+
+    :return: A single tensor directly or a tuple of tensors with sequences truncated to keep only the
+             specified learnable_length from the right side.
+    """
+    # Apply truncation based on the learnable_length
+    if len(tensors) == 1:
+        # If there's only one tensor, access it directly and apply the truncation
+        truncated_tensor = tensors[0][:, -learnable_length:]
+    else:
+        # If there are multiple tensors, truncate each tensor and pack them into a tuple
+        truncated_tensors = tuple(tensor[:, -learnable_length:] for tensor in tensors)
+
+    # Return the truncated tensor(s)
+    # If there's only one tensor, it returns that tensor directly without wrapping it in a tuple
+    return truncated_tensors if len(tensors) > 1 else truncated_tensor
+
 def fill_up_to_end_idx(padding_mask, end_indices, fill_value):
     batch_size, seq_len, _ = padding_mask.shape
     
