@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from .utils.value_util import compute_lambda_based_returns
 from .utils.sequence_util import create_init_lambda_sequence
+LEARNABLE_TD_UPDATE_INTERVAL = 2
 
 DISCOUNT_FACTOR = 0.99
 AVERAGE_LAMBDA = 0.5
@@ -10,12 +11,11 @@ class LearnableTD(nn.Module):
     def __init__(self, max_seq_len, device):
         super(LearnableTD, self).__init__()
         self.device = device
-        self.max_seq_len = max_seq_len
         self.discount_factor = DISCOUNT_FACTOR
         self.average_lambda = AVERAGE_LAMBDA
     
         discount_factor_init = self.discount_factor * torch.ones(1, device=self.device, dtype=torch.float)
-        advantage_lambda_init = create_init_lambda_sequence(self.average_lambda, self.max_seq_len, self.device)
+        advantage_lambda_init = create_init_lambda_sequence(self.average_lambda, max_seq_len, self.device)
                 
         self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(advantage_lambda_init))
