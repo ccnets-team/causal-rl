@@ -18,7 +18,7 @@ def generate_asymmetric_gaussian_kernel(size, sigma, device):
     
     # Manually adjust the kernel to weight the right side two times more than the left
     mid_point = size // 2
-    kernel[-mid_point:] /= 2
+    kernel[-mid_point:] = 0
     kernel /= kernel.sum()  # Re-normalize
     
     return kernel.unsqueeze(0).unsqueeze(0)

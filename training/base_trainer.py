@@ -15,13 +15,13 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         self._unpack_rl_params(rl_params)
         self._init_trainer_specific_params()
 
-        self.learnable_td = LearnableTD(self.gpt_seq_length, device)
+        self.learnable_td = LearnableTD(self.max_seq_len, device)
         
         # Initializing the training manager with the networks involved in the learning process
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_manager(env_config, device)
-        self._init_exploration_manager(self.gpt_seq_length)
-        self._init_sequence_manager(self.gpt_seq_length)
+        self._init_exploration_manager(self.max_seq_len)
+        self._init_sequence_manager(self.max_seq_len)
 
         state_size = env_config.state_size
         value_size = env_config.value_size
@@ -60,19 +60,18 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         self.device = device
 
     def _init_normalization_manager(self, env_config, device):
-        NormalizationManager.__init__(self, env_config.state_size, env_config.value_size, self.normalization_params, self.gpt_seq_length, device)
+        NormalizationManager.__init__(self, env_config.state_size, env_config.value_size, self.normalization_params, self.max_seq_len, device)
 
-    def _init_exploration_manager(self, gpt_seq_length):
+    def _init_exploration_manager(self, max_seq_len):
         self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationManager.__init__(self, gpt_seq_length, self.learnable_td, self.total_iterations, self.device)
+        ExplorationManager.__init__(self, max_seq_len, self.learnable_td, self.total_iterations, self.device)
 
-    def _init_sequence_manager(self, gpt_seq_length):
-        SequenceManager.__init__(self, self.learnable_td, gpt_seq_length)
+    def _init_sequence_manager(self, max_seq_len):
+        SequenceManager.__init__(self, self.learnable_td, max_seq_len)
 
     def _init_trainer_specific_params(self):
-        self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
-        self.td_seq_length = self.algorithm_params.td_seq_length 
-        self.use_deterministic = self.algorithm_params.use_deterministic
+        self.max_seq_len = self.algorithm_params.max_seq_len 
+        self.use_deterministic = False
         self.reduction_type = 'batch'
 
         self.training_start_step = self._compute_training_start_step()
@@ -127,10 +126,10 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
     def select_train_sequence(self, trajectory):
         """
         Selects a segment from the trajectory for training, tailored to the model's input requirements. This method is 
-        crucial for handling trajectories of length 'gpt_td_seq_length', which is intentionally longer than 'gpt_seq_length' 
+        crucial for handling trajectories of length 'gpt_td_seq_length', which is intentionally longer than 'input_seq_len' 
         to provide additional context for TD calculations. It identifies the valid portion of these extended trajectories, 
-        starting from the last non-padded point and moving backward, and selects a segment of size 'gpt_seq_length'. If 
-        the valid portion is shorter than 'gpt_seq_length', the selection includes padding towards the beginning.
+        starting from the last non-padded point and moving backward, and selects a segment of size 'input_seq_len'. If 
+        the valid portion is shorter than 'input_seq_len', the selection includes padding towards the beginning.
 
         This strategy ensures consistent input size while maximizing the use of relevant experience and accommodating 
         the extended context provided by 'gpt_td_seq_length'. The method effectively balances the need for fixed-length 
@@ -141,7 +140,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         :param padding_mask: A tensor indicating valid (1) and padded (0) parts of the trajectory, shape [B, S, 1],
                             where B is the batch size, and S is the sequence length ('gpt_td_seq_length').
         :return: A tuple of selected and masked trajectory components (states, actions, rewards, next_states, dones, 
-                padding_mask), each trimmed to 'gpt_seq_length' to fit the model's input specifications.
+                padding_mask), each trimmed to 'input_seq_len' to fit the model's input specifications.
         """
         states, actions, rewards, next_states, dones = trajectory
         
@@ -164,12 +163,12 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         """
         Computes the future value for TD calculations from the terminal segment of a trajectory sampled at 'gpt_td_seq_length'.
         This extended trajectory length allows for the division of the sequence into two parts: the front part, used for training,
-        and the rear part, of the same length as 'gpt_seq_length', designated for TD computation. The sequence is considered valid
+        and the rear part, of the same length as 'input_seq_len', designated for TD computation. The sequence is considered valid
         from the right side (end of the episode) towards the left, ensuring the inclusion of meaningful end-of-episode data.
 
         This function focuses on the rear part of the trajectory, calculating the expected future return from the final state(s) 
         in the context of TD updates. The selection of the sequence for this computation is based on the valid portion extending 
-        leftward from the end of the episode, incorporating any necessary padding to meet the 'gpt_seq_length' if the valid 
+        leftward from the end of the episode, incorporating any necessary padding to meet the 'input_seq_len' if the valid 
         portion is shorter.
 
         :param trajectory: A tuple containing the trajectory's components (states, actions, rewards, next_states, dones),

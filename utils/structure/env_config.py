@@ -62,7 +62,7 @@ class EnvConfig(ObservationSpecs, ActionSpecs, StateSpecs):
         self.env_type = env_type
         self.env_name = env_name
         self.num_agents = num_agents
-        self.gpt_seq_length = None
+        self.max_seq_len = None
         self.num_environments = num_environments
         self.num_test_environments = 1
         self.samples_per_step = int(self.num_agents * self.num_environments)  

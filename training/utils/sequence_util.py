@@ -1,5 +1,6 @@
 import torch
-LEARNABLE_LAMBDA_CHAIN_THRESHOLD = 1e-3
+LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD = 1e-4
+LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD = 0.5
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -100,7 +101,8 @@ def create_train_sequence_mask(padding_mask, train_seq_length):
     return select_mask, end_select_idx
 
 def calculate_learnable_sequence_length(lambda_sequence, cur_seq_len, 
-                                        lambda_chain_threshold=LEARNABLE_LAMBDA_CHAIN_THRESHOLD):
+                                        lambda_chain_min_threshold=LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD,
+                                        lambda_chain_max_threshold=LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD):
     """
     Calculates the required sequence length for effective training of critic, actor, and reverse-envrionment networks in a
     reinforcement learning environment. This length is determined based on the lambda values associated with
@@ -122,7 +124,7 @@ def calculate_learnable_sequence_length(lambda_sequence, cur_seq_len,
     # Check if the latest transition is significantly relevant by comparing it to an adjusted threshold.
     # If the end of the sequence (after reversing and considering discounting) exceeds this threshold,
     # it suggests the sequence might be too short, thus warranting an extension.
-    should_extend = relevant_transitions[0] > (1 - lambda_chain_threshold)
+    should_extend = relevant_transitions[0] > lambda_chain_max_threshold
 
     # Increment the current sequence length by 1 if extending is needed, respecting the maximum limit.
     # This gradual adjustment helps maintain learning stability by avoiding drastic changes.
@@ -131,7 +133,7 @@ def calculate_learnable_sequence_length(lambda_sequence, cur_seq_len,
     else:
         # Identify relevant transitions exceeding the threshold to adjust sequence length downwards,
         # focusing on the most impactful parts of the sequence for learning.
-        relevance_mask = (relevant_transitions > lambda_chain_threshold).float()
+        relevance_mask = (relevant_transitions > lambda_chain_min_threshold).float()
         optimal_length = min(relevance_mask.sum().int().item() + 1, cur_seq_len)
 
     # Return the adjusted sequence length to balance capturing relevant transitions and computational efficiency.

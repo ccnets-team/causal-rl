@@ -6,7 +6,7 @@ def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, de
     return (min_exploration - initial_exploration) / decay_steps
 
 class ExplorationManager:
-    def __init__(self, gpt_seq_length, learnable_td, total_iterations, device):
+    def __init__(self, input_seq_len, learnable_td, total_iterations, device):
         self.device = device
         self.initial_exploration = 1.0
         self.min_exploration = 0.01 
@@ -16,12 +16,12 @@ class ExplorationManager:
         self.exploration_rate = self.initial_exploration
         
         self.learnable_td = learnable_td
-        self.gpt_seq_length = gpt_seq_length
-        self.sequence_lengths = torch.arange(1, gpt_seq_length + 1, device=self.device)
+        self.input_seq_len = input_seq_len
+        self.sequence_lengths = torch.arange(1, input_seq_len + 1, device=self.device)
 
-        self.kernel_size = int((gpt_seq_length//2) * 2 + 1)
+        self.kernel_size = int((input_seq_len//2) * 2 + 1)
         self.smoothing_scale = 8
-        self.initial_sigma = gpt_seq_length/self.smoothing_scale
+        self.initial_sigma = input_seq_len/self.smoothing_scale
 
     def get_exploration_rate(self):
         return self.exploration_rate
