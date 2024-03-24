@@ -77,7 +77,8 @@ class CausalRL:
         
     def train_off_policy(self, step: int) -> None:
         """Train the model with off-policy algorithms."""
-        samples = self.memory.sample_batch_trajectory()
+        sample_seq_len = self.trainer.get_total_seq_len()
+        samples = self.memory.sample_batch_trajectory(sample_seq_len)
 
         if self.helper.should_update_strategy(samples, step):
             """Fetch samples and update strategy."""

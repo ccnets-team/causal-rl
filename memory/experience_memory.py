@@ -80,17 +80,16 @@ class ExperienceMemory:
             buffer = self.multi_buffers[env_id][agent_id]
             buffer.add_transition(*data[2:])
         
-    def sample_batch_trajectory(self):
+    def sample_batch_trajectory(self, sample_seq_len):
         sample_sz = self.batch_size
-        td_steps = self.td_seq_length 
-        samples = self.balanced_sample_trajectory_data(sample_sz, td_steps)
+        samples = self.balanced_sample_trajectory_data(sample_sz, sample_seq_len)
         if samples is None:
             return None
 
         states, actions, rewards, next_states, dones = self._create_batch_trajectory_components(samples)
         return BatchTrajectory(states, actions, rewards, next_states, dones)
         
-    def balanced_sample_trajectory_data(self, sample_size, td_steps):
+    def balanced_sample_trajectory_data(self, sample_size, sample_seq_len):
         total_sample_list = self._get_sample_list()
         
         # Filter indices that are marked True (valid)
@@ -116,7 +115,7 @@ class ExperienceMemory:
         for buffer_id, local_idx in zip(buffer_ids, local_indices):
             buffer_local_indices[buffer_id].append(local_idx)
 
-        samples = self._fetch_samples(buffer_local_indices, td_steps)
+        samples = self._fetch_samples(buffer_local_indices, sample_seq_len)
         return samples
         
     def _fetch_samples(self, buffer_local_indices, td_steps):

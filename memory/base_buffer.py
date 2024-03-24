@@ -40,12 +40,12 @@ class BaseBuffer:
         self.content_length = np.empty(self.capacity)       
         self.valid_indices.fill(False)  # Reset all indices to invalid
 
-    def _fetch_trajectory_slices(self, indices, td_steps):
+    def _fetch_trajectory_slices(self, indices, sample_seq_len):
         batch_size = len(indices)
         buffer_size = self.capacity
         # Expand indices for num_td_steps steps and wrap around using modulo operation
-        expanded_indices = np.array([range(buffer_size + i -  td_steps + 1, buffer_size + i + 1) for i in indices]) % buffer_size
-        expanded_indices = expanded_indices.reshape(batch_size, td_steps)
+        expanded_indices = np.array([range(buffer_size + i -  sample_seq_len + 1, buffer_size + i + 1) for i in indices]) % buffer_size
+        expanded_indices = expanded_indices.reshape(batch_size, sample_seq_len)
 
         # Fetch the slices using advanced indexing
         states_slices = self.states[expanded_indices]
@@ -56,13 +56,13 @@ class BaseBuffer:
         truncated_slices = self.truncated[expanded_indices]
         content_length_slices = self.content_length[expanded_indices]
 
-        states_slices = states_slices.reshape(batch_size, td_steps, -1)
-        actions_slices = actions_slices.reshape(batch_size, td_steps, -1)
-        rewards_slices = rewards_slices.reshape(batch_size, td_steps, -1)
-        next_states_slices = next_states_slices.reshape(batch_size, td_steps, -1)
-        terminated_slices = terminated_slices.reshape(batch_size, td_steps, -1)
-        truncated_slices = truncated_slices.reshape(batch_size, td_steps, -1)
-        content_length_slices = content_length_slices.reshape(batch_size, td_steps, -1)
+        states_slices = states_slices.reshape(batch_size, sample_seq_len, -1)
+        actions_slices = actions_slices.reshape(batch_size, sample_seq_len, -1)
+        rewards_slices = rewards_slices.reshape(batch_size, sample_seq_len, -1)
+        next_states_slices = next_states_slices.reshape(batch_size, sample_seq_len, -1)
+        terminated_slices = terminated_slices.reshape(batch_size, sample_seq_len, -1)
+        truncated_slices = truncated_slices.reshape(batch_size, sample_seq_len, -1)
+        content_length_slices = content_length_slices.reshape(batch_size, sample_seq_len, -1)
 
         # Ensure the last element of truncated_slices is False to prevent truncation
         truncated_slices[:, -1] = False

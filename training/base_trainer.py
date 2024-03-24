@@ -152,7 +152,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         
         train_seq_mask, selection_end_indices = create_train_sequence_mask(padding_mask, gpt_input_len)
         
-        end_value = self.calculate_sequence_end_value(rewards, next_states, dones, selection_end_indices, gpt_input_len)
+        end_value = self.calculate_sequence_end_value(rewards, next_states, dones, selection_end_indices)
     
         # Apply the mask to each trajectory component
         sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask = \
@@ -160,7 +160,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
     
-    def calculate_sequence_end_value(self, rewards, next_states, dones, selection_end_indices, train_steps):
+    def calculate_sequence_end_value(self, rewards, next_states, dones, selection_end_indices):
         """
         Computes the future value for TD calculations from the terminal segment of a trajectory sampled at 'gpt_td_seq_length'.
         This extended trajectory length allows for the division of the sequence into two parts: the front part, used for training,
@@ -181,10 +181,10 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         """
         input_seq_len = self.get_input_seq_len()
         td_extension_steps = self.get_td_extension_steps()
-        local_end_indices = selection_end_indices - train_steps
+        local_end_indices = selection_end_indices - input_seq_len
         
         # Extract the last segment of the trajectory based on the training sequence length
-        td_next_states, td_rewards, td_dones = select_sequence_range(slice(-train_steps, None), next_states, rewards, dones)
+        td_next_states, td_rewards, td_dones = select_sequence_range(slice(-input_seq_len, None), next_states, rewards, dones)
         # Calculate future values for the last states and construct trajectory values for lambda returns calculation
         td_padding_mask = create_padding_mask_before_dones(td_dones)
         

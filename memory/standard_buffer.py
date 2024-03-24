@@ -36,7 +36,7 @@ class StandardBuffer(BaseBuffer):
             self.size += 1
         # Remove invalid indices caused by the circular nature of the buffer
         
-    def sample_trajectories(self, indices, td_steps):
+    def sample_trajectories(self, indices, sample_seq_len):
         # Retrieve trajectories for the given actual indices
-        samples = self._fetch_trajectory_slices(indices, td_steps)
+        samples = self._fetch_trajectory_slices(indices, sample_seq_len)
         return samples

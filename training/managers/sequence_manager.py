@@ -4,18 +4,21 @@ from ..utils.tensor_util import keep_right_tensor_sequences
 
 MIN_TD_EXTENSION_STEPS = 4
 MIN_GPT_SEQUENCE_LENGTH = 4
-TD_EXTENSION_RATIO = 4  # Represents the divisor for calculating the extension steps
+TD_EXTENSION_RATIO = 2  # Represents the divisor for calculating the extension steps
 
 class SequenceManager:
     def __init__(self, learnable_td, max_seq_len):
         self.learnable_td = learnable_td
         self.max_seq_len = max_seq_len
         self.input_seq_len = max_seq_len//2
-        self.td_extension_steps = max(max_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
+        self.td_extension_steps = max(self.input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
 
     def get_input_seq_len(self):
         """Returns the current GPT input sequence length."""
         return self.input_seq_len
+
+    def get_total_seq_len(self):
+        return self.input_seq_len + self.td_extension_steps
 
     def get_td_extension_steps(self):
         return self.td_extension_steps
