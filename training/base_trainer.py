@@ -88,7 +88,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
     def init_train(self):
         self.set_train(training=True)
         input_seq_len = self.get_input_seq_len()
-        self.learnable_td.update_sum_reward_weights(input_seq_len)
     
     def update_step(self):
         """
@@ -182,6 +181,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
                 critical for computing expected values and advantages in `compute_values`.
         """
         input_seq_len = self.get_input_seq_len()
+        max_seq_len = self.get_max_seq_len()
         td_extension_steps = self.get_td_extension_steps()
         local_end_indices = selection_end_indices - input_seq_len
         
@@ -196,7 +196,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         
         trajectory_values = select_sequence_range(slice(-(td_extension_steps + 1), None), trajectory_values)
         selected_rewards, selected_dones, selected_padding_mask = select_sequence_range(slice(-td_extension_steps, None), td_rewards, td_dones, td_padding_mask)
-        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, selected_rewards, selected_dones, selected_padding_mask, seq_range = (input_seq_len - td_extension_steps, input_seq_len))
+        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, selected_rewards, selected_dones, selected_padding_mask, seq_range = (max_seq_len - td_extension_steps, max_seq_len))
         
         # Select the appropriate future value using end_select_idx
         target_idx = local_end_indices.flatten()
@@ -209,12 +209,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         expected_value, sum_rewards = self.learnable_td.calculate_lambda_returns(
             trajectory_values, rewards, dones, seq_range=seq_range)
 
-        with torch.no_grad():
-            # Retrieve normalized sum reward weights for the given sequence range
-            sum_reward_weights = self.learnable_td.get_sum_reward_weights(seq_range=seq_range)
-            
-            # Normalize sum rewards with the adjusted mask and weights
-        normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range=seq_range).detach() * sum_reward_weights
+        normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range=seq_range).detach()
 
         # Correct the expected value to align with the length of sum_rewards and normalized_sum_rewards
         expected_value[:, :-1, :] = expected_value[:, :-1, :] - sum_rewards + normalized_sum_rewards
@@ -239,11 +234,12 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         """
     
         input_seq_len = self.get_input_seq_len()
+        max_seq_len = self.get_max_seq_len()
         # Calculate future values from the model, used to estimate the expected return from each state.
         future_values = self.trainer_calculate_future_value(states, padding_mask)
         trajectory_values = torch.cat([future_values, end_value], dim=1)
 
-        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, rewards, dones, padding_mask, seq_range = (0, input_seq_len))
+        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, rewards, dones, padding_mask, seq_range = (max_seq_len-input_seq_len, max_seq_len))
         expected_value = expected_value[:, :-1, :]
 
         return expected_value

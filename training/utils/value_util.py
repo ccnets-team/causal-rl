@@ -18,7 +18,9 @@ def compute_lambda_based_returns(values, rewards, dones, gamma_value, lambda_seq
             - sum_rewards (torch.Tensor): The cumulative sum of rewards for each timestep.
     """
     segment_length = len(lambda_sequence)
-
+    lambd = lambda_sequence
+    gamma = gamma_value
+    
     # Initialize tensors for the segment's lambda returns and sum of rewards
     sum_rewards = torch.zeros_like(values[:,:,:1])
     lambda_returns = torch.zeros_like(values)
@@ -30,9 +32,9 @@ def compute_lambda_based_returns(values, rewards, dones, gamma_value, lambda_seq
     for t in reversed(range(segment_length)):
         with torch.no_grad():
             # Calculate lambda return for each timestep:
-            sum_rewards[:, t, :] = rewards[:, t, :] + gamma_value * (1 - dones[:, t, :]) * (lambda_sequence[t] * sum_rewards[:, t + 1, :])
+            sum_rewards[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * (lambd[t] * sum_rewards[:, t + 1, :])
         # Current reward + discounted future value, adjusted by td_lambda
-        lambda_returns[:, t, :] = rewards[:, t, :] + gamma_value * (1 - dones[:, t, :]) * ((1 -  lambda_sequence[t]) * values[:, t + 1, :] + lambda_sequence[t] * lambda_returns[:, t + 1, :].clone())
+        lambda_returns[:, t, :] = rewards[:, t, :] + gamma * (1 - dones[:, t, :]) * ((1 -  lambd[t]) * values[:, t + 1, :] + lambd[t] * lambda_returns[:, t + 1, :].clone())
 
     # Remove the last timestep to align sum rewards with their corresponding states.lambda_returns includes the last timestep's value, so it is not shifted.  
     sum_rewards = sum_rewards[:, :-1, :]
