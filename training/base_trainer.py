@@ -85,7 +85,8 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
 
     def init_train(self):
         self.set_train(training=True)
-        self.learnable_td.update_sum_reward_weights()
+        input_seq_len = self.get_input_seq_len()
+        self.learnable_td.update_sum_reward_weights(input_seq_len)
     
     def update_step(self):
         """
@@ -178,10 +179,8 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         :return: A tensor of the discounted future value from the terminal sequence segment,
                 critical for computing expected values and advantages in `compute_values`.
         """
-        td_steps = dones.size(1)
-        step_difference = td_steps - train_steps
-        start_seq_idx = self.gpt_seq_length - step_difference
-        end_seq_idx = self.gpt_seq_length
+        input_seq_len = self.get_input_seq_len()
+        td_extension_steps = self.get_td_extension_steps()
         local_end_indices = selection_end_indices - train_steps
         
         # Extract the last segment of the trajectory based on the training sequence length
@@ -193,9 +192,9 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         future_values = self.trainer_calculate_future_value(td_next_states, td_next_padding_mask)
         trajectory_values = torch.cat([torch.zeros_like(future_values[:, :1]), future_values], dim=1)
         
-        trajectory_values = select_sequence_range(slice(-(step_difference + 1), None), trajectory_values)
-        selected_rewards, selected_dones, selected_padding_mask = select_sequence_range(slice(-step_difference, None), td_rewards, td_dones, td_padding_mask)
-        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, selected_rewards, selected_dones, selected_padding_mask, seq_range = (start_seq_idx, end_seq_idx))
+        trajectory_values = select_sequence_range(slice(-(td_extension_steps + 1), None), trajectory_values)
+        selected_rewards, selected_dones, selected_padding_mask = select_sequence_range(slice(-td_extension_steps, None), td_rewards, td_dones, td_padding_mask)
+        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, selected_rewards, selected_dones, selected_padding_mask, seq_range = (input_seq_len - td_extension_steps, input_seq_len))
         
         # Select the appropriate future value using end_select_idx
         target_idx = local_end_indices.flatten()
@@ -237,13 +236,12 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         :return: The expected value for each state, adjusted with the normalized sum of rewards [B, Seq, Value Dim].
         """
     
-        start_seq_idx = self.gpt_seq_length - padding_mask.size(1)
-        end_seq_idx = self.gpt_seq_length
+        input_seq_len = self.get_input_seq_len()
         # Calculate future values from the model, used to estimate the expected return from each state.
         future_values = self.trainer_calculate_future_value(states, padding_mask)
         trajectory_values = torch.cat([future_values, end_value], dim=1)
 
-        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, rewards, dones, padding_mask, seq_range = (start_seq_idx, end_seq_idx))
+        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, rewards, dones, padding_mask, seq_range = (0, input_seq_len))
         expected_value = expected_value[:, :-1, :]
 
         return expected_value

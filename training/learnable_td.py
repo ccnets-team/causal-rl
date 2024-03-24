@@ -43,35 +43,27 @@ class LearnableTD(nn.Module):
         
         return sum_reward_weights
 
-    def calculate_sum_reward_weights(self):
+    def update_sum_reward_weights(self, input_seq_len):
         # Parameters are now accessed directly from the class attributes
-        max_seq_len, gamma, td_lambdas, device = self.max_seq_len, self.gamma, self.lambd, self.device
+        gamma, td_lambdas, device = self.gamma, self.lambd[-input_seq_len:], self.device
         
         # (Rest of the method remains the same as your provided code)
         # Initialize tensors for value weights and sum reward weights with zeros.
-        value_weights = torch.zeros(max_seq_len + 1, dtype=torch.float, device=device)
-        raw_sum_reward_weights = torch.zeros(max_seq_len, dtype=torch.float, device=device)
+        value_weights = torch.zeros(input_seq_len + 1, dtype=torch.float, device=device)
+        raw_sum_reward_weights = torch.zeros(input_seq_len, dtype=torch.float, device=device)
         
         # Ensure the final value weight equals 1, setting up a base case for backward calculation.
         value_weights[-1] = 1
-
-        # Backward pass to compute weights. This loop calculates the decayed weights for each timestep,
-        for t in reversed(range(max_seq_len)):
-            value_weights[t] = gamma * ((1 - td_lambdas[t]) + td_lambdas[t] * value_weights[t + 1].clone())
-            raw_sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
-
-        return raw_sum_reward_weights.unsqueeze(0).unsqueeze(-1)
-
-    def calculate_sum_reward_scale(self, raw_sum_reward_weights):
-        sum_reward_scale = 1 / raw_sum_reward_weights.mean().clamp_min(1e-8)
-        return sum_reward_scale
-
-    def update_sum_reward_weights(self):
+        
         with torch.no_grad():
-            raw_sum_reward_weights = self.calculate_sum_reward_weights()
-            normalized_reward_scale = self.calculate_sum_reward_scale(raw_sum_reward_weights)
-        self.sum_reward_weights = normalized_reward_scale * raw_sum_reward_weights
-    
+            # Backward pass to compute weights. This loop calculates the decayed weights for each timestep,
+            for t in reversed(range(input_seq_len)):
+                value_weights[t] = gamma * ((1 - td_lambdas[t]) + td_lambdas[t] * value_weights[t + 1].clone())
+                raw_sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
+
+        raw_sum_reward_weights = raw_sum_reward_weights.unsqueeze(0).unsqueeze(-1)
+        self.sum_reward_weights = raw_sum_reward_weights/raw_sum_reward_weights.mean().clamp_min(1e-8)
+
     def calculate_lambda_returns(self, values, rewards, dones, seq_range):
         start_idx, end_idx = seq_range
         lambda_sequence = self.lambd[start_idx:end_idx]
