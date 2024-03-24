@@ -1,5 +1,5 @@
 import torch
-LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD = 1e-4
+LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD = 1e-3
 LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD = 0.5
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
