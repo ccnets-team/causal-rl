@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn.functional as F
 from ..utils.sequence_util import calculate_learnable_sequence_length 
@@ -15,6 +16,7 @@ class SequenceLengthLearner:
         self.max_seq_len = max_seq_len
         self.input_seq_len = int(INITIAL_SEQ_LEN_FRACTION *max_seq_len)
         self.td_extension_steps = max(self.input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
+        self.device = device
         
     def get_input_seq_len(self):
         """Returns the current GPT input sequence length."""
@@ -30,10 +32,21 @@ class SequenceLengthLearner:
         return self.td_extension_steps
 
     def save(self, path):
-        pass
+        """Saves the learner's state using PyTorch's serialization."""
+        save_dict = {
+            'max_seq_len': self.max_seq_len,
+            'input_seq_len': self.input_seq_len,
+            'td_extension_steps': self.td_extension_steps
+        }
+        torch.save(save_dict, path)
 
     def load(self, path):
-        pass
+        """Loads the learner's state using PyTorch's serialization."""
+        if os.path.isfile(path):
+            load_dict = torch.load(path, map_location=self.device)
+            self.max_seq_len = load_dict['max_seq_len']
+            self.input_seq_len = load_dict['input_seq_len']
+            self.td_extension_steps = load_dict['td_extension_steps']
             
     def update_learnable_length(self):
         """Updates and returns the learnable length based on the current state of learnable_td."""

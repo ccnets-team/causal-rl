@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 from ..utils.value_util import compute_lambda_based_returns
-from ..utils.sequence_util import create_init_lambda_sequence
-from ..utils.tensor_util import LambdaGradScaler
 
 LEARNABLE_TD_UPDATE_INTERVAL = 2
 TARGET_TD_ERROR_SCALE = 0.5
@@ -24,7 +22,6 @@ class GammaLambdaLearner(nn.Module):
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(advantage_lambda_init))
 
         self.sum_reward_weights = torch.ones(max_seq_len, device=self.device, dtype=torch.float).unsqueeze(0).unsqueeze(-1)
-        self.reward_weight_scale = 1
 
     @property
     def gamma(self):
