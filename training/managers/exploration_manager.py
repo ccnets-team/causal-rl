@@ -1,5 +1,5 @@
 import torch
-from ..utils.distribution_util import create_prob_dist_from_lambdas
+from ..utils.distribution_util import create_prob_dist_from_lambdas, generate_gaussian_kernel, smooth_prob_dist
 
 def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, decay_percentage):
     decay_steps = decay_percentage * max_steps
@@ -20,14 +20,20 @@ class ExplorationManager:
         self.sequence_lengths = torch.arange(1, max_seq_len + 1, device=self.device)
 
         self.smoothing_scale = 8
-        self.initial_sigma = max_seq_len/self.smoothing_scale
 
     def get_exploration_rate(self):
         return self.exploration_rate
     
     def update_exploration_rate(self):
         self.exploration_rate = max(self.exploration_rate + self.decay_factor, self.min_exploration)
-            
+
+    def get_gaussian_kernel(self, input_seq_len):
+        sigma = input_seq_len/self.smoothing_scale
+        adusted_sigma = sigma * self.get_exploration_rate()
+        kernel_size = int((input_seq_len//2) * 2 + 1)
+        kernel = generate_gaussian_kernel(kernel_size, adusted_sigma, self.device)
+        return kernel
+                
     def sample_sequence_probabilities(self, input_seq_len, use_smoothed_probs=False):
         """Generates or samples from a probability distribution for sequence lengths based on TD(λ) values.
         Optionally smooths the distribution using a Gaussian kernel for a more generalized probability curve."""
@@ -35,9 +41,8 @@ class ExplorationManager:
         lambda_sequence_probs = create_prob_dist_from_lambdas(learnable_td_lambda)
         
         if use_smoothed_probs:
-            sequence_lengths = self.sequence_lengths[:input_seq_len]
-            sequence_probs = sequence_lengths/sequence_lengths.sum().clamp_min(1e-8)
-            smoothed_sequence_probs = self.exploration_rate * sequence_probs + (1 - self.exploration_rate) * lambda_sequence_probs  
+            kernel = self.get_gaussian_kernel(input_seq_len)
+            smoothed_sequence_probs = smooth_prob_dist(lambda_sequence_probs, kernel)
         else:
             smoothed_sequence_probs = lambda_sequence_probs
         return smoothed_sequence_probs

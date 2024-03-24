@@ -21,9 +21,9 @@ class LambdaGradScaler(torch.autograd.Function):
         # Apply a different scaling based on the direction of the gradient
         scaled_grad_output = grad_output.clone()  # Clone to avoid in-place operations
         # Scale down negative gradients less (making the decrease slower)
-        scaled_grad_output[grad_output < 0] *= 2
+        scaled_grad_output[grad_output < 0] *= (1 + 1/3)
         # Apply normal scaling to positive gradients
-        scaled_grad_output[grad_output >= 0] *= 1
+        scaled_grad_output[grad_output >= 0] *= (1 - 1/3)
         return scaled_grad_output, None
     
 def shift_left_padding_mask(padding_mask):
