@@ -21,7 +21,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_manager(env_config, device)
         self._init_exploration_manager(self.gpt_seq_length)
-        self._init_sequence_manager(self.gpt_seq_length, self.td_seq_length)
+        self._init_sequence_manager(self.gpt_seq_length)
 
         state_size = env_config.state_size
         value_size = env_config.value_size
@@ -66,8 +66,8 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         self.decay_mode = self.optimization_params.scheduler_type
         ExplorationManager.__init__(self, gpt_seq_length, self.learnable_td, self.total_iterations, self.device)
 
-    def _init_sequence_manager(self, gpt_seq_length, td_seq_length):
-        SequenceManager.__init__(self, self.learnable_td, gpt_seq_length, td_seq_length)
+    def _init_sequence_manager(self, gpt_seq_length):
+        SequenceManager.__init__(self, self.learnable_td, gpt_seq_length)
 
     def _init_trainer_specific_params(self):
         self.gpt_seq_length = self.algorithm_params.gpt_seq_length 
@@ -143,17 +143,19 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
                 padding_mask), each trimmed to 'gpt_seq_length' to fit the model's input specifications.
         """
         states, actions, rewards, next_states, dones = trajectory
-        train_seq_length = self.gpt_seq_length
         
         padding_mask = create_padding_mask_before_dones(dones)
         
-        train_seq_mask, selection_end_indices = create_train_sequence_mask(padding_mask, train_seq_length)
+        gpt_input_len = self.get_input_seq_len()
+        states, actions, rewards, next_states, dones, padding_mask = self.truncate_to_input_seq_len(states, actions, rewards, next_states, dones, padding_mask, use_td_length=True)
         
-        end_value = self.calculate_sequence_end_value(rewards, next_states, dones, selection_end_indices, train_seq_length)
+        train_seq_mask, selection_end_indices = create_train_sequence_mask(padding_mask, gpt_input_len)
+        
+        end_value = self.calculate_sequence_end_value(rewards, next_states, dones, selection_end_indices, gpt_input_len)
     
         # Apply the mask to each trajectory component
         sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask = \
-            apply_sequence_mask(train_seq_mask, train_seq_length, states, actions, rewards, next_states, dones, padding_mask)
+            apply_sequence_mask(train_seq_mask, gpt_input_len, states, actions, rewards, next_states, dones, padding_mask)
         
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
     

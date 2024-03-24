@@ -1,5 +1,5 @@
 import torch
-LEARNABLE_LAMBDA_CHAIN_THRESHOLD = 1e-5
+LEARNABLE_LAMBDA_CHAIN_THRESHOLD = 1e-3
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -99,29 +99,42 @@ def create_train_sequence_mask(padding_mask, train_seq_length):
     
     return select_mask, end_select_idx
 
-def calculate_learnable_sequence_length(lambda_transitions, lambda_chain_threshold=LEARNABLE_LAMBDA_CHAIN_THRESHOLD):
+def calculate_learnable_sequence_length(lambda_sequence, cur_seq_len, 
+                                        lambda_chain_threshold=LEARNABLE_LAMBDA_CHAIN_THRESHOLD):
     """
     Calculates the required sequence length for effective training of critic, actor, and reverse-envrionment networks in a
     reinforcement learning environment. This length is determined based on the lambda values associated with
     state transitions, ensuring only the relevant portion of the trajectory is considered for training, thereby
     optimizing computational resources and focusing learning on significant associations between states.
 
-    :param lambda_transitions: A tensor of lambda values representing the relevance of state transitions in a trajectory.
+    :param lambda_sequence: A tensor of lambda values representing the relevance of state transitions in a trajectory.
     :param lambda_chain_threshold: The threshold below which a state transition is considered irrelevant for training.
     :return: The optimal sequence length required for training, based on the relevance of state transitions.
     """
+    max_seq_len = len(lambda_sequence)
     # Reverse the sequence of lambda values to calculate the cumulative product from the end
-    reversed_lambdas = lambda_transitions.detach().clone().flip(dims=[0])
+    reversed_sequence = lambda_sequence[-cur_seq_len:].detach().clone().flip(dims=[0])
+    reversed_sequence[-1] = 1  # Ensure stability by fixing the last lambda to 1
     # Calculate the cumulative product in reversed order to assess the relevance of state transitions
-    cumulative_relevance = torch.cumprod(reversed_lambdas, dim=0)
+    cumulative_relevance = torch.cumprod(reversed_sequence, dim=0)
     # Restore the original sequence order for relevance assessment
     relevant_transitions = cumulative_relevance.flip(dims=[0])
-    # Determine which transitions exceed the lambda_chain_threshold
-    relevance_mask = (relevant_transitions > lambda_chain_threshold).float()
-    
-    # Sum the relevance mask to determine the required sequence length, adjusting for the sequence's total length
-    optimal_length = min(relevance_mask.sum().int().item() + 1, len(lambda_transitions))
+    # Check if the latest transition is significantly relevant by comparing it to an adjusted threshold.
+    # If the end of the sequence (after reversing and considering discounting) exceeds this threshold,
+    # it suggests the sequence might be too short, thus warranting an extension.
+    should_extend = relevant_transitions[0] > (1 - lambda_chain_threshold)
 
+    # Increment the current sequence length by 1 if extending is needed, respecting the maximum limit.
+    # This gradual adjustment helps maintain learning stability by avoiding drastic changes.
+    if should_extend:
+        optimal_length = min(cur_seq_len + 1, max_seq_len)
+    else:
+        # Identify relevant transitions exceeding the threshold to adjust sequence length downwards,
+        # focusing on the most impactful parts of the sequence for learning.
+        relevance_mask = (relevant_transitions > lambda_chain_threshold).float()
+        optimal_length = min(relevance_mask.sum().int().item() + 1, cur_seq_len)
+
+    # Return the adjusted sequence length to balance capturing relevant transitions and computational efficiency.
     return optimal_length
 
 def select_sequence_range(seq_range, *tensors):

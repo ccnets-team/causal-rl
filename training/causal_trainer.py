@@ -47,8 +47,8 @@ class CausalTrainer(BaseTrainer):
     # If in training mode, it samples an action based on exploration rate. Otherwise, it simply selects the most likely action.        
     def get_action(self, state, mask=None, training: bool = False):
         with torch.no_grad():
+            state, mask = self.truncate_to_input_seq_len(state, mask)
             estimated_value = self.critic(state, mask)
-            
             if training and not self.use_deterministic:
                 action = self.actor.sample_action(state, estimated_value, mask)
             else:
