@@ -1,14 +1,16 @@
+import torch
 import torch.nn.functional as F
 from ..utils.sequence_util import calculate_learnable_sequence_length 
 from ..utils.tensor_util import keep_right_tensor_sequences
 
 MIN_TD_EXTENSION_STEPS = 4
 MIN_GPT_SEQUENCE_LENGTH = 4
-TD_EXTENSION_RATIO = 2  # Represents the divisor for calculating the extension steps
+TD_EXTENSION_RATIO = 4  # Represents the divisor for calculating the extension steps
 INITIAL_SEQ_LEN_FRACTION = 2/3  # Fraction of max_seq_len used to set the initial input sequence length
+SEQUENCE_LENGTH_UPDATE_INTERVAL = 1000
 
-class SequenceManager:
-    def __init__(self, learnable_td, max_seq_len):
+class SequenceLengthLearner:
+    def __init__(self, learnable_td, max_seq_len, device):
         self.learnable_td_for_seq = learnable_td
         self.max_seq_len = max_seq_len
         self.input_seq_len = int(INITIAL_SEQ_LEN_FRACTION *max_seq_len)
@@ -26,7 +28,13 @@ class SequenceManager:
 
     def get_td_extension_steps(self):
         return self.td_extension_steps
-    
+
+    def save(self, path):
+        pass
+
+    def load(self, path):
+        pass
+            
     def update_learnable_length(self):
         """Updates and returns the learnable length based on the current state of learnable_td."""
         required_seq_len = calculate_learnable_sequence_length(self.learnable_td_for_seq.lambd, self.input_seq_len)

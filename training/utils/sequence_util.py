@@ -1,5 +1,5 @@
 import torch
-LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD = 1e-3
+LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD = 1e-4
 LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD = 0.5
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
@@ -62,7 +62,7 @@ def apply_sequence_mask(model_seq_mask, model_seq_length, *tensors):
         reshaped_tensors = tuple(tensor[model_seq_mask.expand_as(tensor)].reshape(tensor.shape[0], model_seq_length, -1) for tensor in tensors)
         return reshaped_tensors
 
-def create_train_sequence_mask(padding_mask, train_seq_length):
+def select_train_sequence(padding_mask, train_seq_length):
     """
     Creates a selection mask for trajectories based on the specified training sequence length.
 
@@ -76,19 +76,9 @@ def create_train_sequence_mask(padding_mask, train_seq_length):
 
     # Find the index of the first valid data point (non-padding) following a 'done' signal
     first_valid_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
-    valid_sequence_part = (seq_len - first_valid_idx).float()
     
-    # Calculate the ratio of the sequence length remaining after subtracting the training sequence length
-    ratio = (seq_len - train_seq_length) / seq_len
-    # Determine the end selection index based on the ratio and the left part of the sequence
-    
-    td_sequence_part = (ratio * valid_sequence_part).long()
-    
-    end_select_idx = seq_len - td_sequence_part
-    
-    # Ensure the end selection index is within valid range
-    end_select_idx = torch.clamp(end_select_idx, min=train_seq_length, max=seq_len)
-    
+    end_select_idx = torch.clamp(first_valid_idx.long() + train_seq_length, max=seq_len)
+
     # Calculate the start selection index for the training sequence
     first_select_idx = end_select_idx - train_seq_length
 

@@ -19,7 +19,7 @@ class ExplorationManager:
         self.learnable_td_for_exploration = learnable_td
         self.sequence_lengths = torch.arange(1, max_seq_len + 1, device=self.device)
 
-        self.smoothing_scale = 8
+        self.smoothing_scale = max_seq_len
 
     def get_exploration_rate(self):
         return self.exploration_rate
@@ -30,7 +30,7 @@ class ExplorationManager:
     def get_gaussian_kernel(self, input_seq_len):
         sigma = input_seq_len/self.smoothing_scale
         adusted_sigma = sigma * self.get_exploration_rate()
-        kernel_size = int((input_seq_len//2) * 2 + 1)
+        kernel_size = int((input_seq_len//2 - 1) * 2 + 1)
         kernel = generate_gaussian_kernel(kernel_size, adusted_sigma, self.device)
         return kernel
                 

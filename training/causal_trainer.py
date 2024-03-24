@@ -47,7 +47,7 @@ class CausalTrainer(BaseTrainer):
     # If in training mode, it samples an action based on exploration rate. Otherwise, it simply selects the most likely action.        
     def get_action(self, state, mask=None, training: bool = False):
         with torch.no_grad():
-            state, mask = self.truncate_to_input_seq_len(state, mask)
+            state, mask = self.sequence_length_learner.truncate_to_input_seq_len(state, mask)
             estimated_value = self.critic(state, mask)
             if training and not self.use_deterministic:
                 action = self.actor.sample_action(state, estimated_value, mask)
@@ -61,7 +61,7 @@ class CausalTrainer(BaseTrainer):
         self.init_train()
     
         # Selects a trajectory segment optimized for sequence-based model input, focusing on recent experiences.
-        states, actions, rewards, next_states, dones, padding_mask, end_value = self.select_train_sequence(trajectory)
+        states, actions, rewards, next_states, dones, padding_mask, end_value = self.select_sequence(trajectory)
         
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states, padding_mask)    
@@ -95,7 +95,7 @@ class CausalTrainer(BaseTrainer):
         
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
-            [self.learnable_td, self.critic, self.actor, self.revEnv],
+            [self.gamma_lambda_learner, self.critic, self.actor, self.revEnv],
             [[bipolar_advantage_loss], [value_loss, critic_loss], [actor_loss], [revEnv_loss]])
 
         # Update the network parameters.

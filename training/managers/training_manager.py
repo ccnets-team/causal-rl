@@ -1,7 +1,7 @@
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import _LRScheduler, CyclicLR
-from ..learnable_td import LearnableTD
+from ..learners.gamma_lambda_learner import GammaLambdaLearner
 
 LR_CYCLE_SIZE = 20000
 STEPS_100K = 100000  # Represents the number of steps over which decay is applied
@@ -77,7 +77,7 @@ class TrainingManager:
             # Check if net is an instance of LearnableTD
             clip_grad_range = self._clip_grad_ranges[idx]
             max_grad_norm = self._max_grad_norms[idx]
-            if isinstance(net, LearnableTD):
+            if isinstance(net, GammaLambdaLearner):
                 # Specific handling for LearnableTD instances
                 if max_grad_norm is not None:
                     torch.nn.utils.clip_grad_norm_(net.parameters(), max_grad_norm)

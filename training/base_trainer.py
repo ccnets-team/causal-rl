@@ -2,25 +2,25 @@ import torch
 from training.managers.training_manager import TrainingManager 
 from training.managers.normalization_manager import NormalizationManager 
 from training.managers.exploration_manager import ExplorationManager 
-from training.managers.sequence_manager import SequenceManager 
+from training.learners.sequence_length_learner import SequenceLengthLearner, SEQUENCE_LENGTH_UPDATE_INTERVAL 
 from abc import abstractmethod
 from utils.structure.env_config import EnvConfig
 from utils.setting.rl_params import RLParameters
 from .utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shift_left_padding_mask, prioritize_tensor_sequence
-from .utils.sequence_util import create_padding_mask_before_dones, create_train_sequence_mask, apply_sequence_mask, select_sequence_range
-from .learnable_td import LearnableTD, LEARNABLE_TD_UPDATE_INTERVAL
+from .utils.sequence_util import create_padding_mask_before_dones, select_train_sequence, apply_sequence_mask, select_sequence_range
+from .learners.gamma_lambda_learner import GammaLambdaLearner, LEARNABLE_TD_UPDATE_INTERVAL, TARGET_TD_ERROR_SCALE
 
-class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, SequenceManager):
+class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
     def __init__(self, env_config: EnvConfig, rl_params: RLParameters, networks, target_networks, device):
         self._unpack_rl_params(rl_params)
         self._init_trainer_specific_params()
 
-        self.learnable_td = LearnableTD(self.max_seq_len, device)
+        self.gamma_lambda_learner = GammaLambdaLearner(self.max_seq_len, device)
+        self.sequence_length_learner = SequenceLengthLearner(self.gamma_lambda_learner, self.max_seq_len, device)
         
         # Initializing the training manager with the networks involved in the learning process
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_manager(env_config, device)
-        self._init_sequence_manager(self.max_seq_len)
         self._init_exploration_manager(self.max_seq_len)
 
         state_size = env_config.state_size
@@ -35,7 +35,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
 
     def _init_training_manager(self, networks, target_networks, device):
         # Use 'learning_networks' to emphasize the networks' role in the learning process
-        learning_networks = networks + [self.learnable_td]
+        learning_networks = networks + [self.gamma_lambda_learner]
         # Constructing learning parameters for each network, including the learnable_td with adjusted parameters
         learning_param_list = [
             {'lr': self.optimization_params.lr, 'decay_rate_100k': self.optimization_params.decay_rate_100k,
@@ -62,12 +62,10 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
     def _init_normalization_manager(self, env_config, device):
         NormalizationManager.__init__(self, env_config.state_size, env_config.value_size, self.normalization_params, self.max_seq_len, device)
 
-    def _init_sequence_manager(self, max_seq_len):
-        SequenceManager.__init__(self, self.learnable_td, max_seq_len)
 
     def _init_exploration_manager(self, max_seq_len):
         self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationManager.__init__(self, max_seq_len, self.get_input_seq_len, self.learnable_td, self.total_iterations, self.device)
+        ExplorationManager.__init__(self, max_seq_len, self.get_input_seq_len, self.gamma_lambda_learner, self.total_iterations, self.device)
 
     def _init_trainer_specific_params(self):
         self.max_seq_len = self.algorithm_params.max_seq_len 
@@ -81,14 +79,37 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         batch_size_ratio = self.training_params.batch_size / self.training_params.replay_ratio
         training_start_step = self.training_params.buffer_size // int(batch_size_ratio)
         return training_start_step
-    
+
     def should_update_learnable_td(self):
         return self.train_iter % LEARNABLE_TD_UPDATE_INTERVAL == 0
+    
+    def get_input_seq_len(self):
+        return self.sequence_length_learner.get_input_seq_len()
+
+    def get_total_seq_len(self):
+        return self.sequence_length_learner.get_total_seq_len()
+
+    def get_max_seq_len(self):
+        return self.sequence_length_learner.get_max_seq_len()
+
+    def get_td_extension_steps(self):
+        return self.sequence_length_learner.get_td_extension_steps()
+
+    def get_gamma_lambda_learner(self):
+        return self.gamma_lambda_learner
+
+    def get_sequence_length_learner(self):
+        return self.sequence_length_learner
+
+    def update_sequence_length(self):
+        if self.train_iter % SEQUENCE_LENGTH_UPDATE_INTERVAL == 0:
+            self.sequence_length_learner.update_learnable_length() # Updates the learnable sequence length based on learnable_td parameters.
 
     def init_train(self):
         self.set_train(training=True)
         input_seq_len = self.get_input_seq_len()
-    
+        self.gamma_lambda_learner.update_sum_reward_weights(input_seq_len)
+        
     def update_step(self):
         """
         Executes a series of update operations essential for the training iteration.
@@ -108,8 +129,8 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         self.update_optimizers()      # Applies gradients to adjust model parameters.
         self.update_target_networks() # Updates target networks for stable learning targets.
         self.update_schedulers()      # Adjusts learning rates for optimal training.
-        self.update_exploration_rate() # Modifies the exploration rate for effective exploration.   
-        self.update_learnable_length() # Updates the learnable sequence length based on learnable_td parameters.
+        self.update_sequence_length()
+        self.update_exploration_rate() # Modifies the exploration rate for effective exploration. 
         self.train_iter += 1          # Tracks training progress.
     
     def select_tensor_reduction(self, tensor, mask=None):
@@ -125,7 +146,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         tensor = prioritize_tensor_sequence(tensor, mask)
         return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
 
-    def select_train_sequence(self, trajectory):
+    def select_sequence(self, trajectory):
         """
         Selects a segment from the trajectory for training, tailored to the model's input requirements. This method is 
         crucial for handling trajectories of length 'gpt_td_seq_length', which is intentionally longer than 'input_seq_len' 
@@ -149,9 +170,9 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         padding_mask = create_padding_mask_before_dones(dones)
         
         gpt_input_len = self.get_input_seq_len()
-        states, actions, rewards, next_states, dones, padding_mask = self.truncate_to_input_seq_len(states, actions, rewards, next_states, dones, padding_mask, use_td_length=True)
+        states, actions, rewards, next_states, dones, padding_mask = self.sequence_length_learner.truncate_to_input_seq_len(states, actions, rewards, next_states, dones, padding_mask, use_td_length=True)
         
-        train_seq_mask, selection_end_indices = create_train_sequence_mask(padding_mask, gpt_input_len)
+        train_seq_mask, selection_end_indices = select_train_sequence(padding_mask, gpt_input_len)
         
         end_value = self.calculate_sequence_end_value(rewards, next_states, dones, selection_end_indices)
     
@@ -206,10 +227,13 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
 
     def calculate_normalized_lambda_returns(self, trajectory_values, rewards, dones, padding_mask, seq_range):
         # Calculate expected value and sum of rewards for the terminal segment of the trajectory
-        expected_value, sum_rewards = self.learnable_td.calculate_lambda_returns(
+        expected_value, sum_rewards = self.gamma_lambda_learner.calculate_lambda_returns(
             trajectory_values, rewards, dones, seq_range=seq_range)
 
         normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range=seq_range).detach()
+        sum_reward_weights = self.gamma_lambda_learner.get_sum_reward_weights(seq_range = seq_range)
+
+        normalized_sum_rewards = sum_reward_weights * normalized_sum_rewards
 
         # Correct the expected value to align with the length of sum_rewards and normalized_sum_rewards
         expected_value[:, :-1, :] = expected_value[:, :-1, :] - sum_rewards + normalized_sum_rewards
@@ -263,7 +287,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager, Seq
         return reduced_loss
 
     def calculate_bipolar_advantage_loss(self, estimated_value: torch.Tensor, expected_value: torch.Tensor,
-                                padding_mask: torch.Tensor, polar_point: float = 1.0):
+                                padding_mask: torch.Tensor, polar_point: float = TARGET_TD_ERROR_SCALE):
         """
         This function calculates a loss that aims to balance short-term and long-term rewards by adopting a bipolar 
         interpretation of advantage, which is the difference between the estimated and expected values. The bipolar 
