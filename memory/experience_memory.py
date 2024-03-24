@@ -4,10 +4,9 @@ import random
 import torch
 from utils.structure.data_structures import BatchTrajectory, AgentTransitions
 from memory.standard_buffer import StandardBuffer
-from training.managers.sequence_manager import TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS
 
 class ExperienceMemory:
-    def __init__(self, env_config, input_seq_len, batch_size, buffer_size, device):
+    def __init__(self, env_config, tot_seq_len, batch_size, buffer_size, device):
         """
         Initializes an experience memory buffer for storing and managing agent experiences.
 
@@ -28,7 +27,7 @@ class ExperienceMemory:
         self.num_agents = env_config.num_agents
         self.num_environments = env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
-        self.total_seq_length = input_seq_len + max(input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
+        self.total_seq_length = tot_seq_len
         self.batch_size = batch_size
 
         # Capacity calculation now in a separate method for clarity

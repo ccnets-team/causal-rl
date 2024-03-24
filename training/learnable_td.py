@@ -43,7 +43,9 @@ class LearnableTD(nn.Module):
         # Select the relevant portion of sum reward weights based on the sequence range
         sum_reward_weights = self.sum_reward_weights[:, start_idx:end_idx]
         
-        return sum_reward_weights
+        normalized_sum_reward_weights = sum_reward_weights/sum_reward_weights.mean().clamp_min(1e-8)
+        
+        return normalized_sum_reward_weights
 
     def update_sum_reward_weights(self, input_seq_len):
         # Parameters are now accessed directly from the class attributes
