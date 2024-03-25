@@ -13,7 +13,7 @@ class SequenceLengthLearner:
     def __init__(self, gamma_lambda_learner, max_seq_len, device):
         self.gamma_lambda_learner_for_seq = gamma_lambda_learner
         self.max_seq_len = max_seq_len
-        self.input_seq_len = int(INITIAL_SEQ_LEN_FRACTION *max_seq_len)
+        self.input_seq_len = int(INITIAL_SEQ_LEN_FRACTION * max_seq_len)
         self.td_extension_steps = max(self.input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
         self.device = device
         
@@ -32,8 +32,12 @@ class SequenceLengthLearner:
 
     def update_learnable_length(self):
         """Updates and returns the learnable length based on the current state of learnable_td."""
-        required_seq_len = calculate_learnable_sequence_length(self.gamma_lambda_learner_for_seq.lambd, self.get_input_seq_len())
-        self.input_seq_len = min(max(required_seq_len, MIN_GPT_SEQUENCE_LENGTH), self.get_max_seq_len())
+        input_seq_len = self.get_input_seq_len()
+        max_seq_len = self.get_max_seq_len()
+        lambd = self.gamma_lambda_learner_for_seq.get_lambda(seq_range = (-input_seq_len, None))
+        optimal_length = calculate_learnable_sequence_length(lambd)
+        
+        self.input_seq_len = min(max(optimal_length, MIN_GPT_SEQUENCE_LENGTH), max_seq_len)
         self.td_extension_steps = max(self.input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
     
     def truncate_to_input_seq_len(self, *tensors, use_td_extension_steps=False):

@@ -65,7 +65,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
 
     def _init_exploration_manager(self, max_seq_len):
         self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationManager.__init__(self, max_seq_len, self.get_input_seq_len, self.gamma_lambda_learner, self.total_iterations, self.device)
+        ExplorationManager.__init__(self, max_seq_len, self.gamma_lambda_learner, self.total_iterations, self.device)
 
     def _init_trainer_specific_params(self):
         self.max_seq_len = self.algorithm_params.max_seq_len 

@@ -6,7 +6,7 @@ def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, de
     return (min_exploration - initial_exploration) / decay_steps
 
 class ExplorationManager:
-    def __init__(self, max_seq_len, get_input_seq_len_function, learnable_td, total_iterations, device):
+    def __init__(self, max_seq_len, gamma_lambda_learner, total_iterations, device):
         self.device = device
         self.initial_exploration = 1.0
         self.min_exploration = 0.01 
@@ -14,9 +14,7 @@ class ExplorationManager:
         self.total_iterations = total_iterations 
         self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, self.total_iterations, self.decay_percentage)
         self.exploration_rate = self.initial_exploration
-        
-        self.get_input_seq_len_function = get_input_seq_len_function
-        self.learnable_td_for_exploration = learnable_td
+        self.gamma_lambda_learner_for_exploration = gamma_lambda_learner
         self.sequence_lengths = torch.arange(1, max_seq_len + 1, device=self.device)
 
         self.smoothing_scale = max_seq_len
@@ -37,9 +35,8 @@ class ExplorationManager:
     def sample_sequence_probabilities(self, input_seq_len, use_smoothed_probs=False):
         """Generates or samples from a probability distribution for sequence lengths based on TD(λ) values.
         Optionally smooths the distribution using a Gaussian kernel for a more generalized probability curve."""
-        learnable_td_lambda = self.learnable_td_for_exploration.lambd[-input_seq_len:]
-        lambda_sequence_probs = create_prob_dist_from_lambdas(learnable_td_lambda)
-        
+        lambd = self.gamma_lambda_learner_for_exploration.get_lambda(seq_range = (-input_seq_len, None))
+        lambda_sequence_probs = create_prob_dist_from_lambdas(lambd)
         if use_smoothed_probs:
             kernel = self.get_gaussian_kernel(input_seq_len)
             smoothed_sequence_probs = smooth_prob_dist(lambda_sequence_probs, kernel)
@@ -47,20 +44,18 @@ class ExplorationManager:
             smoothed_sequence_probs = lambda_sequence_probs
         return smoothed_sequence_probs
 
-    def sample_content_lengths(self, batch_size):
+    def sample_content_lengths(self, batch_size, input_seq_len):
         """Samples padding lengths for a batch of sequences based on a probability distribution,
         allowing for dynamic adjustments to sequence padding based on learned TD(λ) values."""
-        input_seq_len = self.get_input_seq_len_function()
         sampled_sequence_probs = self.sample_sequence_probabilities(input_seq_len, use_smoothed_probs=False)
         sampled_indices = torch.multinomial(sampled_sequence_probs, batch_size, replacement=True)
         sequence_lengths = self.sequence_lengths[:input_seq_len]
         sampled_lengths = sequence_lengths[sampled_indices]
         return sampled_lengths
 
-    def get_optimal_content_lengths(self):
+    def get_optimal_content_lengths(self, input_seq_len):
         """Calculates optimal padding lengths for sequences, aiming to align with the most likely
         sequence length based on the smoothed probability distribution."""
-        input_seq_len = self.get_input_seq_len_function()
         sampled_sequence_probs = self.sample_sequence_probabilities(input_seq_len, use_smoothed_probs=False)
         sampled_indices = torch.argmax(sampled_sequence_probs, dim=0)
         sequence_lengths = self.sequence_lengths[:input_seq_len]
@@ -79,10 +74,9 @@ class ExplorationManager:
         """
         batch_size = padding_mask.size(0)
         seq_len = padding_mask.size(1)
-        input_seq_len = self.get_input_seq_len_function()
         cur_content_lengths = self.get_content_lengths(padding_mask)
         
-        sampled_content_lengths = self.sample_content_lengths(batch_size)
+        sampled_content_lengths = self.sample_content_lengths(batch_size, seq_len)
         sampled_padding_lengths = seq_len - sampled_content_lengths
         
         # Calculate the number of padding slots needed for each sequence.

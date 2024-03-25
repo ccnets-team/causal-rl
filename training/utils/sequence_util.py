@@ -61,7 +61,6 @@ def apply_sequence_mask(model_seq_mask, model_seq_length, *tensors):
     else:    
         reshaped_tensors = tuple(tensor[model_seq_mask.expand_as(tensor)].reshape(tensor.shape[0], model_seq_length, -1) for tensor in tensors)
         return reshaped_tensors
-
 def select_train_sequence(padding_mask, train_seq_length):
     """
     Creates a selection mask for trajectories based on the specified training sequence length.
@@ -76,8 +75,20 @@ def select_train_sequence(padding_mask, train_seq_length):
 
     # Find the index of the first valid data point (non-padding) following a 'done' signal
     first_valid_idx = torch.argmax(padding_mask, dim=1, keepdim=True)
+
+    valid_sequence_part = (seq_len - first_valid_idx).float()
     
-    end_select_idx = torch.clamp(first_valid_idx.long() + train_seq_length, max=seq_len)
+    # Calculate the ratio of the sequence length remaining after subtracting the training sequence length
+    ratio = (seq_len - train_seq_length) / seq_len
+    # Determine the end selection index based on the ratio and the left part of the sequence
+    
+    td_sequence_part = (ratio * valid_sequence_part).long()
+    
+    end_select_idx = seq_len - td_sequence_part
+    
+    # Ensure the end selection index is within valid range
+    end_select_idx = torch.clamp(end_select_idx, min=train_seq_length, max=seq_len)
+    # end_select_idx = torch.clamp(first_valid_idx.long() + train_seq_length, max=seq_len)
 
     # Calculate the start selection index for the training sequence
     first_select_idx = end_select_idx - train_seq_length
@@ -90,43 +101,33 @@ def select_train_sequence(padding_mask, train_seq_length):
     
     return select_mask, end_select_idx
 
-def calculate_learnable_sequence_length(lambda_sequence, cur_seq_len, 
-                                        lambda_chain_min_threshold=LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD,
-                                        lambda_chain_max_threshold=LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD):
+def calculate_learnable_sequence_length(lambda_sequence,
+                                        lambda_chain_min_threshold = LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD,
+                                        lambda_chain_max_threshold =  LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD):
     """
-    Calculates the required sequence length for effective training of critic, actor, and reverse-envrionment networks in a
-    reinforcement learning environment. This length is determined based on the lambda values associated with
-    state transitions, ensuring only the relevant portion of the trajectory is considered for training, thereby
-    optimizing computational resources and focusing learning on significant associations between states.
+    Calculates the optimal sequence length for training in a reinforcement learning environment, based on
+    the relevance of state transitions determined by lambda values. This approach optimizes computational
+    resources by focusing on significant associations between states.
 
     :param lambda_sequence: A tensor of lambda values representing the relevance of state transitions in a trajectory.
-    :param lambda_chain_threshold: The threshold below which a state transition is considered irrelevant for training.
+    :param lambda_chain_min_threshold: The minimum threshold of lambda chain value to consider a transition relevant.
+    :param lambda_chain_max_threshold: The maximum threshold of lambda chain value to consider a transition relevant.
     :return: The optimal sequence length required for training, based on the relevance of state transitions.
     """
-    max_seq_len = len(lambda_sequence)
-    # Reverse the sequence of lambda values to calculate the cumulative product from the end
-    reversed_sequence = lambda_sequence[-cur_seq_len:].detach().clone().flip(dims=[0])
-    reversed_sequence[-1] = 1  # Ensure stability by fixing the last lambda to 1
-    # Calculate the cumulative product in reversed order to assess the relevance of state transitions
+    input_seq_len = lambda_sequence.size(0)  # Use .size(0) to get the length of the tensor
+    lambda_transitions = lambda_sequence.detach().clone()
+    lambda_transitions[-1] = 1  # Ensure the last lambda value is 1 for stability
+    reversed_sequence = lambda_transitions.flip(dims=[0])
     cumulative_relevance = torch.cumprod(reversed_sequence, dim=0)
-    # Restore the original sequence order for relevance assessment
-    relevant_transitions = cumulative_relevance.flip(dims=[0])
-    # Check if the latest transition is significantly relevant by comparing it to an adjusted threshold.
-    # If the end of the sequence (after reversing and considering discounting) exceeds this threshold,
-    # it suggests the sequence might be too short, thus warranting an extension.
-    should_extend = relevant_transitions[0] > lambda_chain_max_threshold
 
-    # Increment the current sequence length by 1 if extending is needed, respecting the maximum limit.
-    # This gradual adjustment helps maintain learning stability by avoiding drastic changes.
-    if should_extend:
-        optimal_length = min(cur_seq_len + 1, max_seq_len)
+    lambda_chain_val = cumulative_relevance[-1]
+    # Determine the optimal length based on lambda_chain_val thresholds
+    if lambda_chain_val > lambda_chain_max_threshold:
+        optimal_length = input_seq_len + 1
+    elif lambda_chain_val < lambda_chain_min_threshold:
+        optimal_length = max(0, input_seq_len - 1)  # Ensure optimal_length is not negative
     else:
-        # Identify relevant transitions exceeding the threshold to adjust sequence length downwards,
-        # focusing on the most impactful parts of the sequence for learning.
-        relevance_mask = (relevant_transitions > lambda_chain_min_threshold).float()
-        optimal_length = min(relevance_mask.sum().int().item() + 1, cur_seq_len)
-
-    # Return the adjusted sequence length to balance capturing relevant transitions and computational efficiency.
+        optimal_length = input_seq_len  # Use the input length if within thresholds
     return optimal_length
 
 def select_sequence_range(seq_range, *tensors):

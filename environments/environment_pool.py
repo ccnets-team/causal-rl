@@ -56,7 +56,7 @@ class EnvironmentPool:
         if training:
             padding_mask, content_lengths = trainer.apply_sequence_masking(padding_mask)
         else:
-            content_lengths = trainer.get_optimal_content_lengths()
+            content_lengths = trainer.get_optimal_content_lengths(input_seq_len)
             content_lengths = content_lengths.expand(padding_mask.size(0))
         
         state_tensor = trainer.normalize_states(state_tensor)

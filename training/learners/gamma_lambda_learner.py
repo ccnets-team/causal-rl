@@ -25,14 +25,13 @@ class GammaLambdaLearner(nn.Module):
         self.input_sum_reward_weights = None
         self.td_sum_reward_weights = None
 
-    @property
-    def gamma(self):
+    def get_gamma(self):
         return torch.tanh(self.raw_gamma).clamp_min(1e-8)
 
-    @property
-    def lambd(self):
-        return torch.tanh(self.raw_lambd).clamp_min(1e-8)
-
+    def get_lambda(self, seq_range):
+        start_idx, end_idx = seq_range
+        return torch.tanh(self.raw_lambd).clamp_min(1e-8)[start_idx: end_idx]
+    
     def save(self, path):
         torch.save({'raw_gamma': self.raw_gamma, 'raw_lambd': self.raw_lambd}, path)
 
@@ -46,9 +45,8 @@ class GammaLambdaLearner(nn.Module):
         return torch.atanh(target)
 
     def calculate_lambda_returns(self, values, rewards, dones, seq_range):
-        start_idx, end_idx = seq_range
-        lambda_sequence = self.lambd[start_idx:end_idx]
-        gamma_value = self.gamma
+        lambda_sequence = self.get_lambda(seq_range=seq_range)
+        gamma_value = self.get_gamma()
         return compute_lambda_based_returns(values, rewards, dones, gamma_value, lambda_sequence)
     
     def get_sum_reward_weights(self, use_td_extension_steps = False):
@@ -61,10 +59,11 @@ class GammaLambdaLearner(nn.Module):
     def update_sum_reward_weights(self, input_seq_len, td_extension_steps):
         # Parameters are now accessed directly from the class attributes
         total_seq_len = input_seq_len + td_extension_steps
-        gamma = self.gamma
+        gamma = self.get_gamma()
+
+        td_lambd = self.get_lambda(seq_range=(-td_extension_steps, None))
+        input_lambd = self.get_lambda(seq_range=(-input_seq_len, None))
         device = self.device
-        td_lambd = self.lambd[-td_extension_steps:]
-        input_lambd = self.lambd[-input_seq_len:]
         
         # (Rest of the method remains the same as your provided code)
         # Initialize tensors for value weights and sum reward weights with zeros.
