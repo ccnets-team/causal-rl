@@ -3,9 +3,9 @@ import torch
 from ..utils.sequence_util import calculate_learnable_sequence_length 
 from ..utils.tensor_util import keep_right_tensor_sequences
 
-MIN_TD_EXTENSION_STEPS = 4
+MIN_TD_EXTENSION_STEPS = 1
 MIN_GPT_SEQUENCE_LENGTH = 4
-TD_EXTENSION_RATIO = 4  # Represents the divisor for calculating the extension steps
+TD_EXTENSION_RATIO = 2  # Represents the divisor for calculating the extension steps
 INITIAL_SEQ_LEN_FRACTION = 1  # Fraction of max_seq_len used to set the initial input sequence length
 SEQUENCE_LENGTH_UPDATE_INTERVAL = 1000
 
@@ -15,6 +15,7 @@ class SequenceLengthLearner:
         self.max_seq_len = max_seq_len
         self.input_seq_len = int(INITIAL_SEQ_LEN_FRACTION * max_seq_len)
         self.td_extension_steps = max(self.input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
+        self.tot_seq_len = self.input_seq_len + self.td_extension_steps
         self.device = device
         
     def get_input_seq_len(self):
@@ -25,7 +26,7 @@ class SequenceLengthLearner:
         return self.max_seq_len
 
     def get_total_seq_len(self):
-        return self.input_seq_len + self.td_extension_steps
+        return self.tot_seq_len
 
     def get_td_extension_steps(self):
         return self.td_extension_steps
@@ -39,6 +40,7 @@ class SequenceLengthLearner:
         
         self.input_seq_len = min(max(optimal_length, MIN_GPT_SEQUENCE_LENGTH), max_seq_len)
         self.td_extension_steps = max(self.input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
+        self.tot_seq_len = self.input_seq_len + self.td_extension_steps 
     
     def truncate_to_input_seq_len(self, *tensors, use_td_extension_steps=False):
         """

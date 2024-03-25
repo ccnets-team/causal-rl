@@ -13,7 +13,7 @@ class GymEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
     """
     MAX_RANDOM_SEED = 1000  # Maximum value for environment random seed
 
-    def __init__(self, env_config, test_env: bool, use_graphics: bool = False, seed: int = 0):
+    def __init__(self, env_config, max_seq_len, test_env: bool, use_graphics: bool = False, seed: int = 0):
         """
         Initializes the gym environment with the given configuration.
         
@@ -24,7 +24,7 @@ class GymEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
             use_graphics (bool): A flag indicating if graphics should be used (visual rendering).
             seed (int): A seed for environment randomization.
         """
-        ReinforcementAgent.__init__(self, env_config)
+        ReinforcementAgent.__init__(self, env_config, max_seq_len)
         AgentExperienceCollector.__init__(self, env_config)
         self.num_agents = 1 if test_env or use_graphics else env_config.num_agents
         self.use_discrete = env_config.use_discrete

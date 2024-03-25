@@ -118,12 +118,12 @@ class ExperienceMemory:
         samples = self._fetch_samples(buffer_local_indices, sample_seq_len)
         return samples
         
-    def _fetch_samples(self, buffer_local_indices, td_steps):
+    def _fetch_samples(self, buffer_local_indices, sample_seq_len):
         samples = []
         for buffer_id, local_indices_array in buffer_local_indices.items():
             env_id, agent_id = self._get_env_agent_ids(buffer_id)
             # Assuming sample_trajectory_from_buffer can accept an array of local_indices
-            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices_array, td_steps)
+            batch = self.sample_trajectory_from_buffer(env_id, agent_id, local_indices_array, sample_seq_len)
             samples.extend(batch)
         return samples
     

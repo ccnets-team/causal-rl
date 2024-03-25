@@ -20,7 +20,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         
         # Initializing the training manager with the networks involved in the learning process
         self._init_training_manager(networks, target_networks, device)
-        self._init_normalization_manager(env_config, device)
+        self._init_normalization_manager(env_config, self.max_seq_len, device)
         self._init_exploration_manager(self.max_seq_len)
 
         state_size = env_config.state_size
@@ -59,8 +59,8 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         TrainingManager.__init__(self, learning_networks, target_networks, learning_param_list, self.optimization_params.tau, self.total_iterations)
         self.device = device
 
-    def _init_normalization_manager(self, env_config, device):
-        NormalizationManager.__init__(self, env_config.state_size, env_config.value_size, self.normalization_params, self.max_seq_len, device)
+    def _init_normalization_manager(self, env_config, max_seq_len, device):
+        NormalizationManager.__init__(self, env_config.state_size, env_config.value_size, self.normalization_params, max_seq_len, device)
 
 
     def _init_exploration_manager(self, max_seq_len):
@@ -233,7 +233,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         
         trajectory_values = select_sequence_range(slice(-(td_extension_steps + 1), None), trajectory_values)
         selected_rewards, selected_dones, selected_padding_mask = select_sequence_range(slice(-td_extension_steps, None), td_rewards, td_dones, td_padding_mask)
-        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, selected_rewards, selected_dones, selected_padding_mask, seq_range = (max_seq_len - td_extension_steps, max_seq_len), use_td_extension_steps = True)
+        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, selected_rewards, selected_dones, selected_padding_mask, seq_range = (-td_extension_steps, None), use_td_extension_steps = True)
         
         # Select the appropriate future value using end_select_idx
         target_idx = local_end_indices.flatten()
@@ -264,7 +264,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         future_values = self.trainer_calculate_future_value(states, padding_mask)
         trajectory_values = torch.cat([future_values, end_value], dim=1)
 
-        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, rewards, dones, padding_mask, seq_range = (max_seq_len-input_seq_len, max_seq_len))
+        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, rewards, dones, padding_mask, seq_range = (-input_seq_len, None))
         expected_value = expected_value[:, :-1, :]
 
         return expected_value

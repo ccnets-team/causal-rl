@@ -88,7 +88,6 @@ class CausalRLHelper:
         
     # Private Helpers
     def _initialize_training_parameters(self):
-        self.max_seq_len = self.rl_params.algorithm.max_seq_len
         self.max_steps = self.rl_params.max_steps
         self.buffer_size = self.rl_params.buffer_size
         self.batch_size = self.rl_params.batch_size
@@ -103,15 +102,18 @@ class CausalRLHelper:
         
     def _ensure_train_environment_exists(self):
         if not self.parent.train_env:
-            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, self.parent.device)
+            max_seq_len = self.parent.trainer.get_max_seq_len()
+            self.parent.train_env = EnvironmentPool.create_train_environments(self.env_config, max_seq_len, self.parent.device)
             
     def _ensure_eval_environment_exists(self, use_graphics):
         if not self.parent.eval_env:
-            self.parent.eval_env = EnvironmentPool.create_eval_environments(self.env_config, self.parent.device, use_graphics)
+            max_seq_len = self.parent.trainer.get_max_seq_len()
+            self.parent.eval_env = EnvironmentPool.create_eval_environments(self.env_config, max_seq_len, self.parent.device, use_graphics)
 
     def _ensure_test_environment_exists(self, use_graphics):
         if not self.parent.test_env:
-            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, self.parent.device, use_graphics)
+            max_seq_len = self.parent.trainer.get_max_seq_len()
+            self.parent.test_env = EnvironmentPool.create_test_environments(self.env_config, max_seq_len, self.parent.device, use_graphics)
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
