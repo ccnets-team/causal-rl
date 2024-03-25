@@ -3,8 +3,8 @@ from utils.structure.env_observation import EnvObservation
 
 
 class ReinforcementAgent: 
-    def __init__(self, env_config):
-        self.max_seq_len = env_config.max_seq_len
+    def __init__(self, env_config, max_seq_len):
+        self.max_seq_len = max_seq_len
         self.num_agents = env_config.num_agents
         self.use_discrete = env_config.use_discrete
         self.env_name = env_config.env_name
