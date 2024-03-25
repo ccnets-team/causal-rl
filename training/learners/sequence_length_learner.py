@@ -3,9 +3,9 @@ import torch
 from ..utils.sequence_util import calculate_learnable_sequence_length 
 from ..utils.tensor_util import keep_right_tensor_sequences
 
-MIN_TD_EXTENSION_STEPS = 1
-MIN_GPT_SEQUENCE_LENGTH = 4
-TD_EXTENSION_RATIO = 2  # Represents the divisor for calculating the extension steps
+MIN_TD_EXTENSION_STEPS = 4
+MIN_INPUT_SEQUENCE_LENGTH = 8
+TD_EXTENSION_RATIO = 4  # Represents the divisor for calculating the extension steps
 INITIAL_SEQ_LEN_FRACTION = 1  # Fraction of max_seq_len used to set the initial input sequence length
 SEQUENCE_LENGTH_UPDATE_INTERVAL = 1000
 
@@ -38,7 +38,7 @@ class SequenceLengthLearner:
         lambd = self.gamma_lambda_learner_for_seq.get_lambda(seq_range = (-input_seq_len, None))
         optimal_length = calculate_learnable_sequence_length(lambd)
         
-        self.input_seq_len = min(max(optimal_length, MIN_GPT_SEQUENCE_LENGTH), max_seq_len)
+        self.input_seq_len = min(max(optimal_length, MIN_INPUT_SEQUENCE_LENGTH), max_seq_len)
         self.td_extension_steps = max(self.input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
         self.tot_seq_len = self.input_seq_len + self.td_extension_steps 
     

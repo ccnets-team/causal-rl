@@ -5,9 +5,9 @@ from .settings.agent_experience_collector import AgentExperienceCollector
 from .settings.reinforcement_agent import ReinforcementAgent
 
 class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector): 
-    def __init__(self, env_config, max_seq_len, test_env, use_graphics: bool, worker_id, seed = 0, time_scale = 256):
-        ReinforcementAgent.__init__(self, env_config, max_seq_len)
-        AgentExperienceCollector.__init__(self, env_config)        
+    def __init__(self, env_config, max_seq_len, test_env, use_graphics: bool, device, worker_id, seed = 0, time_scale = 256):
+        ReinforcementAgent.__init__(self, env_config, max_seq_len, device)
+        AgentExperienceCollector.__init__(self, env_config, 'cpu')        
         self.env_time_scale = 1.5 if use_graphics else time_scale
         
         self.channel = EngineConfigurationChannel()

@@ -2,7 +2,6 @@ import torch
 import torch.nn as nn
 from ..utils.value_util import compute_lambda_based_returns
 from ..utils.sequence_util import create_init_lambda_sequence
-from ..utils.tensor_util import LambdaGradScaler
 
 LEARNABLE_TD_UPDATE_INTERVAL = 2
 TARGET_TD_ERROR_SCALE = 1
@@ -31,8 +30,7 @@ class GammaLambdaLearner(nn.Module):
     
     def get_lambda(self, seq_range):
         start_idx, end_idx = seq_range
-        lambd = torch.tanh(self.raw_lambd).clamp_min(1e-8)[start_idx: end_idx]
-        return LambdaGradScaler.apply(lambd.clone())
+        return (torch.tanh(self.raw_lambd).clamp_min(1e-8)[start_idx: end_idx]).clone()
     
     def save(self, path):
         torch.save({'raw_gamma': self.raw_gamma, 'raw_lambd': self.raw_lambd}, path)

@@ -13,11 +13,11 @@ class EnvironmentPool:
         w_id += 100
         self.device = device        
         if env_config.env_type == "gym":
-            self.env_list = [GymEnvWrapper(env_config, max_seq_len, test_env, use_graphics = use_graphics, seed= int(w_id + i)) \
+            self.env_list = [GymEnvWrapper(env_config, max_seq_len, test_env, device, use_graphics = use_graphics, seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
         elif env_config.env_type == "mlagents":
-            self.env_list = [MLAgentsEnvWrapper(env_config, max_seq_len, test_env, use_graphics = use_graphics, \
+            self.env_list = [MLAgentsEnvWrapper(env_config, max_seq_len, test_env, device, use_graphics = use_graphics, \
                 worker_id = int(w_id + i), seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
@@ -42,11 +42,8 @@ class EnvironmentPool:
         
     def explore_environments(self, trainer, training):
         trainer.set_train(training = training)
-        np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
-        np_mask = np.concatenate([env.observations.mask for env in self.env_list], axis=0)
-        
-        _state_tensor = torch.from_numpy(np_state).to(self.device)
-        _padding_mask = torch.from_numpy(np_mask).to(self.device)
+        _state_tensor = torch.cat([env.observations.to_vector() for env in self.env_list], dim=0)
+        _padding_mask = torch.cat([env.observations.mask for env in self.env_list], dim=0)
         
         # In your training loop or function
         input_seq_len = trainer.get_input_seq_len()
