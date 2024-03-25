@@ -31,47 +31,6 @@ class EnvObservation:
         # Return the shape as (num_agents, total_size) assuming concatenation along the last dimension
         return (self.num_agents, total_size)
         
-    def __getitem__(self, key):
-        if isinstance(key, tuple):
-            agent_indices, td_indices = key
-        elif isinstance(key, slice) or isinstance(key, list) or isinstance(key, np.ndarray):
-            agent_indices = key
-            td_indices = None
-        else:
-            raise TypeError("Invalid key type. Must be a tuple, slice, list, or numpy array.")
-
-        new_agent_indices = None
-        if isinstance(agent_indices, int):
-            new_agent_indices = np.array([agent_indices])
-        elif isinstance(agent_indices, slice):
-            new_agent_indices = np.arange(self.num_agents)[agent_indices]
-        elif isinstance(agent_indices, list) or isinstance(agent_indices, np.ndarray):
-            new_agent_indices = np.array(agent_indices)
-        else:
-            raise TypeError("Invalid type for agent_indices. Must be int, slice, list, or numpy array.")
-
-        new_td_indices = None
-        if td_indices is None:
-            new_td_indices = np.arange(self.max_seq_len)
-        elif isinstance(td_indices, int):
-            new_td_indices = np.array([td_indices])
-        elif isinstance(td_indices, slice):
-            new_td_indices = np.arange(self.max_seq_len)[td_indices]
-        elif isinstance(td_indices, list) or isinstance(td_indices, np.ndarray):
-            new_td_indices = np.array(td_indices)
-        else:
-            raise TypeError("Invalid type for td_indices. Must be int, slice, list, numpy array, or None.")
-
-        new_num_agents = len(new_agent_indices)
-        new_model_seq_length = len(new_td_indices)
-
-        new_observation = EnvObservation(self.obs_shapes, self.obs_types, num_agents=new_num_agents, max_seq_len=new_model_seq_length, device = self.device)
-        for obs_type in self.obs_types:
-            new_observation.data[obs_type] = self.data[obs_type][new_agent_indices, new_td_indices]
-        new_observation.mask = self.mask[new_agent_indices, new_td_indices]
-    
-        return new_observation
-        
     def __setitem__(self, agent_indices, values):
         for obs_type in self.obs_types:
             # Check if the input value is already a PyTorch tensor
@@ -107,24 +66,27 @@ class EnvObservation:
         # Set the last time dimension to 0 for data of 'dec_agents'
         self.mask[dec_agents, -1] = 1
 
-    def to_vector(self):
+    def to_vector(self, seq_range=None):
         """
         Convert the observations to a vector format.
-        Only takes into account obs_types that are vectors after the num_agents dimension.
-        Resulting shape will be (num_agents, concatenated_data)
-        This method selects the data from the first time step for each agent.
+        This method selects specified sequence data for each agent.
+        If seq_range is None, selects all time steps.
         """
-        # Filter the data for 1D observations
-        filtered_data = {k: v for k, v in self.data.items() if len(v.size()[2:]) == 1}
+        # Determine the sequence range to use
+        if seq_range is None:
+            seq_range = slice(None)  # Select all sequences if none specified
 
+        # Filter the data for observations and select sequences based on seq_range
+        filtered_data = {k: v[:, seq_range, :] for k, v in self.data.items()}  # Select the latest sequence data
+ 
         # Use advanced indexing to collect the tensors
         vectors = [v for v in filtered_data.values()]
         
         # Check if vectors is empty
         if not vectors:
-            # Handle the empty case. You could return an empty tensor with a shape that fits your scenario.
-            # For example, return a tensor of shape (num_agents, 0) to indicate no concatenated data.
-            return torch.empty(self.vector_data_shape, device=self.device)
+            # Adjust the shape to account for the dynamic nature of seq_range
+            # Here, we return a shape with 0 for concatenated data size when there's no data
+            return torch.empty((self.num_agents, self.max_seq_len, 0), device=self.device)
             
         concatenated_data = torch.cat(vectors, dim=-1)
         return concatenated_data

@@ -22,7 +22,7 @@ class AgentExperienceCollector:
         self.agent_done_terminated = torch.zeros((self.num_agents), dtype=torch.bool, device=device)
         self.agent_done_truncated = torch.zeros((self.num_agents), dtype=torch.bool, device=device)
         self.agent_content_lengths = torch.zeros((self.num_agents), dtype=torch.int, device=device)
-        self.agent_data_check = torch.zeros((self.num_agents), dtype=torch.int, device=device)
+        self.agent_data_check = torch.zeros((self.num_agents), dtype=torch.bool, device=device)
 
     def init_observation(self, observations):
         struct_observations = {}
@@ -81,7 +81,7 @@ class AgentExperienceCollector:
         # obs_flat = obs.reshape(len(agent_ids), -1)  # Reshape obs to ensure it fits into the agent_obs array
         next_obs_flat = next_obs.reshape(len(agent_ids), -1)  # Same for next_obs
         # Directly update the arrays for each agent using advanced indexing
-        self.agent_obs[agent_ids] = obs.to(self.device)
+        self.agent_obs[agent_ids] = obs.to(self.device).detach()
         self.agent_action[agent_ids] = torch.tensor(action, dtype=torch.float, device=self.device)  # Assuming action is already correctly shaped
         self.agent_reward[agent_ids] = torch.tensor(reward, dtype=torch.float, device=self.device)
         self.agent_next_obs[agent_ids] = torch.tensor(next_obs_flat, dtype=torch.float, device=self.device)
