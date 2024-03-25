@@ -45,16 +45,20 @@ class EnvironmentPool:
         np_state = np.concatenate([env.observations.to_vector() for env in self.env_list], axis=0)
         np_mask = np.concatenate([env.observations.mask for env in self.env_list], axis=0)
         
-        state_tensor = torch.from_numpy(np_state).to(self.device)
-        padding_mask = torch.from_numpy(np_mask).to(self.device)
+        _state_tensor = torch.from_numpy(np_state).to(self.device)
+        _padding_mask = torch.from_numpy(np_mask).to(self.device)
         
         # In your training loop or function
+        input_seq_len = trainer.get_input_seq_len()
+        state_tensor = _state_tensor[:, -input_seq_len:]
+        padding_mask = _padding_mask[:, -input_seq_len:]
+        
         if training:
             padding_mask, content_lengths = trainer.apply_sequence_masking(padding_mask)
         else:
             content_lengths = trainer.get_optimal_content_lengths()
             content_lengths = content_lengths.expand(padding_mask.size(0))
-            
+        
         state_tensor = trainer.normalize_states(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
         

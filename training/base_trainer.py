@@ -7,7 +7,7 @@ from training.managers.normalization_manager import NormalizationManager
 from training.managers.exploration_manager import ExplorationManager 
 from training.learners.sequence_length_learner import SequenceLengthLearner, SEQUENCE_LENGTH_UPDATE_INTERVAL 
 from training.learners.gamma_lambda_learner import GammaLambdaLearner, LEARNABLE_TD_UPDATE_INTERVAL, TARGET_TD_ERROR_SCALE
-from training.utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shift_left_padding_mask, prioritize_tensor_sequence
+from training.utils.tensor_util import masked_tensor_reduction, create_transformation_matrix, shift_left_padding_mask, prioritize_tensor_sequence, fill_up_to_end_idx
 from training.utils.sequence_util import create_padding_mask_before_dones, select_train_sequence, apply_sequence_mask, select_sequence_range
 
 class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
@@ -70,7 +70,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
     def _init_trainer_specific_params(self):
         self.max_seq_len = self.algorithm_params.max_seq_len 
         self.use_deterministic = self.algorithm_params.use_deterministic 
-        self.reduction_type = 'batch'
+        self.reduction_type = 'cross'
 
         self.training_start_step = self._compute_training_start_step()
         self.total_iterations = max(self.training_params.max_steps - self.training_start_step, 0)//self.training_params.train_interval
@@ -108,7 +108,8 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
     def init_train(self):
         self.set_train(training=True)
         input_seq_len = self.get_input_seq_len()
-        self.gamma_lambda_learner.update_sum_reward_weights(input_seq_len)
+        td_extension_steps = self.get_td_extension_steps()
+        self.gamma_lambda_learner.update_sum_reward_weights(input_seq_len, td_extension_steps)
         
     def update_step(self):
         """
@@ -143,7 +144,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         :reduction_type: Type of reduction to apply ('batch', 'seq', or 'all').
         :return: The reduced tensor.
         """
-        tensor = prioritize_tensor_sequence(tensor, mask)
         return masked_tensor_reduction(tensor, mask, reduction=self.reduction_type)
 
     def select_sequence(self, trajectory):
@@ -170,7 +170,9 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         padding_mask = create_padding_mask_before_dones(dones)
         
         gpt_input_len = self.get_input_seq_len()
-        states, actions, rewards, next_states, dones, padding_mask = self.sequence_length_learner.truncate_to_input_seq_len(states, actions, rewards, next_states, dones, padding_mask, use_td_length=True)
+        total_seq_len = self.get_total_seq_len()
+        
+        assert padding_mask.size(1) == total_seq_len, "The input sequence length must match the total sequence length."
         
         train_seq_mask, selection_end_indices = select_train_sequence(padding_mask, gpt_input_len)
         
@@ -181,6 +183,20 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
             apply_sequence_mask(train_seq_mask, gpt_input_len, states, actions, rewards, next_states, dones, padding_mask)
         
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
+
+    def calculate_normalized_lambda_returns(self, trajectory_values, rewards, dones, padding_mask, seq_range, use_td_extension_steps = False):
+        # Calculate expected value and sum of rewards for the terminal segment of the trajectory
+        expected_value, sum_rewards = self.gamma_lambda_learner.calculate_lambda_returns(
+            trajectory_values, rewards, dones, seq_range=seq_range)
+
+        normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range=seq_range).detach()
+        
+        sum_reward_weights = self.gamma_lambda_learner.get_sum_reward_weights(use_td_extension_steps = use_td_extension_steps)
+
+        # Correct the expected value to align with the length of sum_rewards and normalized_sum_rewards
+        expected_value[:, :-1, :] = expected_value[:, :-1, :] - sum_rewards + sum_reward_weights * normalized_sum_rewards
+        
+        return expected_value
     
     def calculate_sequence_end_value(self, rewards, next_states, dones, selection_end_indices):
         """
@@ -217,28 +233,13 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         
         trajectory_values = select_sequence_range(slice(-(td_extension_steps + 1), None), trajectory_values)
         selected_rewards, selected_dones, selected_padding_mask = select_sequence_range(slice(-td_extension_steps, None), td_rewards, td_dones, td_padding_mask)
-        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, selected_rewards, selected_dones, selected_padding_mask, seq_range = (max_seq_len - td_extension_steps, max_seq_len))
+        expected_value = self.calculate_normalized_lambda_returns(trajectory_values, selected_rewards, selected_dones, selected_padding_mask, seq_range = (max_seq_len - td_extension_steps, max_seq_len), use_td_extension_steps = True)
         
         # Select the appropriate future value using end_select_idx
         target_idx = local_end_indices.flatten()
         batch_idx = torch.arange(0, next_states.size(0), device=self.device)
         discounted_future_value = expected_value[batch_idx, target_idx].unsqueeze(1)
         return discounted_future_value
-
-    def calculate_normalized_lambda_returns(self, trajectory_values, rewards, dones, padding_mask, seq_range):
-        # Calculate expected value and sum of rewards for the terminal segment of the trajectory
-        expected_value, sum_rewards = self.gamma_lambda_learner.calculate_lambda_returns(
-            trajectory_values, rewards, dones, seq_range=seq_range)
-
-        normalized_sum_rewards = self.normalize_sum_rewards(sum_rewards, padding_mask, seq_range=seq_range).detach()
-        sum_reward_weights = self.gamma_lambda_learner.get_sum_reward_weights(seq_range = seq_range)
-
-        normalized_sum_rewards = sum_reward_weights * normalized_sum_rewards
-
-        # Correct the expected value to align with the length of sum_rewards and normalized_sum_rewards
-        expected_value[:, :-1, :] = expected_value[:, :-1, :] - sum_rewards + normalized_sum_rewards
-        
-        return expected_value
             
     def compute_expected_value(self, states: torch.Tensor, rewards: torch.Tensor, dones: torch.Tensor, padding_mask: torch.Tensor, end_value: torch.Tensor):
         """

@@ -45,14 +45,13 @@ class CausalTrainer(BaseTrainer):
 
     # This function uses the critic to estimate the value of a state, and then uses the actor to determine the action to take.
     # If in training mode, it samples an action based on exploration rate. Otherwise, it simply selects the most likely action.        
-    def get_action(self, state, mask=None, training: bool = False):
+    def get_action(self, states, padding_mask=None, training: bool = False):
         with torch.no_grad():
-            state, mask = self.sequence_length_learner.truncate_to_input_seq_len(state, mask)
-            estimated_value = self.critic(state, mask)
+            estimated_value = self.critic(states, padding_mask)
             if training and not self.use_deterministic:
-                action = self.actor.sample_action(state, estimated_value, mask)
+                action = self.actor.sample_action(states, estimated_value, padding_mask)
             else:
-                action = self.actor.select_action(state, estimated_value, mask)
+                action = self.actor.select_action(states, estimated_value, padding_mask)
         return action
 
     def train_model(self, trajectory: BatchTrajectory):

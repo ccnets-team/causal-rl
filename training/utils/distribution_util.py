@@ -37,7 +37,7 @@ def smooth_prob_dist(probs, kernel):
     
     return normalized_smoothed_probs
 
-def create_prob_dist_from_lambdas(lambda_values):
+def create_prob_dist_from_lambdas_temp(lambda_values):
     """Generates a probability distribution from a sequence of lambda values. This
     distribution reflects the likelihood of chain dependencies influenced by the lambda values,
     adjusted to ensure the entire distribution sums to 1."""
@@ -45,9 +45,31 @@ def create_prob_dist_from_lambdas(lambda_values):
     lambda_sequence[-1] = 1  # Ensure stability by fixing the last lambda to 1
     reversed_lambda = torch.flip(lambda_sequence, dims=[0])
     reversed_cumulative_product = torch.cumprod(reversed_lambda, dim=0)
-    chain_dependent_product = torch.flip(reversed_cumulative_product, dims=[0])
     
-    chain_dependent_product[1:] *= (1 - lambda_sequence[:-1])
-    mean_chain_dependent_product = chain_dependent_product / chain_dependent_product.sum()
-    adjusted_probabilities = torch.flip(mean_chain_dependent_product, dims=[0])
-    return adjusted_probabilities
+    reversed_cumulative_product[:-1] *= (1 - reversed_lambda[1:])
+    
+    return reversed_cumulative_product
+
+def create_prob_dist_from_lambdas(lambda_values):
+    """Generates a probability distribution from a sequence of lambda values. This
+    distribution reflects the likelihood of chain dependencies influenced by the lambda values,
+    adjusted to ensure the entire distribution sums to 1."""
+    # Detach and clone the input to avoid modifying it directly
+    lambda_sequence = lambda_values.detach().clone()
+    
+    # Adjust lambda values to represent the complement of the next value, except the last
+    lambda_sequence[1:] = 1 - lambda_sequence[:-1].clone()
+    
+    # Ensure the last value is set to 1 to complete the distribution
+    lambda_sequence[0] = 1
+    
+    # Perform cumulative multiplication in the reversed order
+    cumulative_product = torch.cumprod(lambda_sequence, dim=0)
+    
+    # Adjust the reversed cumulative product by the complement of the next lambda value
+    cumulative_product[:-1] *= (1 - lambda_sequence[1:])
+    
+    # Reverse back to original order to match the input sequence
+    chain_dependent_product = cumulative_product.flip(dims=[0])
+    
+    return chain_dependent_product

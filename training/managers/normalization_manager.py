@@ -101,11 +101,11 @@ class NormalizerBase:
         return data
     
 class NormalizationManager:
-    def __init__(self, state_size, value_size, normalization_params, input_seq_len, device):
+    def __init__(self, state_size, value_size, normalization_params, max_seq_len, device):
         self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, STATE_NORM_SCALE, device=device)
         self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, REWARD_NORM_SCALE, device=device)
-        self.sum_reward_manager = NormalizerBase(input_seq_len, 'sum_reward_normalizer', normalization_params, SUM_REWARD_NORM_SCALE, device=device)
-        self.advantage_manager = NormalizerBase(int(input_seq_len * value_size), 'advantage_normalizer', normalization_params, ADVANTAGE_NORM_SCALE, device=device)
+        self.sum_reward_manager = NormalizerBase(max_seq_len, 'sum_reward_normalizer', normalization_params, SUM_REWARD_NORM_SCALE, device=device)
+        self.advantage_manager = NormalizerBase(int(max_seq_len * value_size), 'advantage_normalizer', normalization_params, ADVANTAGE_NORM_SCALE, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
         self.sum_reward_normalizer = normalization_params.sum_reward_normalizer
         self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
@@ -120,8 +120,8 @@ class NormalizationManager:
     def get_advantage_normalizer(self):
         return self.advantage_manager.normalizer
             
-    def normalize_states(self, state):
-        return self.state_manager._normalize_last_dim(state, STATE_NORM_SCALE)
+    def normalize_states(self, state, feature_range = None):
+        return self.state_manager._normalize_last_dim(state, STATE_NORM_SCALE, feature_range)
 
     def normalize_rewards(self, reward):
         return self.reward_manager._normalize_last_dim(reward, REWARD_NORM_SCALE)
@@ -199,9 +199,9 @@ class NormalizationManager:
             normalized_advantage = normalized_reshaped_advantage.reshape(ori_advantage_shape)
             return normalized_advantage
 
-    def normalize_trajectories(self, trajectories: BatchTrajectory):
-        trajectories.state = self.normalize_states(trajectories.state)
-        trajectories.next_state = self.normalize_states(trajectories.next_state)
+    def normalize_trajectories(self, trajectories: BatchTrajectory, feature_range = None):
+        trajectories.state = self.normalize_states(trajectories.state, feature_range = feature_range)
+        trajectories.next_state = self.normalize_states(trajectories.next_state, feature_range = feature_range)
         trajectories.reward = self.normalize_rewards(trajectories.reward)
         return trajectories
 
