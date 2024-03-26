@@ -37,39 +37,40 @@ def smooth_prob_dist(probs, kernel):
     
     return normalized_smoothed_probs
 
-def create_prob_dist_from_lambdas_temp(lambda_values):
-    """Generates a probability distribution from a sequence of lambda values. This
-    distribution reflects the likelihood of chain dependencies influenced by the lambda values,
-    adjusted to ensure the entire distribution sums to 1."""
-    lambda_sequence = lambda_values.detach().clone()
-    lambda_sequence[-1] = 1  # Ensure stability by fixing the last lambda to 1
-    reversed_lambda = torch.flip(lambda_sequence, dims=[0])
-    reversed_cumulative_product = torch.cumprod(reversed_lambda, dim=0)
-    
-    reversed_cumulative_product[:-1] *= (1 - reversed_lambda[1:])
-    
-    return reversed_cumulative_product
-
 def create_prob_dist_from_lambdas(lambda_values):
-    """Generates a probability distribution from a sequence of lambda values. This
-    distribution reflects the likelihood of chain dependencies influenced by the lambda values,
-    adjusted to ensure the entire distribution sums to 1."""
-    # Detach and clone the input to avoid modifying it directly
+    """
+    Generates a normalized probability distribution from a sequence of lambda values.
+    This distribution accounts for the influence of each lambda value on subsequent positions,
+    adjusted to ensure the distribution sums to 1.
+    """
+    # Ensure the last lambda value is set to 1 for stability
     lambda_sequence = lambda_values.detach().clone()
+    lambda_sequence[-1] = 1
     
-    # Adjust lambda values to represent the complement of the next value, except the last
-    lambda_sequence[1:] = 1 - lambda_sequence[:-1].clone()
+    n = len(lambda_sequence)
+    # Prepare a reversed lambda sequence expanded across rows for cumulative product calculation
+    reversed_lambda_expanded = torch.flip(lambda_sequence, dims=[0]).unsqueeze(0).expand(n, -1)
     
-    # Ensure the last value is set to 1 to complete the distribution
-    lambda_sequence[0] = 1
+    # Create masks for lower triangular matrix
+    lower_tri_mask = torch.tril(torch.ones((n, n), dtype=bool), diagonal=-1)
+    lower_tri_mask_incl_diag = torch.tril(torch.ones((n, n), dtype=bool), diagonal=0)
     
-    # Perform cumulative multiplication in the reversed order
-    cumulative_product = torch.cumprod(lambda_sequence, dim=0)
+    # Set lower triangle including diagonal to 1 for cumulative product calculation
+    reversed_lambda_prepared = reversed_lambda_expanded.clone()
+    reversed_lambda_prepared[lower_tri_mask_incl_diag] = 1
     
-    # Adjust the reversed cumulative product by the complement of the next lambda value
-    cumulative_product[:-1] *= (1 - lambda_sequence[1:])
+    # Calculate the cumulative product, then zero out the lower triangle excluding the diagonal
+    cumprod_reversed_lambda = torch.cumprod(reversed_lambda_prepared, dim=1)
+    cumprod_reversed_lambda[lower_tri_mask] = 0
+
+    # Prepare for adjustment by zeroing out lower triangle excluding the diagonal
+    reversed_lambda_adjusted = reversed_lambda_prepared.clone()
+    reversed_lambda_adjusted[lower_tri_mask] = 0
     
-    # Reverse back to original order to match the input sequence
-    chain_dependent_product = cumulative_product.flip(dims=[0])
+    # Adjust for non-terminal sequences by multiplying with (1 - lambda value) for each sequence
+    cumprod_reversed_lambda[:, :-1] *= (1 - reversed_lambda_adjusted[:, 1:])
     
-    return chain_dependent_product
+    # Calculate the contribution of each lambda across the sequence by averaging
+    prob_dist = cumprod_reversed_lambda.mean(dim=0)
+    
+    return prob_dist
