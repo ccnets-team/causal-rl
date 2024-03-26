@@ -1,8 +1,8 @@
 import torch
 from .distribution_util import create_prob_dist_from_lambdas
 
-LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD = 1e-4
-LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD = 0.5
+LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD = 0.9
+LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD = 0.1
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -105,7 +105,7 @@ def select_train_sequence(padding_mask, train_seq_length):
 
 def calculate_learnable_sequence_length(lambda_sequence,
                                         lambda_chain_min_threshold = LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD,
-                                        lambda_chain_max_threshold =  LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD):
+                                        lambda_chain_max_threshold = LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD):
     """
     Calculates the optimal sequence length for training in a reinforcement learning environment, based on
     the relevance of state transitions determined by lambda values. This approach optimizes computational
@@ -122,7 +122,7 @@ def calculate_learnable_sequence_length(lambda_sequence,
     # Determine the optimal length based on lambda_chain_val thresholds
     if lambda_chain_val > lambda_chain_max_threshold:
         optimal_length = input_seq_len + 1
-    elif lambda_chain_val < lambda_chain_min_threshold:
+    elif lambda_chain_val <lambda_chain_min_threshold:
         optimal_length = max(0, input_seq_len - 1)  # Ensure optimal_length is not negative
     else:
         optimal_length = input_seq_len  # Use the input length if within thresholds

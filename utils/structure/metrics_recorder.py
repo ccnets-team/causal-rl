@@ -192,7 +192,13 @@ class RewardTracker:
     def _add_rewards(self, env_ids, agent_ids, rewards, dones_terminated, dones_truncated):
         if rewards is None:
             return 
-        self.steps[self.index] = 0 if len(rewards) == 0 else rewards.mean()
+        env_ids = env_ids.numpy() if isinstance(env_ids, torch.Tensor) else env_ids
+        agent_ids = agent_ids.numpy() if isinstance(agent_ids, torch.Tensor) else agent_ids
+        rewards = rewards.numpy() if isinstance(rewards, torch.Tensor) else rewards
+        dones_terminated = dones_terminated.numpy() if isinstance(dones_terminated, torch.Tensor) else dones_terminated
+        dones_truncated = dones_truncated.numpy() if isinstance(dones_truncated, torch.Tensor) else dones_truncated
+        
+        self.steps[self.index] = 0 if len(rewards) == 0 else rewards.mean().item()
         self.counts[self.index] = len(rewards)
 
         for env_id, agent_id, reward, terminated, truncated in zip(env_ids, agent_ids, rewards, dones_terminated, dones_truncated):

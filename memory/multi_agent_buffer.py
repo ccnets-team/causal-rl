@@ -47,7 +47,7 @@ class MultiAgentBuffer:
         self.actions = torch.empty((self.num_agents, self.capacity, self.action_size), dtype=torch.float, device=self.device)
         self.rewards = torch.empty((self.num_agents, self.capacity), dtype=torch.float, device=self.device)
         self.next_states = torch.empty((self.num_agents, self.capacity, self.state_size), dtype=torch.float, device=self.device)
-        self.terminated = torch.empty((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
+        self.terminated = torch.zeros((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
         self.truncated = torch.empty((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
         self.content_length = torch.empty((self.num_agents, self.capacity), dtype=torch.int, device=self.device)
         self.valid_indices = torch.zeros((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
