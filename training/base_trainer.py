@@ -16,7 +16,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         self._init_trainer_specific_params()
 
         self.gamma_lambda_learner = GammaLambdaLearner(self.max_seq_len, device)
-        self.sequence_length_learner = SequenceLengthLearner(self.gamma_lambda_learner, self.max_seq_len, device)
+        self.sequence_length_learner = SequenceLengthLearner(self.max_seq_len, device)
         
         # Initializing the training manager with the networks involved in the learning process
         self._init_training_manager(networks, target_networks, device)
@@ -98,6 +98,12 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
     def get_td_extension_steps(self):
         return self.sequence_length_learner.get_td_extension_steps()
 
+    def get_gamma(self):
+        return self.get_gamma()
+
+    def get_lambda(self, seq_range):
+        return self.gamma_lambda_learner.get_lambda(seq_range = seq_range)
+
     def get_gamma_lambda_learner(self):
         return self.gamma_lambda_learner
 
@@ -106,7 +112,9 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
 
     def update_sequence_length(self):
         if self.train_iter % SEQUENCE_LENGTH_UPDATE_INTERVAL == 0:
-            self.sequence_length_learner.update_learnable_length() # Updates the learnable sequence length based on learnable_td parameters.
+            input_seq_len = self.get_input_seq_len()
+            lambd = self.get_lambda(seq_range = (-input_seq_len, None))
+            self.sequence_length_learner.update_learnable_length(lambd) # Updates the learnable sequence length based on learnable_td parameters.
 
     def init_train(self):
         self.set_train(training=True)
@@ -168,22 +176,24 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         :return: A tuple of selected and masked trajectory components (states, actions, rewards, next_states, dones, 
                 padding_mask), each trimmed to 'input_seq_len' to fit the model's input specifications.
         """
-        states, actions, rewards, next_states, dones = trajectory
+        trajectory_states, actions, rewards, dones = trajectory
+        states = trajectory_states[:,:-1]
+        next_states = trajectory_states[:,1:]
         
         padding_mask = create_padding_mask_before_dones(dones)
         
-        gpt_input_len = self.get_input_seq_len()
+        input_seq_len = self.get_input_seq_len()
         total_seq_len = self.get_total_seq_len()
         
         assert padding_mask.size(1) == total_seq_len, "The input sequence length must match the total sequence length."
         
-        train_seq_mask, selection_end_indices = select_train_sequence(padding_mask, gpt_input_len)
+        train_seq_mask, selection_end_indices = select_train_sequence(padding_mask, input_seq_len)
         
         end_value = self.calculate_sequence_end_value(rewards, next_states, dones, selection_end_indices)
     
         # Apply the mask to each trajectory component
         sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask = \
-            apply_sequence_mask(train_seq_mask, gpt_input_len, states, actions, rewards, next_states, dones, padding_mask)
+            apply_sequence_mask(train_seq_mask, input_seq_len, states, actions, rewards, next_states, dones, padding_mask)
         
         return sel_states, sel_actions, sel_rewards, sel_next_states, sel_dones, sel_padding_mask, end_value
 

@@ -2,15 +2,15 @@ import numpy as np
 import torch
 
 class EnvObservation:
-    def __init__(self, obs_shapes, obs_types, num_agents, max_seq_len, device):
+    def __init__(self, obs_shapes, obs_types, num_agents, seq_len, device):
         assert len(obs_shapes) == len(obs_types), "The length of obs_shapes and obs_types must be the same."
         self.obs_shapes = obs_shapes
         self.obs_types = obs_types
         self.num_agents = num_agents
-        self.max_seq_len = max_seq_len
+        self.seq_len = seq_len
         self.device = device
         self.data = self._create_empty_data()
-        self.mask = torch.zeros((self.num_agents, self.max_seq_len), dtype=torch.float, device=self.device)
+        self.mask = torch.zeros((self.num_agents, self.seq_len), dtype=torch.float, device=self.device)
 
         # Compute the shape of concatenated vector data
         self.vector_data_shape = self._compute_vector_data_shape()
@@ -18,7 +18,7 @@ class EnvObservation:
     def _create_empty_data(self):
         observations = {}
         for obs_type, shape in zip(self.obs_types, self.obs_shapes):
-            observations[obs_type] = torch.zeros((self.num_agents, self.max_seq_len, *shape), dtype=torch.float, device=self.device)
+            observations[obs_type] = torch.zeros((self.num_agents, self.seq_len, *shape), dtype=torch.float, device=self.device)
         return observations
     
     def _compute_vector_data_shape(self):
@@ -86,7 +86,7 @@ class EnvObservation:
         if not vectors:
             # Adjust the shape to account for the dynamic nature of seq_range
             # Here, we return a shape with 0 for concatenated data size when there's no data
-            return torch.empty((self.num_agents, self.max_seq_len, 0), device=self.device)
+            return torch.empty((self.num_agents, self.seq_len, 0), device=self.device)
             
         concatenated_data = torch.cat(vectors, dim=-1)
         return concatenated_data

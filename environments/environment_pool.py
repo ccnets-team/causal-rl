@@ -5,7 +5,7 @@ from utils.structure.data_structures  import AgentTransitions
 import torch
 
 class EnvironmentPool: 
-    def __init__(self, env_config, max_seq_len, device, test_env, use_graphics):
+    def __init__(self, env_config, seq_len, device, test_env, use_graphics):
         super(EnvironmentPool, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
@@ -13,11 +13,11 @@ class EnvironmentPool:
         w_id += 100
         self.device = device        
         if env_config.env_type == "gym":
-            self.env_list = [GymEnvWrapper(env_config, max_seq_len, test_env, device, use_graphics = use_graphics, seed= int(w_id + i)) \
+            self.env_list = [GymEnvWrapper(env_config, seq_len, test_env, device, use_graphics = use_graphics, seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
         elif env_config.env_type == "mlagents":
-            self.env_list = [MLAgentsEnvWrapper(env_config, max_seq_len, test_env, device, use_graphics = use_graphics, \
+            self.env_list = [MLAgentsEnvWrapper(env_config, seq_len, test_env, device, use_graphics = use_graphics, \
                 worker_id = int(w_id + i), seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
@@ -76,13 +76,13 @@ class EnvironmentPool:
             start_idx = end_idx
             
     @staticmethod
-    def create_train_environments(env_config, max_seq_len, device):
-        return EnvironmentPool(env_config, max_seq_len, device, test_env=False, use_graphics = False)
+    def create_train_environments(env_config, seq_len, device):
+        return EnvironmentPool(env_config, seq_len, device, test_env=False, use_graphics = False)
     
     @staticmethod
-    def create_eval_environments(env_config, max_seq_len, device, use_graphics):
-        return EnvironmentPool(env_config, max_seq_len, device, test_env=True, use_graphics = use_graphics)
+    def create_eval_environments(env_config, seq_len, device, use_graphics):
+        return EnvironmentPool(env_config, seq_len, device, test_env=True, use_graphics = use_graphics)
 
     @staticmethod
-    def create_test_environments(env_config, max_seq_len, device, use_graphics):
-        return EnvironmentPool(env_config, max_seq_len, device, test_env=True, use_graphics = use_graphics)
+    def create_test_environments(env_config, seq_len, device, use_graphics):
+        return EnvironmentPool(env_config, seq_len, device, test_env=True, use_graphics = use_graphics)

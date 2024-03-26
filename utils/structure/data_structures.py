@@ -1,18 +1,16 @@
 import torch
 
 class BatchTrajectory:
-    def __init__(self, state, action, reward, next_state, done):
-        self.state = state
+    def __init__(self, trajectory_states, action, reward, done):
+        self.trajectory_states = trajectory_states
         self.action = action
         self.reward = reward
-        self.next_state = next_state
         self.done = done
 
     def __iter__(self):
-        yield self.state
+        yield self.trajectory_states
         yield self.action
         yield self.reward
-        yield self.next_state
         yield self.done
         
 class AgentTransitions:

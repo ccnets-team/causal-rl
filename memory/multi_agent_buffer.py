@@ -110,5 +110,6 @@ class MultiAgentBuffer:
         truncated_sliced[:, -1] = False  # Ensuring the last state of the sequence is not marked as truncated
         done_sliced = torch.logical_or(terminated_sliced, truncated_sliced).unsqueeze(-1)  # Marking the sequence as done if either flag is True
 
-        trajectories = (states_sliced, actions_sliced, rewards_sliced, next_states_sliced, done_sliced)
+        trajectory_states = torch.concat([states_sliced, next_states_sliced[:, -1:]], dim = 1)
+        trajectories = (trajectory_states, actions_sliced, rewards_sliced, done_sliced)
         return trajectories

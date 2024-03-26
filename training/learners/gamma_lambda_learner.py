@@ -7,17 +7,17 @@ LEARNABLE_TD_UPDATE_INTERVAL = 2
 TARGET_TD_ERROR_SCALE = 1
 
 DISCOUNT_FACTOR = 0.99
-AVERAGE_LAMBDA = 0.75
+AVERAGE_LAMBDA = 0.9
 
 class GammaLambdaLearner(nn.Module):
-    def __init__(self, max_seq_len, device):
+    def __init__(self, seq_len, device):
         super(GammaLambdaLearner, self).__init__()
         self.device = device
         self.discount_factor = DISCOUNT_FACTOR
         self.average_lambda = AVERAGE_LAMBDA
     
         discount_factor_init = self.discount_factor * torch.ones(1, device=self.device, dtype=torch.float)
-        advantage_lambda_init = create_init_lambda_sequence(self.average_lambda, max_seq_len, self.device)
+        advantage_lambda_init = create_init_lambda_sequence(self.average_lambda, seq_len, self.device)
                 
         self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(advantage_lambda_init))

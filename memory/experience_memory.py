@@ -3,7 +3,7 @@ from utils.structure.data_structures import BatchTrajectory, AgentTransitions
 from memory.multi_agent_buffer import MultiAgentBuffer
 
 class ExperienceMemory:
-    def __init__(self, env_config, max_seq_len, batch_size, buffer_size, device):
+    def __init__(self, env_config, seq_len, batch_size, buffer_size, device):
         """
         Initializes an experience memory buffer for storing and managing agent experiences.
 
@@ -18,14 +18,14 @@ class ExperienceMemory:
         self.device = device
         self.num_agents = env_config.num_agents * env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
-        self.max_seq_length = max_seq_len
+        self.seq_length = seq_len
         self.batch_size = batch_size
 
         # Capacity calculation now accounts for all agents across all environments
         self.capacity_for_agent = buffer_size//self.num_agents
 
         # Single buffer initialization
-        self.buffer = MultiAgentBuffer('Experience', self.capacity_for_agent, self.num_agents, self.state_size, self.action_size, self.max_seq_length, 'cpu')
+        self.buffer = MultiAgentBuffer('Experience', self.capacity_for_agent, self.num_agents, self.state_size, self.action_size, self.seq_length, 'cpu')
 
     def __len__(self):
         return len(self.buffer)
@@ -74,7 +74,7 @@ class ExperienceMemory:
             return None
         
         # Convert samples to the desired device and type all at once
-        states, actions, rewards, next_states, dones = (x.to(self.device).float() for x in samples)
+        trajectory_states, actions, rewards, dones = (x.to(self.device).float() for x in samples)
         
         # Construct and return the BatchTrajectory
-        return BatchTrajectory(states, actions, rewards, next_states, dones)
+        return BatchTrajectory(trajectory_states, actions, rewards, dones)

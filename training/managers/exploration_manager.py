@@ -6,7 +6,7 @@ def compute_lin_decay_factor(initial_exploration, min_exploration, max_steps, de
     return (min_exploration - initial_exploration) / decay_steps
 
 class ExplorationManager:
-    def __init__(self, max_seq_len, gamma_lambda_learner, total_iterations, device):
+    def __init__(self, seq_len, gamma_lambda_learner, total_iterations, device):
         self.device = device
         self.initial_exploration = 1.0
         self.min_exploration = 0.01 
@@ -15,9 +15,8 @@ class ExplorationManager:
         self.decay_factor = compute_lin_decay_factor(self.initial_exploration, self.min_exploration, self.total_iterations, self.decay_percentage)
         self.exploration_rate = self.initial_exploration
         self.gamma_lambda_learner_for_exploration = gamma_lambda_learner
-        self.sequence_lengths = torch.arange(1, max_seq_len + 1, device=self.device)
 
-        self.smoothing_scale = max_seq_len
+        self.smoothing_scale = seq_len
 
     def get_exploration_rate(self):
         return self.exploration_rate
@@ -48,18 +47,16 @@ class ExplorationManager:
         """Samples padding lengths for a batch of sequences based on a probability distribution,
         allowing for dynamic adjustments to sequence padding based on learned TD(λ) values."""
         sampled_sequence_probs = self.sample_sequence_probabilities(input_seq_len, use_smoothed_probs=False)
-        sampled_indices = torch.multinomial(sampled_sequence_probs, batch_size, replacement=True)
-        sequence_lengths = self.sequence_lengths[:input_seq_len]
-        sampled_lengths = sequence_lengths[sampled_indices]
+        sampled_indices = torch.multinomial(sampled_sequence_probs, batch_size, replacement=True).long()
+        sampled_lengths = sampled_indices + 1
         return sampled_lengths
 
     def get_optimal_content_lengths(self, input_seq_len):
         """Calculates optimal padding lengths for sequences, aiming to align with the most likely
         sequence length based on the smoothed probability distribution."""
         sampled_sequence_probs = self.sample_sequence_probabilities(input_seq_len, use_smoothed_probs=False)
-        sampled_indices = torch.argmax(sampled_sequence_probs, dim=0)
-        sequence_lengths = self.sequence_lengths[:input_seq_len]
-        content_lengths = sequence_lengths[sampled_indices]
+        sampled_indices = torch.argmax(sampled_sequence_probs, dim=0).long()
+        content_lengths = sampled_indices + 1
         return content_lengths
 
     def get_content_lengths(self, padding_mask):

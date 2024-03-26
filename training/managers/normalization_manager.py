@@ -6,7 +6,7 @@ from normalizer.running_mean_sqrt import RunningMeanSqrt
 from utils.structure.data_structures  import BatchTrajectory
 
 TRANSITION_STATE_IDX = 0
-TRANSITION_NEXT_STATE_IDX = 3
+# TRANSITION_NEXT_STATE_IDX = 3
 TRANSITION_REWARD_IDX = 2
 
 REWARD_SIZE = 1
@@ -101,14 +101,15 @@ class NormalizerBase:
         return data
     
 class NormalizationManager:
-    def __init__(self, state_size, value_size, normalization_params, max_seq_len, device):
+    def __init__(self, state_size, value_size, normalization_params, seq_len, device):
         self.state_manager = NormalizerBase(state_size, 'state_normalizer', normalization_params, STATE_NORM_SCALE, device=device)
         self.reward_manager = NormalizerBase(REWARD_SIZE, 'reward_normalizer', normalization_params, REWARD_NORM_SCALE, device=device)
-        self.sum_reward_manager = NormalizerBase(max_seq_len, 'sum_reward_normalizer', normalization_params, SUM_REWARD_NORM_SCALE, device=device)
-        self.advantage_manager = NormalizerBase(int(max_seq_len * value_size), 'advantage_normalizer', normalization_params, ADVANTAGE_NORM_SCALE, device=device)
+        self.sum_reward_manager = NormalizerBase(seq_len, 'sum_reward_normalizer', normalization_params, SUM_REWARD_NORM_SCALE, device=device)
+        self.advantage_manager = NormalizerBase(int(seq_len * value_size), 'advantage_normalizer', normalization_params, ADVANTAGE_NORM_SCALE, device=device)
         self.advantage_normalizer = normalization_params.advantage_normalizer
         self.sum_reward_normalizer = normalization_params.sum_reward_normalizer
-        self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
+        self.state_indices = [TRANSITION_STATE_IDX]
+        # self.state_indices = [TRANSITION_STATE_IDX, TRANSITION_NEXT_STATE_IDX]
         self.reward_indices = [TRANSITION_REWARD_IDX]
 
     def get_state_normalizer(self):
@@ -200,19 +201,16 @@ class NormalizationManager:
             return normalized_advantage
 
     def normalize_trajectories(self, trajectories: BatchTrajectory, feature_range = None):
-        trajectories.state = self.normalize_states(trajectories.state, feature_range = feature_range)
-        trajectories.next_state = self.normalize_states(trajectories.next_state, feature_range = feature_range)
+        trajectories.trajectory_states = self.normalize_states(trajectories.trajectory_states, feature_range = feature_range)
         trajectories.reward = self.normalize_rewards(trajectories.reward)
         return trajectories
 
     def update_normalizer(self, trajectories: BatchTrajectory):
-        states, _, rewards, next_states, _ = trajectories
+        states, _, rewards, _ = trajectories
         # Update state normalizer
         for index in self.state_indices:
             if index == TRANSITION_STATE_IDX:
                 state_data = states
-            elif index == TRANSITION_NEXT_STATE_IDX:
-                state_data = next_states
             else:
                 raise ValueError("Invalid state index")
             self.state_manager._update_normalizer(state_data)
