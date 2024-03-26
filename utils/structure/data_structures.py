@@ -1,4 +1,4 @@
-import numpy as np
+import torch
 
 class BatchTrajectory:
     def __init__(self, state, action, reward, next_state, done):
@@ -28,32 +28,32 @@ class AgentTransitions:
         self.dones_truncated = dones_truncated 
         self.content_length = content_length 
 
-    def _add_attribute(self, attr_name, val):
+    def _add_attribute(self, attr_name, val, dtype):
         attr = getattr(self, attr_name)
         # If values is not None and is non-empty, extend the attribute
         if val is not None and len(val) > 0:
             # Convert values to numpy array if it's a list
             if isinstance(val, list):
-                val = np.array(val)
+                val = torch.tensor(val, dtype = dtype)
             # If the attribute is None, set it to values
             if attr is None or len(attr) == 0:
                 setattr(self, attr_name, val)
             else:
                 # Convert the attribute to numpy array if it's a list
                 if isinstance(attr, list):
-                    attr = np.array(attr)
+                    attr = torch.tensor(attr, dtype = dtype)
                 # concatenate existing attribute and new values
-                setattr(self, attr_name, np.concatenate((attr, val), axis=0))
+                setattr(self, attr_name, torch.concat((attr, val), dim=0))
 
     def add(self, env_ids, agent_ids, states, actions, rewards, next_states, dones_terminated, dones_truncated, content_length):
-        self._add_attribute('env_ids', env_ids)
-        self._add_attribute('agent_ids', agent_ids)
-        self._add_attribute('states', states)
-        self._add_attribute('actions', actions)
-        self._add_attribute('rewards', rewards)
-        self._add_attribute('next_states', next_states)
-        self._add_attribute('dones_terminated', dones_terminated)
-        self._add_attribute('dones_truncated', dones_truncated)
-        self._add_attribute('content_length', content_length)
+        self._add_attribute('env_ids', env_ids, dtype=torch.int)
+        self._add_attribute('agent_ids', agent_ids, dtype=torch.int)
+        self._add_attribute('states', states, dtype=torch.float)
+        self._add_attribute('actions', actions, dtype=torch.float)
+        self._add_attribute('rewards', rewards, dtype=torch.float)
+        self._add_attribute('next_states', next_states, dtype=torch.float)
+        self._add_attribute('dones_terminated', dones_terminated, dtype=torch.bool)
+        self._add_attribute('dones_truncated', dones_truncated, dtype=torch.bool)
+        self._add_attribute('content_length', content_length, dtype=torch.int)
 
     

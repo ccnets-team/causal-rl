@@ -115,5 +115,5 @@ class AgentExperienceCollector:
         # Select self.agent_data_check positive boolean indices
         agent_ids = torch.nonzero(self.agent_data_check, as_tuple=False).squeeze(-1)
         self.agent_data_check.fill_(False)  # Reset the data check tensor to False
-        return agent_ids.numpy(), self.agent_obs[agent_ids].numpy(), self.agent_action[agent_ids].numpy(), self.agent_reward[agent_ids].numpy(), \
-            self.agent_next_obs[agent_ids].numpy(), self.agent_done_terminated[agent_ids].numpy(), self.agent_done_truncated[agent_ids].numpy(), self.agent_content_lengths[agent_ids].numpy()
+        return agent_ids, self.agent_obs[agent_ids], self.agent_action[agent_ids], self.agent_reward[agent_ids], \
+            self.agent_next_obs[agent_ids], self.agent_done_terminated[agent_ids], self.agent_done_truncated[agent_ids], self.agent_content_lengths[agent_ids]

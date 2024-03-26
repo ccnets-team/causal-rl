@@ -1,4 +1,6 @@
 import torch
+from .distribution_util import create_prob_dist_from_lambdas
+
 LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD = 1e-4
 LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD = 0.5
 
@@ -115,11 +117,7 @@ def calculate_learnable_sequence_length(lambda_sequence,
     :return: The optimal sequence length required for training, based on the relevance of state transitions.
     """
     input_seq_len = lambda_sequence.size(0)  # Use .size(0) to get the length of the tensor
-    lambda_transitions = lambda_sequence.detach().clone()
-    lambda_transitions[-1] = 1  # Ensure the last lambda value is 1 for stability
-    reversed_sequence = lambda_transitions.flip(dims=[0])
-    cumulative_relevance = torch.cumprod(reversed_sequence, dim=0)
-
+    cumulative_relevance = create_prob_dist_from_lambdas(lambda_sequence)
     lambda_chain_val = cumulative_relevance[-1]
     # Determine the optimal length based on lambda_chain_val thresholds
     if lambda_chain_val > lambda_chain_max_threshold:

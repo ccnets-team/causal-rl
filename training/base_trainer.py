@@ -92,6 +92,9 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
     def get_max_seq_len(self):
         return self.sequence_length_learner.get_max_seq_len()
 
+    def get_min_seq_len(self):
+        return self.sequence_length_learner.get_min_seq_len()
+
     def get_td_extension_steps(self):
         return self.sequence_length_learner.get_td_extension_steps()
 
@@ -218,7 +221,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
                 critical for computing expected values and advantages in `compute_values`.
         """
         input_seq_len = self.get_input_seq_len()
-        max_seq_len = self.get_max_seq_len()
         td_extension_steps = self.get_td_extension_steps()
         local_end_indices = selection_end_indices - input_seq_len
         
@@ -259,7 +261,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         """
     
         input_seq_len = self.get_input_seq_len()
-        max_seq_len = self.get_max_seq_len()
         # Calculate future values from the model, used to estimate the expected return from each state.
         future_values = self.trainer_calculate_future_value(states, padding_mask)
         trajectory_values = torch.cat([future_values, end_value], dim=1)

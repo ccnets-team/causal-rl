@@ -83,9 +83,15 @@ class CausalRLHelper:
         return samples is not None and (step % self.train_interval == 0) and self.use_normalizer
 
     def should_train_step(self, samples, step: int) -> bool:
-        """Checks if the model should be trained on the current step."""
-        return samples is not None and (step % self.train_interval == 0) and (step >= self.training_start_step) and (len(self.parent.memory) >= self.batch_size)
-        
+        """
+        Determines whether the model should be trained on the current step.
+        """
+        # Check if there are samples to train on, if the current step aligns with the training interval,
+        # if the step is beyond the designated start step for training, and if the memory buffer is sufficiently large.
+        buffer_ready = len(self.parent.memory) >= self.batch_size
+        timing_ready = (step % self.train_interval == 0) and (step >= self.training_start_step)
+        return samples is not None and timing_ready and buffer_ready        
+    
     # Private Helpers
     def _initialize_training_parameters(self):
         self.max_steps = self.rl_params.max_steps
@@ -117,8 +123,8 @@ class CausalRLHelper:
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
-            max_seq_len = self.parent.trainer.get_max_seq_len()
-            self.parent.memory = ExperienceMemory(self.env_config, max_seq_len, self.batch_size, self.buffer_size, self.parent.device)
+            min_seq_len = self.parent.trainer.get_min_seq_len()
+            self.parent.memory = ExperienceMemory(self.env_config, min_seq_len, self.batch_size, self.buffer_size, self.parent.device)
     
     def should_save_model_at_train_end(self) -> bool:
         """Determines if the model should be saved at the training end."""
