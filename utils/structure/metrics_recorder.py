@@ -192,7 +192,7 @@ class RewardTracker:
     def _add_rewards(self, env_ids, agent_ids, rewards, dones_terminated, dones_truncated):
         if rewards is None:
             return 
-        self.steps[self.index] = 0 if len(rewards) == 0 else np.mean(np.array(rewards, np.float32))
+        self.steps[self.index] = 0 if len(rewards) == 0 else rewards.mean()
         self.counts[self.index] = len(rewards)
 
         for env_id, agent_id, reward, terminated, truncated in zip(env_ids, agent_ids, rewards, dones_terminated, dones_truncated):
