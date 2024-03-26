@@ -5,7 +5,7 @@ from ..utils.tensor_util import keep_right_tensor_sequences
 
 MIN_TD_EXTENSION_STEPS = 4
 TD_EXTENSION_RATIO = 4  # Represents the divisor for calculating the extension steps
-INITIAL_SEQ_LEN_FRACTION = 2/3  # Fraction of max_seq_len used to set the initial input sequence length
+INITIAL_SEQ_LEN_FRACTION = 1  # Fraction of max_seq_len used to set the initial input sequence length
 SEQUENCE_LENGTH_UPDATE_INTERVAL = 1000
 
 class SequenceLengthLearner:
