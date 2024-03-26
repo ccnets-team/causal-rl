@@ -9,7 +9,6 @@ class MultiAgentBuffer:
         self.state_size = state_size
         self.action_size = action_size
         self.device = device
-        self.valid_indices = torch.zeros(num_agents, capacity, dtype=torch.bool, device=device)
         self._reset_buffer()
 
     def __len__(self):
@@ -34,8 +33,8 @@ class MultiAgentBuffer:
         condition_list = self.buffer_sizes[agent_ids] >= self.seq_len - 1
         # Use torch.where to filter indices based on the condition
         filtered_agent_ids, filtered_buffer_indices = agent_ids[condition_list], buffer_indices[condition_list]
-        # Set valid_indices to True for filtered indices
-        self.valid_indices[filtered_agent_ids, filtered_buffer_indices] = True
+        if len(filtered_agent_ids) > 0 or len(filtered_buffer_indices) > 0:
+            self.valid_indices[filtered_agent_ids, filtered_buffer_indices] = True
 
     def _reset_sample_prob(self, agent_ids, indices):
         end_indices = (indices + self.seq_len - 1) % self.capacity
@@ -51,7 +50,7 @@ class MultiAgentBuffer:
         self.terminated = torch.empty((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
         self.truncated = torch.empty((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
         self.content_length = torch.empty((self.num_agents, self.capacity), dtype=torch.int, device=self.device)
-        self.valid_indices.fill_(False)  # Reset all indices to invalid
+        self.valid_indices = torch.zeros((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
 
     def add_transitions(self, agent_ids, states, actions, rewards, next_states, terminateds, truncateds, content_lengths):
         buffer_indices = self.agent_indices[agent_ids]
@@ -65,7 +64,6 @@ class MultiAgentBuffer:
         self.terminated[agent_ids, buffer_indices] = terminateds
         self.truncated[agent_ids, buffer_indices] = truncateds
         self.content_length[agent_ids, buffer_indices] = content_lengths
-        self.valid_indices[agent_ids, buffer_indices] = True
 
         self._assign_sample_prob(agent_ids, buffer_indices)
 

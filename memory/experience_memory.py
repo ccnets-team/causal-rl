@@ -3,7 +3,7 @@ from utils.structure.data_structures import BatchTrajectory, AgentTransitions
 from memory.multi_agent_buffer import MultiAgentBuffer
 
 class ExperienceMemory:
-    def __init__(self, env_config, min_seq_len, batch_size, buffer_size, device):
+    def __init__(self, env_config, max_seq_len, batch_size, buffer_size, device):
         """
         Initializes an experience memory buffer for storing and managing agent experiences.
 
@@ -18,14 +18,14 @@ class ExperienceMemory:
         self.device = device
         self.num_agents = env_config.num_agents * env_config.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
-        self.min_seq_length = min_seq_len
+        self.max_seq_length = max_seq_len
         self.batch_size = batch_size
 
         # Capacity calculation now accounts for all agents across all environments
-        self.capacity_for_agent = buffer_size
+        self.capacity_for_agent = buffer_size//self.num_agents
 
         # Single buffer initialization
-        self.buffer = MultiAgentBuffer('Experience', self.capacity_for_agent, self.num_agents, self.state_size, self.action_size, self.min_seq_length, 'cpu')
+        self.buffer = MultiAgentBuffer('Experience', self.capacity_for_agent, self.num_agents, self.state_size, self.action_size, self.max_seq_length, 'cpu')
 
     def __len__(self):
         return len(self.buffer)
@@ -40,12 +40,6 @@ class ExperienceMemory:
         components = [torch.stack([b[i] for b in samples], dim=0) for i in range(5)]
         states, actions, rewards, next_states, dones = map(lambda x: torch.FloatTensor(x).to(self.device), components)
         return states, actions, rewards, next_states, dones
-
-    def _get_env_agent_ids(self, buffer_id):
-        # Retrieve environment and agent IDs from the global index
-        env_id = buffer_id // self.num_agents
-        agent_id = buffer_id % self.num_agents
-        return env_id, agent_id
 
     def push_transitions(self, transitions: AgentTransitions):
         if transitions.env_ids is None:
@@ -73,7 +67,7 @@ class ExperienceMemory:
         # Select the actual indices based on the permuted indices
         agent_ids = valid_indices[permuted_indices] // self.capacity_for_agent
         buffer_indices = valid_indices[permuted_indices] % self.capacity_for_agent
-
+        
         # Sample trajectories from the buffer
         samples = self.buffer.sample_trajectories(agent_ids, buffer_indices, sample_seq_len)
         if samples is None:

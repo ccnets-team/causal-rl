@@ -123,8 +123,8 @@ class CausalRLHelper:
 
     def _ensure_memory_exists(self):
         if not self.parent.memory:
-            min_seq_len = self.parent.trainer.get_min_seq_len()
-            self.parent.memory = ExperienceMemory(self.env_config, min_seq_len, self.batch_size, self.buffer_size, self.parent.device)
+            max_seq_len = 2 * self.parent.trainer.get_max_seq_len()
+            self.parent.memory = ExperienceMemory(self.env_config, max_seq_len, self.batch_size, self.buffer_size, self.parent.device)
     
     def should_save_model_at_train_end(self) -> bool:
         """Determines if the model should be saved at the training end."""
