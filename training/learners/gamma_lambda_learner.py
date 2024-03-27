@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from ..utils.value_util import compute_lambda_based_returns
+from ..utils.sequence_util import create_init_lambda_sequence
 from ..utils.sequence_util import DISCOUNT_FACTOR, AVERAGE_LAMBDA
 
 class GammaLambdaLearner(nn.Module):
@@ -10,7 +11,7 @@ class GammaLambdaLearner(nn.Module):
         self.lambda_seq_len = lambda_seq_len
     
         discount_factor_init = DISCOUNT_FACTOR * torch.ones(1, device=self.device, dtype=torch.float)
-        lambda_sequence_init = AVERAGE_LAMBDA * torch.ones(lambda_seq_len, device=self.device, dtype=torch.float)
+        lambda_sequence_init = create_init_lambda_sequence(AVERAGE_LAMBDA, lambda_seq_len, device)
         self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(lambda_sequence_init))
 
