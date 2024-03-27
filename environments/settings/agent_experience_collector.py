@@ -21,7 +21,6 @@ class AgentExperienceCollector:
         self.agent_next_obs = torch.zeros((self.num_agents, state_size), dtype=torch.float32, device=device)
         self.agent_done_terminated = torch.zeros((self.num_agents), dtype=torch.bool, device=device)
         self.agent_done_truncated = torch.zeros((self.num_agents), dtype=torch.bool, device=device)
-        self.agent_content_lengths = torch.zeros((self.num_agents), dtype=torch.int, device=device)
         self.agent_data_check = torch.zeros((self.num_agents), dtype=torch.bool, device=device)
 
     def init_observation(self, observations):
@@ -92,11 +91,10 @@ class AgentExperienceCollector:
         agent_ids_ls = agent_ids.tolist()
         return [agent_ids_ls.index(selected_id) for selected_id in selected_next_agent_ids]
 
-    def select_data(self, agent_ids, selected_agent_indices, obs, action, reward, terminated, truncated, content_lengths):
+    def select_data(self, agent_ids, selected_agent_indices, obs, action, reward, terminated, truncated):
         selected_agent_ids = agent_ids[selected_agent_indices]
         selected_obs = obs[selected_agent_indices]
         action = action[selected_agent_indices]
-        content_lengths = content_lengths[selected_agent_indices]
         
         if isinstance(reward, torch.Tensor):
             # Handling booleans in PyTorch
@@ -106,19 +104,18 @@ class AgentExperienceCollector:
             terminated = np.ones_like(reward, dtype=bool) if terminated else np.zeros_like(reward, dtype=bool)
             truncated = np.ones_like(reward, dtype=bool) if truncated else np.zeros_like(reward, dtype=bool)
             
-        return selected_agent_ids, selected_obs, action, reward, terminated, truncated, content_lengths
+        return selected_agent_ids, selected_obs, action, reward, terminated, truncated
 
-    def append_transitions(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, content_lengths):
+    def append_transitions(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated):
         self.agent_obs[agent_ids] = self.to_torch(obs, dtype=torch.float).detach()
         self.agent_action[agent_ids] = self.to_torch(action, dtype=torch.float)
         self.agent_reward[agent_ids] = self.to_torch(reward, dtype=torch.float)
         self.agent_next_obs[agent_ids] = self.to_torch(next_obs.reshape(len(agent_ids), -1), dtype=torch.float)
         self.agent_done_terminated[agent_ids] = self.to_torch(done_terminated, dtype=torch.bool)
         self.agent_done_truncated[agent_ids] = self.to_torch(done_truncated, dtype=torch.bool)
-        self.agent_content_lengths[agent_ids] = self.to_torch(content_lengths, dtype=torch.int)
         self.agent_data_check[agent_ids] = True
 
-    def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, done_terminated, done_truncated, content_lengths):
+    def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, done_terminated, done_truncated):
         if len(next_agent_ids) == 0: return
         if done_truncated is None:
             done_truncated = [False] * len(agent_ids)
@@ -126,18 +123,17 @@ class AgentExperienceCollector:
         # Assume filter_agents and find_indices are other methods that handle specific logic
         selected_next_agent_ids, reward, next_obs = self.filter_agents(agent_ids, next_agent_ids, reward, next_obs)
         selected_agent_indices = self.find_indices(agent_ids, selected_next_agent_ids)
-        selected_agent_ids, obs, action, reward, done_terminated, done_truncated, content_lengths = self.select_data(agent_ids, selected_agent_indices, obs, action, reward, done_terminated, done_truncated, content_lengths)
+        selected_agent_ids, obs, action, reward, done_terminated, done_truncated = self.select_data(agent_ids, selected_agent_indices, obs, action, reward, done_terminated, done_truncated)
         
-        self.append_transitions(selected_agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, content_lengths)
+        self.append_transitions(selected_agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated)
                 
-    def add_transition(self, agent_id, obs_tensor, action, reward, next_obs, done_terminated, done_truncated, content_lengths):
+    def add_transition(self, agent_id, obs_tensor, action, reward, next_obs, done_terminated, done_truncated):
         self.agent_obs[agent_id] = obs_tensor.to(self.device)
         self.agent_action[agent_id] = torch.tensor(action, dtype = torch.float, device = self.device)
         self.agent_reward[agent_id] = torch.tensor(reward, dtype = torch.float, device = self.device)
         self.agent_next_obs[agent_id] = torch.tensor(next_obs, dtype = torch.float, device = self.device)
         self.agent_done_terminated[agent_id] = torch.tensor(done_terminated, dtype = torch.float, device = self.device)
         self.agent_done_truncated[agent_id] = torch.tensor(done_truncated, dtype = torch.float, device = self.device)
-        self.agent_content_lengths[agent_id] = torch.tensor(content_lengths, dtype = torch.float, device = self.device)
         self.agent_data_check[agent_id] = True
 
     def output_transitions(self):
@@ -145,4 +141,4 @@ class AgentExperienceCollector:
         agent_ids = torch.nonzero(self.agent_data_check, as_tuple=False).squeeze(-1)
         self.agent_data_check.fill_(False)  # Reset the data check tensor to False
         return agent_ids, self.agent_obs[agent_ids], self.agent_action[agent_ids], self.agent_reward[agent_ids], \
-            self.agent_next_obs[agent_ids], self.agent_done_terminated[agent_ids], self.agent_done_truncated[agent_ids], self.agent_content_lengths[agent_ids]
+            self.agent_next_obs[agent_ids], self.agent_done_terminated[agent_ids], self.agent_done_truncated[agent_ids]

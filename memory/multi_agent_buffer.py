@@ -49,10 +49,9 @@ class MultiAgentBuffer:
         self.next_states = torch.empty((self.num_agents, self.capacity, self.state_size), dtype=torch.float, device=self.device)
         self.terminated = torch.zeros((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
         self.truncated = torch.empty((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
-        self.content_length = torch.empty((self.num_agents, self.capacity), dtype=torch.int, device=self.device)
         self.valid_indices = torch.zeros((self.num_agents, self.capacity), dtype=torch.bool, device=self.device)
 
-    def add_transitions(self, agent_ids, states, actions, rewards, next_states, terminateds, truncateds, content_lengths):
+    def add_transitions(self, agent_ids, states, actions, rewards, next_states, terminateds, truncateds):
         buffer_indices = self.agent_indices[agent_ids]
         
         self._reset_sample_prob(agent_ids, buffer_indices)
@@ -63,7 +62,6 @@ class MultiAgentBuffer:
         self.next_states[agent_ids, buffer_indices] = next_states
         self.terminated[agent_ids, buffer_indices] = terminateds
         self.truncated[agent_ids, buffer_indices] = truncateds
-        self.content_length[agent_ids, buffer_indices] = content_lengths
 
         self._assign_sample_prob(agent_ids, buffer_indices)
 

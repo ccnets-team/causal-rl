@@ -24,7 +24,7 @@ class ExperienceMemory:
         self.batch_size = batch_size
 
         # Capacity calculation now accounts for all agents across all environments
-        self.capacity_for_agent = buffer_size//self.total_agents
+        self.capacity_for_agent = max(buffer_size//self.total_agents, seq_len + 1)
 
         # Single buffer initialization
         self.buffer = MultiAgentBuffer('Experience', self.capacity_for_agent, self.total_agents, self.state_size, self.action_size, self.seq_length, 'cpu')
@@ -48,7 +48,7 @@ class ExperienceMemory:
             return
         agent_ids = transitions.env_ids * self.num_agents + transitions.agent_ids
         self.buffer.add_transitions(agent_ids, transitions.states, transitions.actions, transitions.rewards, transitions.next_states, \
-            transitions.dones_terminated, transitions.dones_truncated, transitions.content_length)
+            transitions.dones_terminated, transitions.dones_truncated)
         
     def _map_to_flat_agent_id(self, env_id, agent_id):
         # Map the (env_id, agent_id) tuple to a unique flat_agent_id assuming agent_id is unique within each environment
@@ -58,9 +58,19 @@ class ExperienceMemory:
         sample_size = self.batch_size
         total_sample_list = self.buffer.valid_indices.to(self.device).flatten()
         # Filter indices that are marked True (valid)
-        valid_indices = torch.nonzero(total_sample_list, as_tuple=False).squeeze()
+        nonzero_indices = torch.nonzero(total_sample_list, as_tuple=False)
+        # Check if the result is not empty and has more than one dimension
+        if nonzero_indices.nelement() > 0 and nonzero_indices.dim() > 1:
+            valid_indices = nonzero_indices.squeeze()
+        else:
+            # If it's empty or has only one dimension, use it directly
+            valid_indices = nonzero_indices
 
-        if len(valid_indices) < sample_size:
+        # Ensure valid_indices is a 1D tensor for all cases
+        valid_indices = valid_indices.view(-1)
+                
+        # total_sample_list is 0-dimensional, so we need to check if it is empty
+        if valid_indices.numel() == 0 or len(valid_indices) < sample_size:
             return None
 
         # Generate a random permutation of indices up to the length of valid_indices and select the first sample_size elements

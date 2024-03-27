@@ -1,11 +1,6 @@
 import torch
 from .distribution_util import create_prob_dist_from_lambdas
 
-# Constants to define thresholds for dynamically adjusting learnable sequence length based on the final value in a lambda sequence's probability distribution.
-LEARNABLE_SEQ_LEN_MIN_THRESHOLD = 1/4  # Lower bound to potentially shorten the sequence.
-LEARNABLE_SEQ_LEN_MAX_THRESHOLD = 3/4  # Upper bound to potentially extend the sequence.
-
-
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 
@@ -105,30 +100,35 @@ def select_train_sequence(padding_mask, train_seq_length):
     
     return select_mask, end_select_idx
 
-def calculate_learnable_sequence_length(lambda_sequence,
-                                        lambda_chain_min_threshold=LEARNABLE_SEQ_LEN_MIN_THRESHOLD,
-                                        lambda_chain_max_threshold=LEARNABLE_SEQ_LEN_MAX_THRESHOLD):
+def calculate_learnable_sequence_length(lambda_sequence, extend_seq_multiplier = 0.1):
     """
-    Calculates the optimal sequence length for training in a reinforcement learning environment, based on
-    the relevance of state transitions determined by lambda values. This approach optimizes computational
-    resources by focusing on significant associations between states.
+    Calculates the optimal sequence length for training in a reinforcement learning environment by analyzing the 
+    probability distribution derived from lambda values. This method aims to optimize computational resources by 
+    identifying the most significant state transitions for efficient and relevant sampling.
+
+    The function compares the cumulative relevance of the first half of the sequence against the second half. 
+    If the relevance of the first half, when scaled by the extend_seq_multiplier, exceeds that of the second half, 
+    the sequence is considered for extension. Conversely, if the second half's relevance is greater, the sequence 
+    may be shortened to focus training on the most impactful transitions.
 
     :param lambda_sequence: A tensor of lambda values representing the relevance of state transitions in a trajectory.
-    :param lambda_chain_min_threshold: The minimum threshold of cumulative relevance score to consider a transition relevant.
-    :param lambda_chain_max_threshold: The maximum threshold of cumulative relevance score to consider a transition relevant.
-    :return: The optimal sequence length required for training, based on the relevance of state transitions.
+    :param extend_seq_multiplier: The multiplier applied to the cumulative relevance of the first half of the sequence to assess the potential for extending the sequence length.
+    :return: The optimal sequence length required for efficient training, determined through the analysis of the lambda-derived probability distribution.
     """
-    input_seq_len = lambda_sequence.size(0)  # Use .size(0) to get the length of the tensor
-    cumulative_relevance = create_prob_dist_from_lambdas(lambda_sequence)
-    cumulative_relevance_score = cumulative_relevance[-1].item()
-    # Determine the optimal length based on cumulative_relevance_score thresholds
-    if cumulative_relevance_score > lambda_chain_max_threshold:
-        optimal_length = input_seq_len + 1
-    elif cumulative_relevance_score < lambda_chain_min_threshold:
-        optimal_length = max(0, input_seq_len - 1)  # Ensure optimal_length is not negative
+    input_seq_len = lambda_sequence.size(0)  # Determine the sequence length from the tensor
+    prob_dist_from_lambdas = create_prob_dist_from_lambdas(lambda_sequence)
+    front_half_prob = prob_dist_from_lambdas[:input_seq_len//2].sum()
+    rear_half_prob = prob_dist_from_lambdas[-input_seq_len//2:].sum()
+
+    if front_half_prob < extend_seq_multiplier * rear_half_prob:
+        optimal_length = input_seq_len + 1  # Consider extending the sequence
+    elif front_half_prob > rear_half_prob:
+        optimal_length = max(0, input_seq_len - 1)
     else:
-        optimal_length = input_seq_len  # Use the input length if within thresholds
+        optimal_length = input_seq_len  # Maintain the current sequence length if relevance is balanced
+
     return optimal_length
+
 
 def select_sequence_range(seq_range, *tensors):
     # Apply truncation based on the calculated idx

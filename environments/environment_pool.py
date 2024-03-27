@@ -36,8 +36,8 @@ class EnvironmentPool:
     def fetch_transitions(self):
         transitions = AgentTransitions()
         for env_idx, env in enumerate(self.env_list):
-            agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, np_content_length = env.output_transitions()
-            transitions.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, np_content_length)
+            agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated = env.output_transitions()
+            transitions.add([env_idx] * len(agent_ids), agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated)
         return transitions
         
     def explore_environments(self, trainer, training):
@@ -51,28 +51,23 @@ class EnvironmentPool:
         padding_mask = _padding_mask[:, -input_seq_len:]
         
         if training:
-            padding_mask, content_lengths = trainer.apply_sequence_masking(padding_mask)
-        else:
-            content_lengths = trainer.get_optimal_content_lengths(input_seq_len)
-            content_lengths = content_lengths.expand(padding_mask.size(0))
-        
+            padding_mask = trainer.apply_sequence_masking(padding_mask)
+                    
         state_tensor = trainer.normalize_states(state_tensor)
         action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
         
         # Apply actions to environments
-        self.apply_actions_to_envs(action_tensor, content_lengths)
+        self.apply_actions_to_envs(action_tensor)
 
-    def apply_actions_to_envs(self, action_tensor, content_lengths):
+    def apply_actions_to_envs(self, action_tensor):
         np_action = action_tensor.cpu().numpy()
-        np_content_lengths = content_lengths.cpu().numpy()
         start_idx = 0
         for env in self.env_list:
             end_idx = start_idx + len(env.agent_dec)
             valid_action = np_action[start_idx:end_idx][env.agent_dec]
-            valid_content_lengths = np_content_lengths[start_idx:end_idx][env.agent_dec]
 
             select_valid_action = valid_action[:, -1, :]
-            env.update(select_valid_action, valid_content_lengths)
+            env.update(select_valid_action)
             start_idx = end_idx
             
     @staticmethod

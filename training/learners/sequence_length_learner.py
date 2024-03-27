@@ -11,7 +11,7 @@ SEQUENCE_LENGTH_UPDATE_INTERVAL = 1000
 class SequenceLengthLearner:
     def __init__(self, max_seq_len, device):
         self.max_seq_len = max_seq_len
-        self.min_seq_len = max_seq_len // 2
+        self.min_seq_len = max_seq_len // 4  # Minimum sequence length set to 1/4 of max_seq_len
         self.input_seq_len = self.max_seq_len  # Initially set to max_seq_len; updated in first call
         self.device = device
         # Initialization flag to check if _initialize has been called
@@ -51,6 +51,9 @@ class SequenceLengthLearner:
 
     def get_total_seq_len(self):
         return self.tot_seq_len
+
+    def get_max_td_extension_steps(self):
+        return max(self.max_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
 
     def get_td_extension_steps(self):
         return self.td_extension_steps

@@ -36,9 +36,9 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
         agent_indices = np.nonzero(self.agent_life)[0]        
         agent_states = self.observations.get_obs(agent_indices=agent_indices, seq_indices=-1)
         actions = self.actions[self.agent_life]
-        content_lengthss = self.content_lengths[self.agent_life]
         self.agent_dec.fill(False)
-        return agent_ids, agent_states, actions, content_lengthss
+        return agent_ids, agent_states, actions
+    
 
     def get_steps(self):
         self.dec, self.term = self.env.get_steps(self.behavior_name)
@@ -55,7 +55,7 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
     
     def step(self):
         # Retrieve and process environment steps
-        agent_ids, state, action, content_lengths = self.init_variables()
+        agent_ids, state, action = self.init_variables()
         term_agents, dec_agents, term_reward, dec_reward, term_next_obs, dec_next_obs = self.get_steps()
         self.update_agent_life(term_agents, dec_agents)
 
@@ -73,11 +73,11 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
 
         # Store transitions in the experience buffer
         if len(agent_ids) > 0:
-            self.push_transitions(agent_ids, state, action, term_agents, term_reward, term_next_obs, done_terminated=True, done_truncated=False, content_lengths = content_lengths)
+            self.push_transitions(agent_ids, state, action, term_agents, term_reward, term_next_obs, done_terminated=True, done_truncated=False)
             dec_agents, dec_reward, dec_next_obs = self.filter_data(dec_agents, term_agents, dec_reward, dec_next_obs)
-            self.push_transitions(agent_ids, state, action, dec_agents, dec_reward, dec_next_obs, done_terminated=False, done_truncated=False, content_lengths = content_lengths)
+            self.push_transitions(agent_ids, state, action, dec_agents, dec_reward, dec_next_obs, done_terminated=False, done_truncated=False)
         
-    def update(self, action, content_lengths):
+    def update(self, action):
         action_tuple = ActionTuple()
         if self.use_discrete:
             discrete_action = np.argmax(action, axis=1) + 1
@@ -88,7 +88,6 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
             action_tuple.add_continuous(continuous_action)
             
         self.actions[self.agent_dec] = action
-        self.content_lengths[self.agent_dec] = content_lengths
         self.env.set_actions(self.behavior_name, action_tuple)
         self.env.step()
         return

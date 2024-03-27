@@ -71,7 +71,6 @@ class ExplorationManager:
         """
         batch_size = padding_mask.size(0)
         seq_len = padding_mask.size(1)
-        cur_content_lengths = self.get_content_lengths(padding_mask)
         
         sampled_content_lengths = self.sample_content_lengths(batch_size, seq_len)
         sampled_padding_lengths = seq_len - sampled_content_lengths
@@ -82,7 +81,5 @@ class ExplorationManager:
         sampled_padding_slots = range_tensor < sampled_padding_lengths.unsqueeze(1)
 
         padding_mask[sampled_padding_slots] = 0.0
-
-        selected_content_lengths = torch.min(cur_content_lengths, sampled_content_lengths)
         
-        return padding_mask, selected_content_lengths
+        return padding_mask
