@@ -35,13 +35,57 @@ class AgentExperienceCollector:
                 raise ValueError(f"Unsupported observation shape: {shape}")
         return struct_observations
 
+    def select_observations(self, struct_observations):
+        vector_observations = []
+        for key, observation in struct_observations.items():
+            if 'vector' in key:
+                # Ensure observation is a PyTorch tensor
+                if not isinstance(observation, torch.Tensor):
+                    # Convert to tensor. Specify the device and dtype as needed.
+                    observation = torch.tensor(observation, device=self.device)
+                vector_observations.append(observation)
+            elif 'image' in key:
+                # Handle differently or raise an error based on your requirements
+                raise ValueError(f"Unsupported image observations: {key}")
+        if vector_observations:
+            # Concatenate along the specified dimension if vector observations exist
+            cat_observation = torch.cat(vector_observations, dim=1)
+        else:
+            # Handle the case where there are no vector observations
+            cat_observation = torch.tensor([], device=self.device)
+        return cat_observation
+    
+    def to_torch(self, data, dtype=None):
+        """
+        Checks if the data is a PyTorch tensor, and converts it to one if not.
+        Sets the tensor to the specified device.
+        
+        Parameters:
+        - data: The input data to be converted.
+        - dtype: The desired data type of the tensor.
+        
+        Returns:
+        - A PyTorch tensor of the specified data type on the correct device.
+        """
+        if not isinstance(data, torch.Tensor):
+            data = torch.tensor(data, device=self.device, dtype=dtype if dtype else torch.float)
+        else:
+            data = data.to(self.device)
+        return data
+    
     def filter_data(self, target_ids, exclude_ids, reward, observations):
         # Create a mask for target_ids not in exclude_ids
-        mask = ~torch.isin(target_ids, exclude_ids)
+        if isinstance(target_ids, torch.Tensor):
+            mask = ~torch.isin(target_ids, exclude_ids)
+        else:
+            mask = ~np.isin(target_ids, exclude_ids)
         return target_ids[mask], reward[mask], observations[mask]
 
     def filter_agents(self, agent_ids, next_agent_ids, reward, next_obs):
-        next_agent_check = torch.isin(next_agent_ids, agent_ids)
+        if isinstance(next_agent_ids, torch.Tensor):
+            next_agent_check = torch.isin(next_agent_ids, agent_ids)
+        else:
+            next_agent_check = np.isin(next_agent_ids, agent_ids)
         return next_agent_ids[next_agent_check], reward[next_agent_check], next_obs[next_agent_check]
 
     def find_indices(self, agent_ids, selected_next_agent_ids):
@@ -54,53 +98,38 @@ class AgentExperienceCollector:
         action = action[selected_agent_indices]
         content_lengths = content_lengths[selected_agent_indices]
         
-        # Handling booleans in PyTorch
-        terminated = torch.ones_like(reward, dtype=torch.bool) if terminated else torch.zeros_like(reward, dtype=torch.bool)
-        truncated = torch.ones_like(reward, dtype=torch.bool) if truncated else torch.zeros_like(reward, dtype=torch.bool)
-        
+        if isinstance(reward, torch.Tensor):
+            # Handling booleans in PyTorch
+            terminated = torch.ones_like(reward, dtype=torch.bool) if terminated else torch.zeros_like(reward, dtype=torch.bool)
+            truncated = torch.ones_like(reward, dtype=torch.bool) if truncated else torch.zeros_like(reward, dtype=torch.bool)
+        else:
+            terminated = np.ones_like(reward, dtype=bool) if terminated else np.zeros_like(reward, dtype=bool)
+            truncated = np.ones_like(reward, dtype=bool) if truncated else np.zeros_like(reward, dtype=bool)
+            
         return selected_agent_ids, selected_obs, action, reward, terminated, truncated, content_lengths
 
-    def select_observations(self, struct_observations):
-        vector_observations = []
-        for key, observation in struct_observations.items():
-            if 'vector' in key:
-                vector_observations.append(observation)
-            elif 'image' in key:
-                # Handle differently or raise an error based on your requirements
-                raise ValueError(f"Unsupported image observations: {key}")
-        if vector_observations:
-            cat_observation = torch.cat(vector_observations, dim=1)
-        else:
-            # Handle the case where there are no vector observations
-            cat_observation = torch.tensor([], device=self.device)
-        return cat_observation
-
     def append_transitions(self, agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, content_lengths):
-        # Ensure all inputs are NumPy arrays and properly reshaped or flattened as needed
-        # This example assumes obs and next_obs need flattening to match the pre-allocated array shapes
-        # obs_flat = obs.reshape(len(agent_ids), -1)  # Reshape obs to ensure it fits into the agent_obs array
-        next_obs_flat = next_obs.reshape(len(agent_ids), -1)  # Same for next_obs
-        # Directly update the arrays for each agent using advanced indexing
-        self.agent_obs[agent_ids] = obs.to(self.device).detach()
-        self.agent_action[agent_ids] = torch.tensor(action, dtype=torch.float, device=self.device)  # Assuming action is already correctly shaped
-        self.agent_reward[agent_ids] = torch.tensor(reward, dtype=torch.float, device=self.device)
-        self.agent_next_obs[agent_ids] = torch.tensor(next_obs_flat, dtype=torch.float, device=self.device)
-        self.agent_done_terminated[agent_ids] = torch.tensor(done_terminated, dtype=torch.bool, device=self.device)
-        self.agent_done_truncated[agent_ids] = torch.tensor(done_truncated, dtype=torch.bool, device=self.device)
-        self.agent_content_lengths[agent_ids] = torch.tensor(content_lengths, dtype=torch.int, device=self.device)
+        self.agent_obs[agent_ids] = self.to_torch(obs, dtype=torch.float).detach()
+        self.agent_action[agent_ids] = self.to_torch(action, dtype=torch.float)
+        self.agent_reward[agent_ids] = self.to_torch(reward, dtype=torch.float)
+        self.agent_next_obs[agent_ids] = self.to_torch(next_obs.reshape(len(agent_ids), -1), dtype=torch.float)
+        self.agent_done_terminated[agent_ids] = self.to_torch(done_terminated, dtype=torch.bool)
+        self.agent_done_truncated[agent_ids] = self.to_torch(done_truncated, dtype=torch.bool)
+        self.agent_content_lengths[agent_ids] = self.to_torch(content_lengths, dtype=torch.int)
         self.agent_data_check[agent_ids] = True
 
     def push_transitions(self, agent_ids, obs, action, next_agent_ids, reward, next_obs, done_terminated, done_truncated, content_lengths):
         if len(next_agent_ids) == 0: return
         if done_truncated is None:
             done_truncated = [False] * len(agent_ids)
-        
+
+        # Assume filter_agents and find_indices are other methods that handle specific logic
         selected_next_agent_ids, reward, next_obs = self.filter_agents(agent_ids, next_agent_ids, reward, next_obs)
-        
         selected_agent_indices = self.find_indices(agent_ids, selected_next_agent_ids)
         selected_agent_ids, obs, action, reward, done_terminated, done_truncated, content_lengths = self.select_data(agent_ids, selected_agent_indices, obs, action, reward, done_terminated, done_truncated, content_lengths)
+        
         self.append_transitions(selected_agent_ids, obs, action, reward, next_obs, done_terminated, done_truncated, content_lengths)
-
+                
     def add_transition(self, agent_id, obs_tensor, action, reward, next_obs, done_terminated, done_truncated, content_lengths):
         self.agent_obs[agent_id] = obs_tensor.to(self.device)
         self.agent_action[agent_id] = torch.tensor(action, dtype = torch.float, device = self.device)

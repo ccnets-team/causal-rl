@@ -66,18 +66,22 @@ class EnvObservation:
         # Set the last time dimension to 0 for data of 'dec_agents'
         self.mask[dec_agents, -1] = 1
 
-    def to_vector(self, seq_range=None):
+    def get_obs(self, agent_indices = None, seq_indices = None):
         """
         Convert the observations to a vector format.
         This method selects specified sequence data for each agent.
         If seq_range is None, selects all time steps.
         """
+        # Determine the agent indices to use
+        if agent_indices is None:
+            agent_indices = slice(None)  # Select all sequences if none specified
+
         # Determine the sequence range to use
-        if seq_range is None:
-            seq_range = slice(None)  # Select all sequences if none specified
+        if seq_indices is None:
+            seq_indices = slice(None)  # Select all sequences if none specified
 
         # Filter the data for observations and select sequences based on seq_range
-        filtered_data = {k: v[:, seq_range, :] for k, v in self.data.items()}  # Select the latest sequence data
+        filtered_data = {k: v[agent_indices, seq_indices, :] for k, v in self.data.items()}  # Select the latest sequence data
  
         # Use advanced indexing to collect the tensors
         vectors = [v for v in filtered_data.values()]

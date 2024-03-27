@@ -5,8 +5,8 @@ from .settings.agent_experience_collector import AgentExperienceCollector
 from .settings.reinforcement_agent import ReinforcementAgent
 
 class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector): 
-    def __init__(self, env_config, seq_len, test_env, use_graphics: bool, device, worker_id, seed = 0, time_scale = 256):
-        ReinforcementAgent.__init__(self, env_config, seq_len, device)
+    def __init__(self, env_config, max_seq_len, test_env, device, use_graphics: bool, worker_id, seed = 0, time_scale = 256):
+        ReinforcementAgent.__init__(self, env_config, max_seq_len, device)
         AgentExperienceCollector.__init__(self, env_config, 'cpu')        
         self.env_time_scale = 1.5 if use_graphics else time_scale
         
@@ -31,12 +31,14 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
             
     def init_variables(self):
         agent_ids = self.agent_ids[self.agent_life]
-        states = self.observations[self.agent_life, -1].to_vector()
         
+        # Convert boolean array to indices
+        agent_indices = np.nonzero(self.agent_life)[0]        
+        agent_states = self.observations.get_obs(agent_indices=agent_indices, seq_indices=-1)
         actions = self.actions[self.agent_life]
         content_lengthss = self.content_lengths[self.agent_life]
         self.agent_dec.fill(False)
-        return agent_ids, states, actions, content_lengthss
+        return agent_ids, agent_states, actions, content_lengthss
 
     def get_steps(self):
         self.dec, self.term = self.env.get_steps(self.behavior_name)
@@ -86,7 +88,7 @@ class MLAgentsEnvWrapper(ReinforcementAgent, AgentExperienceCollector):
             action_tuple.add_continuous(continuous_action)
             
         self.actions[self.agent_dec] = action
-        self.content_lengthss[self.agent_dec] = content_lengths
+        self.content_lengths[self.agent_dec] = content_lengths
         self.env.set_actions(self.behavior_name, action_tuple)
         self.env.step()
         return

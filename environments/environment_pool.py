@@ -5,7 +5,7 @@ from utils.structure.data_structures  import AgentTransitions
 import torch
 
 class EnvironmentPool: 
-    def __init__(self, env_config, seq_len, device, test_env, use_graphics):
+    def __init__(self, env_config, max_seq_len, device, test_env, use_graphics):
         super(EnvironmentPool, self).__init__()
         worker_num = 1 if test_env else env_config.num_environments
         
@@ -13,11 +13,11 @@ class EnvironmentPool:
         w_id += 100
         self.device = device        
         if env_config.env_type == "gym":
-            self.env_list = [GymEnvWrapper(env_config, seq_len, test_env, device, use_graphics = use_graphics, seed= int(w_id + i)) \
+            self.env_list = [GymEnvWrapper(env_config, max_seq_len, test_env, device, use_graphics = use_graphics, seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
         elif env_config.env_type == "mlagents":
-            self.env_list = [MLAgentsEnvWrapper(env_config, seq_len, test_env, device, use_graphics = use_graphics, \
+            self.env_list = [MLAgentsEnvWrapper(env_config, max_seq_len, test_env, device, use_graphics = use_graphics, \
                 worker_id = int(w_id + i), seed= int(w_id + i)) \
                 for i in range(worker_num)]
             
@@ -42,7 +42,7 @@ class EnvironmentPool:
         
     def explore_environments(self, trainer, training):
         trainer.set_train(training = training)
-        _state_tensor = torch.cat([env.observations.to_vector() for env in self.env_list], dim=0)
+        _state_tensor = torch.cat([env.observations.get_obs() for env in self.env_list], dim=0)
         _padding_mask = torch.cat([env.observations.mask for env in self.env_list], dim=0)
         
         # In your training loop or function

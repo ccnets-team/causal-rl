@@ -1,8 +1,10 @@
 import torch
 from .distribution_util import create_prob_dist_from_lambdas
 
-LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD = 0.9
-LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD = 0.1
+# Constants to define thresholds for dynamically adjusting learnable sequence length based on the final value in a lambda sequence's probability distribution.
+LEARNABLE_SEQ_LEN_MIN_THRESHOLD = 1/4  # Lower bound to potentially shorten the sequence.
+LEARNABLE_SEQ_LEN_MAX_THRESHOLD = 3/4  # Upper bound to potentially extend the sequence.
+
 
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
@@ -104,25 +106,25 @@ def select_train_sequence(padding_mask, train_seq_length):
     return select_mask, end_select_idx
 
 def calculate_learnable_sequence_length(lambda_sequence,
-                                        lambda_chain_min_threshold = LEARNABLE_LAMBDA_CHAIN_MIN_THRESHOLD,
-                                        lambda_chain_max_threshold = LEARNABLE_LAMBDA_CHAIN_MAX_THRESHOLD):
+                                        lambda_chain_min_threshold=LEARNABLE_SEQ_LEN_MIN_THRESHOLD,
+                                        lambda_chain_max_threshold=LEARNABLE_SEQ_LEN_MAX_THRESHOLD):
     """
     Calculates the optimal sequence length for training in a reinforcement learning environment, based on
     the relevance of state transitions determined by lambda values. This approach optimizes computational
     resources by focusing on significant associations between states.
 
     :param lambda_sequence: A tensor of lambda values representing the relevance of state transitions in a trajectory.
-    :param lambda_chain_min_threshold: The minimum threshold of lambda chain value to consider a transition relevant.
-    :param lambda_chain_max_threshold: The maximum threshold of lambda chain value to consider a transition relevant.
+    :param lambda_chain_min_threshold: The minimum threshold of cumulative relevance score to consider a transition relevant.
+    :param lambda_chain_max_threshold: The maximum threshold of cumulative relevance score to consider a transition relevant.
     :return: The optimal sequence length required for training, based on the relevance of state transitions.
     """
     input_seq_len = lambda_sequence.size(0)  # Use .size(0) to get the length of the tensor
     cumulative_relevance = create_prob_dist_from_lambdas(lambda_sequence)
-    lambda_chain_val = cumulative_relevance[-1].item()
-    # Determine the optimal length based on lambda_chain_val thresholds
-    if lambda_chain_val > lambda_chain_max_threshold:
+    cumulative_relevance_score = cumulative_relevance[-1].item()
+    # Determine the optimal length based on cumulative_relevance_score thresholds
+    if cumulative_relevance_score > lambda_chain_max_threshold:
         optimal_length = input_seq_len + 1
-    elif lambda_chain_val <lambda_chain_min_threshold:
+    elif cumulative_relevance_score < lambda_chain_min_threshold:
         optimal_length = max(0, input_seq_len - 1)  # Ensure optimal_length is not negative
     else:
         optimal_length = input_seq_len  # Use the input length if within thresholds

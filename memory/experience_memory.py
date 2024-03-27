@@ -16,16 +16,18 @@ class ExperienceMemory:
             device: The computational device (CPU or GPU) where the data will be stored.
         """
         self.device = device
-        self.num_agents = env_config.num_agents * env_config.num_environments
+        self.num_agents = env_config.num_agents
+        self.num_environments = env_config.num_environments
+        self.total_agents = self.num_agents * self.num_environments
         self.state_size, self.action_size = env_config.state_size, env_config.action_size
         self.seq_length = seq_len
         self.batch_size = batch_size
 
         # Capacity calculation now accounts for all agents across all environments
-        self.capacity_for_agent = buffer_size//self.num_agents
+        self.capacity_for_agent = buffer_size//self.total_agents
 
         # Single buffer initialization
-        self.buffer = MultiAgentBuffer('Experience', self.capacity_for_agent, self.num_agents, self.state_size, self.action_size, self.seq_length, 'cpu')
+        self.buffer = MultiAgentBuffer('Experience', self.capacity_for_agent, self.total_agents, self.state_size, self.action_size, self.seq_length, 'cpu')
 
     def __len__(self):
         return len(self.buffer)
@@ -50,7 +52,7 @@ class ExperienceMemory:
         
     def _map_to_flat_agent_id(self, env_id, agent_id):
         # Map the (env_id, agent_id) tuple to a unique flat_agent_id assuming agent_id is unique within each environment
-        return env_id * self.num_agents + agent_id
+        return env_id * self.total_agents + agent_id
 
     def sample_batch_trajectory(self, sample_seq_len):
         sample_size = self.batch_size
