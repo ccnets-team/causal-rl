@@ -45,7 +45,6 @@ def create_prob_dist_from_lambdas(lambda_values):
     """
     # Ensure the last lambda value is set to 1 for stability
     lambda_sequence = lambda_values.detach().clone()
-    lambda_sequence[-1] = 1
     
     n = len(lambda_sequence)
     # Prepare a reversed lambda sequence expanded across rows for cumulative product calculation
@@ -65,12 +64,19 @@ def create_prob_dist_from_lambdas(lambda_values):
 
     # Prepare for adjustment by zeroing out lower triangle excluding the diagonal
     reversed_lambda_adjusted = reversed_lambda_prepared.clone()
-    reversed_lambda_adjusted[lower_tri_mask] = 0
     
     # Adjust for non-terminal sequences by multiplying with (1 - lambda value) for each sequence
     cumprod_reversed_lambda[:, :-1] *= (1 - reversed_lambda_adjusted[:, 1:])
+
+    # Calculate sequence length ratios, accounting for their position in the sequence
+    sequence_lengths = torch.arange(1, n + 1, dtype=torch.float32, device=lambda_values.device)
+    sequence_ratios = sequence_lengths / sequence_lengths.sum()
+    reversed_sequence_ratios = torch.flip(sequence_ratios, dims=[0]).unsqueeze(1)
     
-    # Calculate the contribution of each lambda across the sequence by averaging
-    prob_dist = cumprod_reversed_lambda.mean(dim=0)
+    # Calculate the contribution of each lambda across the sequence
+    sequence_contribution = reversed_sequence_ratios * cumprod_reversed_lambda
     
-    return prob_dist
+    # Calculate the contribution of each lambda across the sequence by summing the contributions
+    lambda_prob_dist = sequence_contribution.sum(dim=0)
+    
+    return lambda_prob_dist

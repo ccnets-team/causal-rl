@@ -118,7 +118,7 @@ def calculate_learnable_sequence_length(lambda_sequence,
     """
     input_seq_len = lambda_sequence.size(0)  # Use .size(0) to get the length of the tensor
     cumulative_relevance = create_prob_dist_from_lambdas(lambda_sequence)
-    lambda_chain_val = cumulative_relevance[-1]
+    lambda_chain_val = cumulative_relevance[-1].item()
     # Determine the optimal length based on lambda_chain_val thresholds
     if lambda_chain_val > lambda_chain_max_threshold:
         optimal_length = input_seq_len + 1

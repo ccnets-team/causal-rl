@@ -54,7 +54,7 @@ class GammaLambdaLearner(nn.Module):
             sum_reward_weights = self.td_sum_reward_weights
         else:
             sum_reward_weights = self.input_sum_reward_weights
-        return TARGET_TD_ERROR_SCALE*sum_reward_weights
+        return sum_reward_weights
 
     def update_sum_reward_weights(self, input_seq_len, td_extension_steps):
         # Parameters are now accessed directly from the class attributes
