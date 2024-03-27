@@ -1,42 +1,47 @@
 import os
 import torch
-from ..utils.sequence_util import calculate_learnable_sequence_length
-
-# Constants for TD extension and sequence length calculation
-MIN_TD_EXTENSION_STEPS = 1
-TD_EXTENSION_RATIO = 4  # Used to calculate the extension steps
-INITIAL_SEQ_LEN_FRACTION = 1/2  # Fraction of max_seq_len for initial sequence length
-SEQUENCE_LENGTH_UPDATE_INTERVAL = 1000
+from ..utils.sequence_util import calculate_learnable_sequence_length, create_prob_dist_from_lambdas
+from ..utils.sequence_util import MIN_TD_EXTENSION_STEPS, TD_EXTENSION_RATIO
 
 class SequenceLengthLearner:
-    def __init__(self, max_seq_len, device):
+    def __init__(self, gamma_lambda_learner_for_seq, max_seq_len, use_auto_init_lambdas=False):
         self.max_seq_len = max_seq_len
         self.min_seq_len = max_seq_len // 4  # Minimum sequence length set to 1/4 of max_seq_len
-        self.input_seq_len = self.max_seq_len  # Initially set to max_seq_len; updated in first call
-        self.device = device
-        # Initialization flag to check if _initialize has been called
-        self.is_init = False
-        self._update_td_extension_steps()
-
-    def _initialize(self):
-        """Initialize or reset the input sequence length to a fraction of the maximum length."""
-        self.input_seq_len = int(self.max_seq_len * INITIAL_SEQ_LEN_FRACTION)
+        self.input_seq_len = max_seq_len  # Initially set to max_seq_len; updated based on learnings
+        self.gamma_lambda_learner_for_seq = gamma_lambda_learner_for_seq
+        
+        # Flags to track the initialization status
+        self.init_lambda_first_dist = False if use_auto_init_lambdas else True 
+        self.init_lambda_second_dist = False if use_auto_init_lambdas else True 
+        
+        # Initialize TD extension steps
         self._update_td_extension_steps()
 
     def _update_td_extension_steps(self):
-        """Update the TD extension steps based on the current input sequence length."""
+        """Update TD extension steps based on the current input sequence length."""
         self.td_extension_steps = max(self.input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
-        self.tot_seq_len = self.input_seq_len + self.td_extension_steps
+        self.total_seq_len = self.input_seq_len + self.td_extension_steps
 
-    def update_learnable_length(self, lambd):
-        """Updates learnable sequence length based on lambda value and adjusts TD extension steps."""
-        if not self.is_init:
-            self._initialize()
-            self.is_init = True
+    def update_sequence_length(self):
+        """Update learnable sequence length based on lambda values and adjust TD extension steps."""
+        current_input_seq_len = self.get_input_seq_len()
+        lambda_values = self.gamma_lambda_learner_for_seq.get_lambdas(seq_range=(-current_input_seq_len, None))
+        
+        if not self.init_lambda_second_dist:
+            if not self.init_lambda_first_dist:
+                self.first_distribution = create_prob_dist_from_lambdas(lambda_values)
+                self.init_lambda_first_dist = True
+            else:
+                self.second_distribution = create_prob_dist_from_lambdas(lambda_values)
+                initial_length = torch.argmax(self.second_distribution - self.first_distribution, dim=0).long().item() + 1
+                self.gamma_lambda_learner_for_seq.reset_lambdas(start_id = initial_length)
+                self.input_seq_len = min(max(initial_length, self.min_seq_len), self.max_seq_len)
+                self.init_lambda_second_dist = True
         else:
-            optimal_length = calculate_learnable_sequence_length(lambd)
+            optimal_length = calculate_learnable_sequence_length(lambda_values)
             self.input_seq_len = min(max(optimal_length, self.min_seq_len), self.max_seq_len)
         
+        # Update TD extension steps with the new sequence length
         self._update_td_extension_steps()
 
     # Getter methods for sequence length properties
@@ -50,7 +55,7 @@ class SequenceLengthLearner:
         return self.min_seq_len
 
     def get_total_seq_len(self):
-        return self.tot_seq_len
+        return self.total_seq_len
 
     def get_max_td_extension_steps(self):
         return max(self.max_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)

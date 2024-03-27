@@ -1,6 +1,15 @@
 import torch
 from .distribution_util import create_prob_dist_from_lambdas
 
+LEARNABLE_TD_UPDATE_INTERVAL = 2
+DISCOUNT_FACTOR = 0.99
+AVERAGE_LAMBDA = 0.9
+
+# Constants for TD extension and sequence length calculation
+MIN_TD_EXTENSION_STEPS = 1
+TD_EXTENSION_RATIO = 4  # Used to calculate the extension steps
+SEQUENCE_LENGTH_UPDATE_INTERVAL = 1000
+
 def create_padding_mask_before_dones(dones: torch.Tensor) -> torch.Tensor:
     """
     Creates a padding mask for a trajectory by sampling from the end of the sequence. The mask is set to 0 
@@ -100,7 +109,7 @@ def select_train_sequence(padding_mask, train_seq_length):
     
     return select_mask, end_select_idx
 
-def calculate_learnable_sequence_length(lambda_sequence, extend_seq_multiplier = 0.1):
+def calculate_learnable_sequence_length(lambda_sequence, extend_seq_multiplier = 1 - AVERAGE_LAMBDA):
     """
     Calculates the optimal sequence length for training in a reinforcement learning environment by analyzing the 
     probability distribution derived from lambda values. This method aims to optimize computational resources by 

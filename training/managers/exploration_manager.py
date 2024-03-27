@@ -34,7 +34,7 @@ class ExplorationManager:
     def sample_sequence_probabilities(self, input_seq_len, use_smoothed_probs=False):
         """Generates or samples from a probability distribution for sequence lengths based on TD(λ) values.
         Optionally smooths the distribution using a Gaussian kernel for a more generalized probability curve."""
-        lambd = self.gamma_lambda_learner_for_exploration.get_lambda(seq_range = (-input_seq_len, None))
+        lambd = self.gamma_lambda_learner_for_exploration.get_lambdas(seq_range = (-input_seq_len, None))
         lambda_sequence_probs = create_prob_dist_from_lambdas(lambd)
         if use_smoothed_probs:
             kernel = self.get_gaussian_kernel(input_seq_len)
