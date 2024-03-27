@@ -42,7 +42,7 @@ class GammaLambdaLearner(nn.Module):
             new_raw_lambdas = new_lambdas
 
         # Update the raw lambda parameter
-        self.raw_lambd = nn.Parameter(new_raw_lambdas)
+        self.raw_lambd.data = new_raw_lambdas
                 
     def save(self, path):
         torch.save({'raw_gamma': self.raw_gamma, 'raw_lambd': self.raw_lambd}, path)

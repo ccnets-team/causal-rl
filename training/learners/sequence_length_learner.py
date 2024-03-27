@@ -13,6 +13,7 @@ class SequenceLengthLearner:
         # Flags to track the initialization status
         self.init_lambda_first_dist = False if use_auto_init_lambdas else True 
         self.init_lambda_second_dist = False if use_auto_init_lambdas else True 
+        self.init_half_seq_len = True if use_auto_init_lambdas else False 
         
         # Initialize TD extension steps
         self._update_td_extension_steps()
@@ -34,9 +35,12 @@ class SequenceLengthLearner:
             else:
                 self.second_distribution = create_prob_dist_from_lambdas(lambda_values)
                 initial_length = torch.argmax(self.second_distribution - self.first_distribution, dim=0).long().item() + 1
-                self.gamma_lambda_learner_for_seq.reset_lambdas(start_id = initial_length)
+                self.gamma_lambda_learner_for_seq.reset_lambdas(start_idx = initial_length)
                 self.input_seq_len = min(max(initial_length, self.min_seq_len), self.max_seq_len)
                 self.init_lambda_second_dist = True
+        elif not self.init_half_seq_len:
+            self.input_seq_len = self.max_seq_len // 2
+            self.init_half_seq_len = True
         else:
             optimal_length = calculate_learnable_sequence_length(lambda_values)
             self.input_seq_len = min(max(optimal_length, self.min_seq_len), self.max_seq_len)

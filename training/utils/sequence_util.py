@@ -109,19 +109,21 @@ def select_train_sequence(padding_mask, train_seq_length):
     
     return select_mask, end_select_idx
 
-def calculate_learnable_sequence_length(lambda_sequence, extend_seq_multiplier = 1 - AVERAGE_LAMBDA):
+def calculate_learnable_sequence_length(lambda_sequence, contraction_relevance_threshold=2, extension_relevance_threshold=4):
     """
     Calculates the optimal sequence length for training in a reinforcement learning environment by analyzing the 
     probability distribution derived from lambda values. This method aims to optimize computational resources by 
     identifying the most significant state transitions for efficient and relevant sampling.
 
     The function compares the cumulative relevance of the first half of the sequence against the second half. 
-    If the relevance of the first half, when scaled by the extend_seq_multiplier, exceeds that of the second half, 
-    the sequence is considered for extension. Conversely, if the second half's relevance is greater, the sequence 
-    may be shortened to focus training on the most impactful transitions.
+    If the relevance of the first half, when compared against the second half scaled by the extension_relevance_threshold, 
+    indicates the sequence can be extended for more meaningful learning. Conversely, if the relevance of the first half, 
+    when scaled by the contraction_relevance_threshold, is greater, the sequence may be shortened to focus training on the 
+    most impactful transitions.
 
     :param lambda_sequence: A tensor of lambda values representing the relevance of state transitions in a trajectory.
-    :param extend_seq_multiplier: The multiplier applied to the cumulative relevance of the first half of the sequence to assess the potential for extending the sequence length.
+    :param extension_relevance_threshold: The threshold for comparing the first half's cumulative relevance to the second half's for potentially extending the sequence.
+    :param contraction_relevance_threshold: The threshold for comparing the first half's cumulative relevance to the second half's for potentially shortening the sequence.
     :return: The optimal sequence length required for efficient training, determined through the analysis of the lambda-derived probability distribution.
     """
     input_seq_len = lambda_sequence.size(0)  # Determine the sequence length from the tensor
@@ -129,10 +131,10 @@ def calculate_learnable_sequence_length(lambda_sequence, extend_seq_multiplier =
     front_half_prob = prob_dist_from_lambdas[:input_seq_len//2].sum()
     rear_half_prob = prob_dist_from_lambdas[-input_seq_len//2:].sum()
 
-    if front_half_prob < extend_seq_multiplier * rear_half_prob:
+    if extension_relevance_threshold * front_half_prob < rear_half_prob:
         optimal_length = input_seq_len + 1  # Consider extending the sequence
-    elif front_half_prob > rear_half_prob:
-        optimal_length = max(0, input_seq_len - 1)
+    elif contraction_relevance_threshold * front_half_prob > rear_half_prob:
+        optimal_length = max(0, input_seq_len - 1)  # Consider shortening the sequence
     else:
         optimal_length = input_seq_len  # Maintain the current sequence length if relevance is balanced
 
