@@ -17,12 +17,12 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         self._init_trainer_specific_params()
 
         self.gamma_lambda_learner = GammaLambdaLearner(self.max_seq_len, device)
-        self.sequence_length_learner = SequenceLengthLearner(self.gamma_lambda_learner, self.max_seq_len, self.use_auto_init_lambdas)
+        self.sequence_length_learner = SequenceLengthLearner(self.gamma_lambda_learner, self.max_seq_len)
         
         # Initializing the training manager with the networks involved in the learning process
         self._init_training_manager(networks, target_networks, device)
         self._init_normalization_manager(env_config, self.max_seq_len, device)
-        self._init_exploration_manager(self.max_seq_len)
+        self._init_exploration_manager()
 
         state_size = env_config.state_size
         value_size = env_config.value_size
@@ -64,14 +64,12 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         NormalizationManager.__init__(self, env_config.state_size, env_config.value_size, self.normalization_params, max_seq_len, device)
 
 
-    def _init_exploration_manager(self, max_seq_len):
-        self.decay_mode = self.optimization_params.scheduler_type
-        ExplorationManager.__init__(self, max_seq_len, self.gamma_lambda_learner, self.total_iterations, self.device)
+    def _init_exploration_manager(self):
+        ExplorationManager.__init__(self, self.gamma_lambda_learner, self.total_iterations, self.device)
 
     def _init_trainer_specific_params(self):
         self.max_seq_len = self.algorithm_params.max_seq_len 
         self.use_deterministic = self.algorithm_params.use_deterministic 
-        self.use_auto_init_lambdas = self.algorithm_params.use_auto_init_lambdas
         self.reduction_type = 'cross'
 
         self.training_start_step = self._compute_training_start_step()
@@ -142,7 +140,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         self.update_schedulers()      # Adjusts learning rates for optimal training.
         if self.train_iter % SEQUENCE_LENGTH_UPDATE_INTERVAL == 0:
             self.sequence_length_learner.update_sequence_length() # Updates the learnable sequence length based on learnable_td parameters.
-        self.update_exploration_rate() # Modifies the exploration rate for effective exploration. 
         self.train_iter += 1          # Tracks training progress.
     
     def select_tensor_reduction(self, tensor, mask=None):

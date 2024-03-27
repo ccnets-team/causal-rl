@@ -51,9 +51,9 @@ class EnvObservation:
     def shift(self, term_agents, dec_agents):
         # Convert term_agents and dec_agents to torch tensors if they are not already
         if not isinstance(term_agents, torch.Tensor):
-            term_agents = torch.tensor(term_agents, device=self.device)
+            term_agents = torch.tensor(term_agents, dtype=torch.long, device=self.device)
         if not isinstance(dec_agents, torch.Tensor):
-            dec_agents = torch.tensor(dec_agents, device=self.device)
+            dec_agents = torch.tensor(dec_agents, dtype=torch.long, device=self.device)
             
         # Roll data and mask for 'dec_agents'
         for key in self.data:

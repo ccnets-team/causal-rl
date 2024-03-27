@@ -69,6 +69,7 @@ def apply_sequence_mask(model_seq_mask, model_seq_length, *tensors):
     else:    
         reshaped_tensors = tuple(tensor[model_seq_mask.expand_as(tensor)].reshape(tensor.shape[0], model_seq_length, -1) for tensor in tensors)
         return reshaped_tensors
+    
 def select_train_sequence(padding_mask, train_seq_length):
     """
     Creates a selection mask for trajectories based on the specified training sequence length.
@@ -109,7 +110,7 @@ def select_train_sequence(padding_mask, train_seq_length):
     
     return select_mask, end_select_idx
 
-def calculate_learnable_sequence_length(lambda_sequence, contraction_relevance_threshold=2, extension_relevance_threshold=4):
+def calculate_learnable_sequence_length(lambda_sequence, contraction_relevance_threshold=1, extension_relevance_threshold=3):
     """
     Calculates the optimal sequence length for training in a reinforcement learning environment by analyzing the 
     probability distribution derived from lambda values. This method aims to optimize computational resources by 
@@ -140,7 +141,6 @@ def calculate_learnable_sequence_length(lambda_sequence, contraction_relevance_t
 
     return optimal_length
 
-
 def select_sequence_range(seq_range, *tensors):
     # Apply truncation based on the calculated idx
     if len(tensors) == 1:
@@ -151,23 +151,3 @@ def select_sequence_range(seq_range, *tensors):
         truncated_tensors = tuple(tensor[:, seq_range] for tensor in tensors)
 
     return truncated_tensors
-
-def create_init_lambda_sequence(target_mean, sequence_length, target_device):
-    # Initialize lambda_sequence with zeros on target_device
-    lambda_sequence = torch.zeros(sequence_length, device=target_device, dtype=torch.float)
-
-    # Calculate initial and final values for the lambda sequence, considering target_mean
-    initial_value = 2 * target_mean - 1
-    final_value = 1  # Intended to ensure the last lambda value is 1
-
-    # Adjust the sequence starting from 0 if initial_value is negative
-    if initial_value <= 0:
-        initial_value = target_mean/sequence_length
-        # Adjust final_value to maintain the mean, keeping in mind the explicit setting of the last value to 1
-        final_value = 2 * target_mean *(1 - 1/(2 * sequence_length))
-
-    # Generate a tensor that linearly progresses from initial_value to final_value
-    # Adjust to fill all but the last value of lambda_sequence with the linear progression
-    lambda_sequence = torch.linspace(initial_value, final_value, steps=sequence_length, device=target_device, dtype=torch.float)
-
-    return lambda_sequence

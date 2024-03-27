@@ -1,19 +1,15 @@
 import os
 import torch
-from ..utils.sequence_util import calculate_learnable_sequence_length, create_prob_dist_from_lambdas
+from ..utils.sequence_util import calculate_learnable_sequence_length
 from ..utils.sequence_util import MIN_TD_EXTENSION_STEPS, TD_EXTENSION_RATIO
 
 class SequenceLengthLearner:
-    def __init__(self, gamma_lambda_learner_for_seq, max_seq_len, use_auto_init_lambdas=False):
+    def __init__(self, gamma_lambda_learner_for_seq, max_seq_len):
         self.max_seq_len = max_seq_len
         self.min_seq_len = max_seq_len // 4  # Minimum sequence length set to 1/4 of max_seq_len
         self.input_seq_len = max_seq_len  # Initially set to max_seq_len; updated based on learnings
         self.gamma_lambda_learner_for_seq = gamma_lambda_learner_for_seq
-        
-        # Flags to track the initialization status
-        self.init_lambda_first_dist = False if use_auto_init_lambdas else True 
-        self.init_lambda_second_dist = False if use_auto_init_lambdas else True 
-        self.init_half_seq_len = True if use_auto_init_lambdas else False 
+        self.init_half_seq_len = False
         
         # Initialize TD extension steps
         self._update_td_extension_steps()
@@ -28,17 +24,7 @@ class SequenceLengthLearner:
         current_input_seq_len = self.get_input_seq_len()
         lambda_values = self.gamma_lambda_learner_for_seq.get_lambdas(seq_range=(-current_input_seq_len, None))
         
-        if not self.init_lambda_second_dist:
-            if not self.init_lambda_first_dist:
-                self.first_distribution = create_prob_dist_from_lambdas(lambda_values)
-                self.init_lambda_first_dist = True
-            else:
-                self.second_distribution = create_prob_dist_from_lambdas(lambda_values)
-                initial_length = torch.argmax(self.second_distribution - self.first_distribution, dim=0).long().item() + 1
-                self.gamma_lambda_learner_for_seq.reset_lambdas(start_idx = initial_length)
-                self.input_seq_len = min(max(initial_length, self.min_seq_len), self.max_seq_len)
-                self.init_lambda_second_dist = True
-        elif not self.init_half_seq_len:
+        if not self.init_half_seq_len:
             self.input_seq_len = self.max_seq_len // 2
             self.init_half_seq_len = True
         else:

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from ..utils.value_util import compute_lambda_based_returns
-from ..utils.sequence_util import create_init_lambda_sequence, DISCOUNT_FACTOR, AVERAGE_LAMBDA
+from ..utils.sequence_util import DISCOUNT_FACTOR, AVERAGE_LAMBDA
 
 class GammaLambdaLearner(nn.Module):
     def __init__(self, lambda_seq_len, device):
@@ -10,7 +10,7 @@ class GammaLambdaLearner(nn.Module):
         self.lambda_seq_len = lambda_seq_len
     
         discount_factor_init = DISCOUNT_FACTOR * torch.ones(1, device=self.device, dtype=torch.float)
-        lambda_sequence_init = create_init_lambda_sequence(AVERAGE_LAMBDA, lambda_seq_len, self.device)
+        lambda_sequence_init = AVERAGE_LAMBDA * torch.ones(lambda_seq_len, device=self.device, dtype=torch.float)
         self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(lambda_sequence_init))
 
@@ -24,26 +24,6 @@ class GammaLambdaLearner(nn.Module):
         start_idx, end_idx = seq_range
         return (torch.tanh(self.raw_lambd).clamp_min(1e-8)[start_idx: end_idx]).clone()
 
-    def reset_lambdas(self, start_idx):
-        # Calculate the length of the sequence to reset
-        reset_seq_len = self.lambda_seq_len - start_idx
-        
-        # Initialize a new lambda sequence for the specified range
-        new_lambda_init = create_init_lambda_sequence(AVERAGE_LAMBDA, reset_seq_len, self.device)
-        new_lambdas = self._init_value_for_tanh(new_lambda_init)
-        
-        # Extend the new lambdas to the full length if necessary
-        if start_idx > 0:
-            # If the new sequence is shorter, pad it with the first lambda value
-            padding_len = start_idx
-            padding = new_lambdas[0] * torch.ones(padding_len, device=self.device, dtype=torch.float)
-            new_raw_lambdas = torch.cat([padding, new_lambdas], dim=0)
-        else:
-            new_raw_lambdas = new_lambdas
-
-        # Update the raw lambda parameter
-        self.raw_lambd.data = new_raw_lambdas
-                
     def save(self, path):
         torch.save({'raw_gamma': self.raw_gamma, 'raw_lambd': self.raw_lambd}, path)
 
@@ -55,11 +35,6 @@ class GammaLambdaLearner(nn.Module):
     def _init_value_for_tanh(self, target):
         # Use logit function as the inverse of the sigmoid to initialize the value correctly
         return torch.atanh(target)
-
-    def calculate_lambda_returns(self, values, rewards, dones, seq_range):
-        lambda_sequence = self.get_lambdas(seq_range=seq_range)
-        gamma_value = self.get_gamma()
-        return compute_lambda_based_returns(values, rewards, dones, gamma_value, lambda_sequence)
     
     def get_sum_reward_weights(self, use_td_extension_steps = False):
         if use_td_extension_steps:
@@ -67,6 +42,11 @@ class GammaLambdaLearner(nn.Module):
         else:
             sum_reward_weights = self.input_sum_reward_weights
         return sum_reward_weights
+
+    def calculate_lambda_returns(self, values, rewards, dones, seq_range):
+        lambda_sequence = self.get_lambdas(seq_range=seq_range)
+        gamma_value = self.get_gamma()
+        return compute_lambda_based_returns(values, rewards, dones, gamma_value, lambda_sequence)
 
     def update_sum_reward_weights(self, input_seq_len, td_extension_steps):
         # Parameters are now accessed directly from the class attributes
