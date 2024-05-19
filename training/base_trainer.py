@@ -115,6 +115,9 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
 
     def init_train(self):
         self.set_train(training=True)
+        input_seq_len = self.get_input_seq_len()
+        td_extension_steps = self.get_td_extension_steps()
+        self.gamma_lambda_learner.update_sum_reward_weights(input_seq_len, td_extension_steps)
         
     def update_step(self):
         """
