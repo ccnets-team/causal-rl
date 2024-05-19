@@ -1,7 +1,5 @@
 import torch
 from normalizer.running_mean_std import RunningMeanStd
-from normalizer.running_abs_mean import RunningAbsMean
-from normalizer.running_mean_sqrt import RunningMeanSqrt
 
 from utils.structure.data_structures  import BatchTrajectory
 
@@ -74,11 +72,6 @@ class NormalizerBase:
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
             self.normalizer = RunningMeanStd(feature_size, scale, device, decay_rate=update_decay_rate)
-        elif norm_type == "running_abs_mean":
-            self.normalizer = RunningAbsMean(feature_size, scale, device, decay_rate=update_decay_rate)
-        elif norm_type == "running_mean_sqrt":
-            self.normalizer = RunningMeanSqrt(feature_size, scale, device, decay_rate=update_decay_rate)
-                        
         self.device = device
                     
     def _update_normalizer(self, data, padding_mask=None, feature_range = None):
