@@ -23,7 +23,7 @@ class GammaLambdaLearner(nn.Module):
             lambda_sequence_init = torch.tensor(lambda_sequence_init, device=device, dtype=torch.float)
                 
         # Create raw_gamma as an nn.Parameter
-        self.raw_gamma = nn.Parameter(gamma_init * torch.tensor(1.0, device=device, dtype=torch.float))
+        self.raw_gamma = nn.Parameter(self._init_value_for_tanh(gamma_init * torch.tensor(1.0, device=device, dtype=torch.float)))
         
         # Ensure lambda_sequence_init is processed correctly
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(lambda_sequence_init))
