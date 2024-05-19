@@ -1,7 +1,6 @@
 import torch
 
 def compute_lambda_based_returns(values, rewards, dones, gamma_value, lambda_sequence):
-# def calculate_lambda_returns(values, rewards, dones, seq_range, gamma_value, lambda_sequence):
     """
     Calculates lambda returns and sum of rewards for each timestep in a sequence with variable gamma and lambda.
 

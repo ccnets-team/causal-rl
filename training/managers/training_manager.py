@@ -1,7 +1,6 @@
 import torch
 import torch.optim as optim
 from torch.optim.lr_scheduler import _LRScheduler, CyclicLR
-from ..learners.gamma_lambda_learner import GammaLambdaLearner
 
 LR_CYCLE_SIZE = 20000
 STEPS_100K = 100000  # Represents the number of steps over which decay is applied
@@ -77,21 +76,11 @@ class TrainingManager:
             # Check if net is an instance of LearnableTD
             clip_grad_range = self._clip_grad_ranges[idx]
             max_grad_norm = self._max_grad_norms[idx]
-            if isinstance(net, GammaLambdaLearner):
-                # Specific handling for LearnableTD instances
-                if max_grad_norm is not None:
-                    torch.nn.utils.clip_grad_norm_(net.parameters(), max_grad_norm)
-                if clip_grad_range is not None:
-                    if net.raw_gamma.grad is not None:
-                        net.raw_gamma.grad.clamp_(-clip_grad_range, clip_grad_range)
-                    if net.raw_lambd.grad is not None:
-                        net.raw_lambd.grad.clamp_(-clip_grad_range, clip_grad_range)
-            else:
-                # Handling for other network types
-                if max_grad_norm is not None:
-                    torch.nn.utils.clip_grad_norm_(net.parameters(), max_grad_norm)
-                if clip_grad_range is not None:
-                    torch.nn.utils.clip_grad_value_(net.parameters(), clip_grad_range)
+            # Handling for other network types
+            if max_grad_norm is not None:
+                torch.nn.utils.clip_grad_norm_(net.parameters(), max_grad_norm)
+            if clip_grad_range is not None:
+                torch.nn.utils.clip_grad_value_(net.parameters(), clip_grad_range)
 
     def update_optimizers(self):
         for opt in self._optimizers:

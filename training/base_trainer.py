@@ -36,7 +36,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
 
     def _init_training_manager(self, networks, target_networks, device):
         # Use 'learning_networks' to emphasize the networks' role in the learning process
-        learning_networks = networks + [self.gamma_lambda_learner]
+        learning_networks = networks
         # Constructing learning parameters for each network, including the learnable_td with adjusted parameters
         learning_param_list = [
             {'lr': self.optimization_params.lr, 'decay_rate_100k': self.optimization_params.decay_rate_100k,
@@ -115,9 +115,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
 
     def init_train(self):
         self.set_train(training=True)
-        input_seq_len = self.get_input_seq_len()
-        td_extension_steps = self.get_td_extension_steps()
-        self.gamma_lambda_learner.update_sum_reward_weights(input_seq_len, td_extension_steps)
         
     def update_step(self):
         """
@@ -138,8 +135,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         self.update_optimizers()      # Applies gradients to adjust model parameters.
         self.update_target_networks() # Updates target networks for stable learning targets.
         self.update_schedulers()      # Adjusts learning rates for optimal training.
-        if self.train_iter % SEQUENCE_LENGTH_UPDATE_INTERVAL == 0:
-            self.sequence_length_learner.update_sequence_length() # Updates the learnable sequence length based on learnable_td parameters.
         self.train_iter += 1          # Tracks training progress.
     
     def select_tensor_reduction(self, tensor, mask=None):

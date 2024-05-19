@@ -19,21 +19,6 @@ class SequenceLengthLearner:
         self.td_extension_steps = max(self.input_seq_len // TD_EXTENSION_RATIO, MIN_TD_EXTENSION_STEPS)
         self.total_seq_len = self.input_seq_len + self.td_extension_steps
 
-    def update_sequence_length(self):
-        """Update learnable sequence length based on lambda values and adjust TD extension steps."""
-        current_input_seq_len = self.get_input_seq_len()
-        lambda_values = self.gamma_lambda_learner_for_seq.get_lambdas(seq_range=(-current_input_seq_len, None))
-        
-        if not self.init_half_seq_len:
-            self.input_seq_len = self.max_seq_len // 2
-            self.init_half_seq_len = True
-        else:
-            optimal_length = calculate_learnable_sequence_length(lambda_values)
-            self.input_seq_len = min(max(optimal_length, self.min_seq_len), self.max_seq_len)
-        
-        # Update TD extension steps with the new sequence length
-        self._update_td_extension_steps()
-
     # Getter methods for sequence length properties
     def get_input_seq_len(self):
         return self.input_seq_len

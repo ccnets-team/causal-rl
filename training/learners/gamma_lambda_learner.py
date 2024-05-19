@@ -61,34 +61,3 @@ class GammaLambdaLearner(nn.Module):
         lambda_sequence = self.get_lambdas(seq_range=seq_range)
         gamma_value = self.get_gamma()
         return compute_lambda_based_returns(values, rewards, dones, gamma_value, lambda_sequence)
-
-    def update_sum_reward_weights(self, input_seq_len, td_extension_steps):
-        # Parameters are now accessed directly from the class attributes
-        total_seq_len = input_seq_len + td_extension_steps
-        gamma = self.get_gamma()
-
-        td_lambd = self.get_lambdas(seq_range=(-td_extension_steps, None))
-        input_lambd = self.get_lambdas(seq_range=(-input_seq_len, None))
-        device = self.device
-        
-        # (Rest of the method remains the same as your provided code)
-        # Initialize tensors for value weights and sum reward weights with zeros.
-        value_weights = torch.zeros(total_seq_len + 1, dtype=torch.float, device=device)
-        raw_sum_reward_weights = torch.zeros(total_seq_len, dtype=torch.float, device=device)
-        
-        # Ensure the final value weight equals 1, setting up a base case for backward calculation.
-        value_weights[-1] = 1
-        
-        with torch.no_grad():
-            lambd = torch.cat([input_lambd, td_lambd], dim=0)
-            # Backward pass to compute weights. This loop calculates the decayed weights for each timestep,
-            for t in reversed(range(total_seq_len)):
-                value_weights[t] = gamma * ((1 - lambd[t]) + lambd[t] * value_weights[t + 1].clone())
-                raw_sum_reward_weights[t] = torch.clamp_min(1 - value_weights[t], 1e-8)
-            
-            # normalized_sum_reward_weights = raw_sum_reward_weights/raw_sum_reward_weights.mean().clamp_min(1e-8)
-            raw_sum_reward_weights = raw_sum_reward_weights.unsqueeze(0).unsqueeze(-1)
-            normalized_sum_reward_weights = raw_sum_reward_weights/raw_sum_reward_weights.mean().clamp_min(1e-8)
-            self.input_sum_reward_weights = normalized_sum_reward_weights[:,:input_seq_len]
-            self.td_sum_reward_weights = normalized_sum_reward_weights[:,input_seq_len:]
-            
