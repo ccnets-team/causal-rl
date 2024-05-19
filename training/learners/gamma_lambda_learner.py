@@ -5,14 +5,27 @@ from ..utils.sequence_util import create_init_lambda_sequence
 from ..utils.sequence_util import DISCOUNT_FACTOR, AVERAGE_LAMBDA
 
 class GammaLambdaLearner(nn.Module):
-    def __init__(self, lambda_seq_len, device):
+    def __init__(self, gamma, lambd, lambda_seq_len, device):
         super(GammaLambdaLearner, self).__init__()
         self.device = device
         self.lambda_seq_len = lambda_seq_len
     
-        discount_factor_init = DISCOUNT_FACTOR * torch.ones(1, device=self.device, dtype=torch.float)
-        lambda_sequence_init = create_init_lambda_sequence(AVERAGE_LAMBDA, lambda_seq_len, device)
-        self.raw_gamma = nn.Parameter(self._init_value_for_tanh(discount_factor_init))
+        if gamma is None:
+            gamma_init = DISCOUNT_FACTOR
+        else:
+            gamma_init = gamma
+        if lambd is None:
+            lambda_sequence_init = create_init_lambda_sequence(AVERAGE_LAMBDA, lambda_seq_len, device)
+        else:
+            lambda_sequence_init = create_init_lambda_sequence(lambd, lambda_seq_len, device)
+            
+        if not isinstance(lambda_sequence_init, torch.Tensor):
+            lambda_sequence_init = torch.tensor(lambda_sequence_init, device=device, dtype=torch.float)
+                
+        # Create raw_gamma as an nn.Parameter
+        self.raw_gamma = nn.Parameter(gamma_init * torch.tensor(1.0, device=device, dtype=torch.float))
+        
+        # Ensure lambda_sequence_init is processed correctly
         self.raw_lambd = nn.Parameter(self._init_value_for_tanh(lambda_sequence_init))
 
         self.input_sum_reward_weights = None

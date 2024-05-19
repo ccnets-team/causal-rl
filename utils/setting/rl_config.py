@@ -13,8 +13,10 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, max_seq_len=24, use_deterministic=False):
+    def __init__(self, gamma = 0.99, lambd = 0.95, max_seq_len=24, use_deterministic=False):
         self.max_seq_len = max_seq_len  
+        self.gamma = gamma  # Discount factor for future rewards, determining the importance of future rewards in the current state.
+        self.lambd = lambd  # Lambda value for generalized advantage estimation (GAE), balancing bias and variance in the estimation of the advantage function.
         # Defines the maximum input sequence length for the Critic, Actor, and Reverse-environment GPT models for causal learning.
         # This parameter sets the scope of historical and future context that the models can utilize for learning the state transition between current states and future states.
         self.use_deterministic = use_deterministic  # Determines whether to use deterministic actions during training/evaluation.
