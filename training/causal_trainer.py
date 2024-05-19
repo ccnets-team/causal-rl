@@ -16,7 +16,6 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from utils.init import set_seed
-from training.managers.normalization_manager import STATE_NORM_SCALE
 
 class CausalTrainer(BaseTrainer):
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -77,8 +76,6 @@ class CausalTrainer(BaseTrainer):
         expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, end_value)
         
         advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
-            
-        bipolar_advantage_loss = self.calculate_bipolar_advantage_loss(estimated_value, expected_value, padding_mask)
         
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
@@ -95,7 +92,7 @@ class CausalTrainer(BaseTrainer):
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.gamma_lambda_learner, self.critic, self.actor, self.revEnv],
-            [[bipolar_advantage_loss], [value_loss + critic_loss], [actor_loss], [revEnv_loss]])
+            [[value_loss + critic_loss], [actor_loss], [revEnv_loss]])
 
         # Update the network parameters.
         self.update_step()
@@ -105,12 +102,12 @@ class CausalTrainer(BaseTrainer):
             expected_value=expected_value,
             advantage=advantage,
             value_loss=value_loss,
-            critic_loss=critic_loss * self.error_to_state_size_ratio,
-            actor_loss=actor_loss * self.error_to_state_size_ratio,
-            revEnv_loss=revEnv_loss * self.error_to_state_size_ratio,
-            coop_critic_error=coop_critic_error * self.error_to_state_size_ratio,
-            coop_actor_error=coop_actor_error * self.error_to_state_size_ratio,
-            coop_revEnv_error=coop_revEnv_error * self.error_to_state_size_ratio,
+            critic_loss=critic_loss,
+            actor_loss=actor_loss,
+            revEnv_loss=revEnv_loss,
+            coop_critic_error=coop_critic_error,
+            coop_actor_error=coop_actor_error,
+            coop_revEnv_error=coop_revEnv_error,
             forward_cost=forward_cost,
             reverse_cost=reverse_cost,
             recurrent_cost=recurrent_cost,
@@ -127,9 +124,9 @@ class CausalTrainer(BaseTrainer):
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state)
         # Compute the reverse cost by checking the discrepancy between the reversed state and the original state.
-        reverse_cost = self.cost_fn(reversed_state, states/STATE_NORM_SCALE)
+        reverse_cost = self.cost_fn(reversed_state, states)
         # Compute the recurrent cost by checking the discrepancy between the recurred state and the original state.
-        recurrent_cost = self.cost_fn(recurred_state, states/STATE_NORM_SCALE)
+        recurrent_cost = self.cost_fn(recurred_state, states)
         return forward_cost, reverse_cost, recurrent_cost
     
     def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
@@ -190,7 +187,7 @@ class CausalTrainer(BaseTrainer):
         return reversed_state, recurred_state
 
     def cost_fn(self, predict, target):
-        cost = (predict - target.detach()).abs()
+        cost = (predict - target.detach()).abs().mean(dim=-1, keepdim=True)
         return cost
     
     def error_fn(self, predict, target, reduce_feture_dim = False):
@@ -209,7 +206,7 @@ class CausalTrainer(BaseTrainer):
         """
         error = (predict - target.detach()).abs()
         if reduce_feture_dim:
-            reduced_error = torch.matmul(error, self.error_transformation_matrix)
+            reduced_error = error.mean(dim= 0, keepdim=True)
         else:
             reduced_error = error 
         return reduced_error

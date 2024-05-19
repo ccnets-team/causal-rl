@@ -24,10 +24,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         self._init_normalization_manager(env_config, self.max_seq_len, device)
         self._init_exploration_manager()
 
-        state_size = env_config.state_size
-        value_size = env_config.value_size
-        self.error_transformation_matrix = create_transformation_matrix(state_size, value_size).to(device)
-        self.error_to_state_size_ratio = value_size/state_size
         self.train_iter = 0
         
     def _unpack_rl_params(self, rl_params): 

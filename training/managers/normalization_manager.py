@@ -4,12 +4,11 @@ from normalizer.running_mean_std import RunningMeanStd
 from utils.structure.data_structures  import BatchTrajectory
 
 TRANSITION_STATE_IDX = 0
-# TRANSITION_NEXT_STATE_IDX = 3
 TRANSITION_REWARD_IDX = 2
 
 REWARD_SIZE = 1
 
-STATE_NORM_SCALE = 2
+STATE_NORM_SCALE = 1
 REWARD_NORM_SCALE = 1
 SUM_REWARD_NORM_SCALE = 1
 ADVANTAGE_NORM_SCALE = 1
@@ -64,10 +63,7 @@ class NormalizerBase:
         self.normalizer = None
         self.feature_size = feature_size
         self.clip_norm_range = CLIP_NORM_RANGE  # The range within which normalized values are clipped, preventing excessively high normalization values.
-        if norm_type_key == 'advantage_normalizer':
-            update_decay_rate = 1e-3  # More emphasis on recent observations for advantage normalizer
-        else:
-            update_decay_rate = 1e-5  # Slower decay for other types of normalizers
+        update_decay_rate = 1e-4  # Slower decay for other types of normalizers
                 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
