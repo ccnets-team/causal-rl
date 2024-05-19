@@ -95,7 +95,7 @@ class CausalTrainer(BaseTrainer):
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
             [self.gamma_lambda_learner, self.critic, self.actor, self.revEnv],
-            [[bipolar_advantage_loss], [value_loss, critic_loss], [actor_loss], [revEnv_loss]])
+            [[bipolar_advantage_loss], [value_loss + critic_loss], [actor_loss], [revEnv_loss]])
 
         # Update the network parameters.
         self.update_step()
