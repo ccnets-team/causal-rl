@@ -70,8 +70,8 @@ class CausalTrainer(BaseTrainer):
         reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
         
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state)
-        
-        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True)
+
+        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost)
 
         expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, end_value)
         
@@ -129,13 +129,13 @@ class CausalTrainer(BaseTrainer):
         recurrent_cost = self.cost_fn(recurred_state, states)
         return forward_cost, reverse_cost, recurrent_cost
     
-    def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
+    def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost):
         # Calculate the cooperative critic error using forward and reverse costs in relation to the recurrent cost.
-        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)
+        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost)
         # Calculate the cooperative actor error using recurrent and forward costs in relation to the reverse cost.
-        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)
+        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost)
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
-        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)      
+        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
         return coop_critic_error, coop_actor_error, coop_revEnv_error
 
     def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
@@ -187,10 +187,10 @@ class CausalTrainer(BaseTrainer):
         return reversed_state, recurred_state
 
     def cost_fn(self, predict, target):
-        cost = (predict - target.detach()).abs().mean(dim=-1, keepdim=True)
+        cost = (predict - target.detach()).abs()
         return cost
     
-    def error_fn(self, predict, target, reduce_feture_dim = False):
+    def error_fn(self, predict, target):
         """
         Compute a balanced error between the combined predicted costs and a single target cost.
 
@@ -205,10 +205,7 @@ class CausalTrainer(BaseTrainer):
         :return: Balanced error tensor.
         """
         error = (predict - target.detach()).abs()
-        if reduce_feture_dim:
-            reduced_error = error.mean(dim= 0, keepdim=True)
-        else:
-            reduced_error = error 
+        reduced_error = error.mean(dim= -1, keepdim=True)
         return reduced_error
 
     def backwards(self, networks, network_errors):
