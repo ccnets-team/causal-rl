@@ -138,8 +138,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         self.update_optimizers()      # Applies gradients to adjust model parameters.
         self.update_target_networks() # Updates target networks for stable learning targets.
         self.update_schedulers()      # Adjusts learning rates for optimal training.
-        if self.train_iter % SEQUENCE_LENGTH_UPDATE_INTERVAL == 0:
-            self.sequence_length_learner.update_sequence_length() # Updates the learnable sequence length based on learnable_td parameters.
         self.train_iter += 1          # Tracks training progress.
     
     def select_tensor_reduction(self, tensor, mask=None):
