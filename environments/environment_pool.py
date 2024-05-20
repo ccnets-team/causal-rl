@@ -3,6 +3,24 @@ from .mlagents_wrapper import MLAgentsEnvWrapper
 from .gym_wrapper import GymEnvWrapper
 from utils.structure.data_structures  import AgentTransitions
 import torch
+import random
+
+def get_sampled_seq_len(max_seq_len, sigma_factor = 4):
+    """
+    Sample a sequence length using a half-normal distribution, focusing on longer lengths.
+    
+    Parameters:
+        max_seq_len (int): The maximum length of the sequence.
+        sigma_factor (float): A factor to adjust sigma, resulting in a focus on longer lengths.
+        
+    Returns:
+        int: A sampled sequence length, ensuring it's at least 2 and no more than max_seq_len.
+    """
+    sigma = max_seq_len / sigma_factor  # Dynamically calculate sigma based on some factor
+    # Sample using a normal distribution and mirror it to focus on longer lengths
+    sample = abs(np.random.normal(loc=max_seq_len, scale=sigma))
+    sampled_length = int(min(max_seq_len, max(2, sample)))
+    return sampled_length
 
 class EnvironmentPool: 
     def __init__(self, env_config, max_seq_len, device, test_env, use_graphics):
@@ -42,19 +60,21 @@ class EnvironmentPool:
         
     def explore_environments(self, trainer, training):
         trainer.set_train(training = training)
-        _state_tensor = torch.cat([env.observations.get_obs() for env in self.env_list], dim=0)
-        _padding_mask = torch.cat([env.observations.mask for env in self.env_list], dim=0)
+        state_tensor = torch.cat([env.observations.get_obs() for env in self.env_list], dim=0)
+        padding_mask = torch.cat([env.observations.mask for env in self.env_list], dim=0)
         
-        # In your training loop or function
-        input_seq_len = trainer.get_input_seq_len()
-        state_tensor = _state_tensor[:, -input_seq_len:]
-        padding_mask = _padding_mask[:, -input_seq_len:]
-        
-        if training:
-            padding_mask = trainer.apply_sequence_masking(padding_mask)
-                    
+        max_seq_len = trainer.get_input_seq_len()
         state_tensor = trainer.normalize_states(state_tensor)
-        action_tensor = trainer.get_action(state_tensor, padding_mask, training=training)
+
+        if training:
+            input_seq_len = get_sampled_seq_len(max_seq_len)  # Clean up and introduce variability
+        else:
+            input_seq_len = max_seq_len
+            
+        selected_state_tensor = state_tensor[:, -input_seq_len:]
+        selected_padding_mask = padding_mask[:, -input_seq_len:]
+                    
+        action_tensor = trainer.get_action(selected_state_tensor, selected_padding_mask, training=training)
         
         # Apply actions to environments
         self.apply_actions_to_envs(action_tensor)
