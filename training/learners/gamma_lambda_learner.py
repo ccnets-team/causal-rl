@@ -17,7 +17,7 @@ class GammaLambdaLearner(nn.Module):
         if lambd is None:
             lambda_sequence_init = create_init_lambda_sequence(AVERAGE_LAMBDA, lambda_seq_len, device)
         else:
-            lambda_sequence_init = create_init_lambda_sequence(lambd, lambda_seq_len, device)
+            lambda_sequence_init = lambd * torch.ones(lambda_seq_len, device=device, dtype=torch.float)
             
         if not isinstance(lambda_sequence_init, torch.Tensor):
             lambda_sequence_init = torch.tensor(lambda_sequence_init, device=device, dtype=torch.float)
