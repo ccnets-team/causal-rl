@@ -3,23 +3,24 @@ from .mlagents_wrapper import MLAgentsEnvWrapper
 from .gym_wrapper import GymEnvWrapper
 from utils.structure.data_structures  import AgentTransitions
 import torch
-import random
 
-def get_sampled_seq_len(max_seq_len, sigma_factor = 4):
+def get_sampled_seq_len(max_seq_len, sigma_factor=2):
     """
-    Sample a sequence length using a half-normal distribution, focusing on longer lengths.
+    Sample a sequence length using a normal distribution, focusing on mid-range lengths.
     
     Parameters:
         max_seq_len (int): The maximum length of the sequence.
-        sigma_factor (float): A factor to adjust sigma, resulting in a focus on longer lengths.
+        sigma_factor (float): A factor to adjust sigma, balancing distribution spread.
         
     Returns:
         int: A sampled sequence length, ensuring it's at least 2 and no more than max_seq_len.
     """
-    sigma = max_seq_len / sigma_factor  # Dynamically calculate sigma based on some factor
-    # Sample using a normal distribution and mirror it to focus on longer lengths
-    sample = abs(np.random.normal(loc=max_seq_len, scale=sigma))
-    sampled_length = int(min(max_seq_len, max(2, sample)))
+    mid_point = max_seq_len / 2
+    sigma = mid_point / sigma_factor  # Adjust sigma to control spread around the midpoint
+    # Sample using a normal distribution centered at the midpoint
+    sample = np.random.normal(loc=mid_point, scale=sigma)
+    # Ensure sample is within bounds and rounded to an integer
+    sampled_length = int(min(max_seq_len, max(2, round(sample))))
     return sampled_length
 
 class EnvironmentPool: 
@@ -63,7 +64,7 @@ class EnvironmentPool:
         state_tensor = torch.cat([env.observations.get_obs() for env in self.env_list], dim=0)
         padding_mask = torch.cat([env.observations.mask for env in self.env_list], dim=0)
         
-        max_seq_len = trainer.get_input_seq_len()
+        max_seq_len = trainer.get_max_seq_len()
         state_tensor = trainer.normalize_states(state_tensor)
 
         if training:
