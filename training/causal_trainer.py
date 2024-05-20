@@ -16,6 +16,7 @@ from nn.roles.reverse_env import RevEnv
 from utils.structure.data_structures  import BatchTrajectory
 from utils.structure.metrics_recorder import create_training_metrics
 from utils.init import set_seed
+from training.managers.normalization_manager import STATE_NORM_SCALE
 
 class CausalTrainer(BaseTrainer):
     # This is the initialization of our Causal Reinforcement Learning (CRL) framework, setting up the networks and parameters.
@@ -59,7 +60,7 @@ class CausalTrainer(BaseTrainer):
         self.init_train()
     
         # Selects a trajectory segment optimized for sequence-based model input, focusing on recent experiences.
-        states, actions, rewards, next_states, dones, padding_mask, end_value = self.select_sequence(trajectory)
+        states, actions, rewards, next_states, dones, padding_mask = self.select_sequence(trajectory)
         
         # Get the estimated value of the current state from the critic network.
         estimated_value = self.critic(states, padding_mask)    
@@ -70,12 +71,14 @@ class CausalTrainer(BaseTrainer):
         reversed_state, recurred_state = self.process_parallel_rev_env(next_states, actions, inferred_action, estimated_value, padding_mask)
         
         forward_cost, reverse_cost, recurrent_cost = self.compute_transition_costs_from_states(states, reversed_state, recurred_state)
+        
+        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = True)
 
-        coop_critic_error, coop_actor_error, coop_revEnv_error = self.compute_cooperative_errors_from_costs(forward_cost, reverse_cost, recurrent_cost)
-
-        expected_value = self.compute_expected_value(states, rewards, dones, padding_mask, end_value)
+        expected_value = self.compute_expected_value(states, rewards, next_states, dones, padding_mask)
         
         advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
+            
+        bipolar_advantage_loss = self.calculate_bipolar_advantage_loss(estimated_value, expected_value, padding_mask)
         
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
@@ -91,8 +94,8 @@ class CausalTrainer(BaseTrainer):
         
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
-            [self.critic, self.actor, self.revEnv],
-            [[value_loss + critic_loss], [actor_loss], [revEnv_loss]])
+            [self.gamma_lambda_learner, self.critic, self.actor, self.revEnv],
+            [[bipolar_advantage_loss], [value_loss, critic_loss], [actor_loss], [revEnv_loss]])
 
         # Update the network parameters.
         self.update_step()
@@ -102,12 +105,12 @@ class CausalTrainer(BaseTrainer):
             expected_value=expected_value,
             advantage=advantage,
             value_loss=value_loss,
-            critic_loss=critic_loss,
-            actor_loss=actor_loss,
-            revEnv_loss=revEnv_loss,
-            coop_critic_error=coop_critic_error,
-            coop_actor_error=coop_actor_error,
-            coop_revEnv_error=coop_revEnv_error,
+            critic_loss=critic_loss * self.error_to_state_size_ratio,
+            actor_loss=actor_loss * self.error_to_state_size_ratio,
+            revEnv_loss=revEnv_loss * self.error_to_state_size_ratio,
+            coop_critic_error=coop_critic_error * self.error_to_state_size_ratio,
+            coop_actor_error=coop_actor_error * self.error_to_state_size_ratio,
+            coop_revEnv_error=coop_revEnv_error * self.error_to_state_size_ratio,
             forward_cost=forward_cost,
             reverse_cost=reverse_cost,
             recurrent_cost=recurrent_cost,
@@ -124,18 +127,18 @@ class CausalTrainer(BaseTrainer):
         # Compute the forward cost by checking the discrepancy between the recurred and reversed states.
         forward_cost = self.cost_fn(recurred_state, reversed_state)
         # Compute the reverse cost by checking the discrepancy between the reversed state and the original state.
-        reverse_cost = self.cost_fn(reversed_state, states)
+        reverse_cost = self.cost_fn(reversed_state, states/STATE_NORM_SCALE)
         # Compute the recurrent cost by checking the discrepancy between the recurred state and the original state.
-        recurrent_cost = self.cost_fn(recurred_state, states)
+        recurrent_cost = self.cost_fn(recurred_state, states/STATE_NORM_SCALE)
         return forward_cost, reverse_cost, recurrent_cost
     
-    def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost):
+    def compute_cooperative_errors_from_costs(self, forward_cost, reverse_cost, recurrent_cost, reduce_feture_dim = False):
         # Calculate the cooperative critic error using forward and reverse costs in relation to the recurrent cost.
-        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost)
+        coop_critic_error = self.error_fn(forward_cost + reverse_cost, recurrent_cost, reduce_feture_dim)
         # Calculate the cooperative actor error using recurrent and forward costs in relation to the reverse cost.
-        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost)
+        coop_actor_error = self.error_fn(recurrent_cost + forward_cost, reverse_cost, reduce_feture_dim)
         # Calculate the cooperative reverse-environment error using reverse and recurrent costs in relation to the forward cost.
-        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost)      
+        coop_revEnv_error = self.error_fn(reverse_cost + recurrent_cost, forward_cost, reduce_feture_dim)      
         return coop_critic_error, coop_actor_error, coop_revEnv_error
 
     def process_parallel_rev_env(self, next_states, actions, inferred_action, estimated_value, padding_mask):
@@ -190,7 +193,7 @@ class CausalTrainer(BaseTrainer):
         cost = (predict - target.detach()).abs()
         return cost
     
-    def error_fn(self, predict, target):
+    def error_fn(self, predict, target, reduce_feture_dim = False):
         """
         Compute a balanced error between the combined predicted costs and a single target cost.
 
@@ -205,7 +208,10 @@ class CausalTrainer(BaseTrainer):
         :return: Balanced error tensor.
         """
         error = (predict - target.detach()).abs()
-        reduced_error = error.mean(dim= -1, keepdim=True)
+        if reduce_feture_dim:
+            reduced_error = torch.matmul(error, self.error_transformation_matrix)
+        else:
+            reduced_error = error 
         return reduced_error
 
     def backwards(self, networks, network_errors):
