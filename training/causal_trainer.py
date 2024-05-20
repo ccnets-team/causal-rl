@@ -77,8 +77,6 @@ class CausalTrainer(BaseTrainer):
         expected_value = self.compute_expected_value(states, rewards, next_states, dones, padding_mask)
         
         advantage = self.compute_advantage(estimated_value, expected_value, padding_mask)
-            
-        bipolar_advantage_loss = self.calculate_bipolar_advantage_loss(estimated_value, expected_value, padding_mask)
         
         # Calculate the value loss based on the difference between estimated and expected values.
         value_loss = self.calculate_value_loss(estimated_value, expected_value, padding_mask)   
@@ -94,8 +92,8 @@ class CausalTrainer(BaseTrainer):
         
         # Perform backpropagation to adjust the network parameters based on calculated losses.
         self.backwards(
-            [self.gamma_lambda_learner, self.critic, self.actor, self.revEnv],
-            [[bipolar_advantage_loss], [value_loss, critic_loss], [actor_loss], [revEnv_loss]])
+            [self.critic, self.actor, self.revEnv],
+            [[value_loss + critic_loss], [actor_loss], [revEnv_loss]])
 
         # Update the network parameters.
         self.update_step()

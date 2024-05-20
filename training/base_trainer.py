@@ -36,7 +36,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
 
     def _init_training_manager(self, networks, target_networks, device):
         # Use 'learning_networks' to emphasize the networks' role in the learning process
-        learning_networks = networks + [self.gamma_lambda_learner]
+        learning_networks = networks
         # Constructing learning parameters for each network, including the learnable_td with adjusted parameters
         learning_param_list = [
             {'lr': self.optimization_params.lr, 'decay_rate_100k': self.optimization_params.decay_rate_100k,
@@ -292,54 +292,6 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
 
         return reduced_loss
 
-    def calculate_bipolar_advantage_loss(self, estimated_value: torch.Tensor, expected_value: torch.Tensor,
-                                padding_mask: torch.Tensor, polar_point: float = 1.0):
-        """
-        This function calculates a loss that aims to balance short-term and long-term rewards by adopting a bipolar 
-        interpretation of advantage, which is the difference between the estimated and expected values. The bipolar 
-        advantage loss function dynamically adjusts gamma and lambda parameters, promoting actions that may increase 
-        or decrease returns. This adaptive behavior facilitates learning with an optimal scale of advantage, encouraging 
-        a deeper exploration of the action-value space.
-
-        The loss calculation incorporates a fourth-degree polynomial error component to achieve balance at specified 
-        polar points, thus promoting a bipolar distribution of advantage values. This method aims for a nuanced adjustment 
-        of advantage values to reach a desired distribution that supports effective learning strategies. Additionally, 
-        by including a second-degree polynomial error component, the loss further incentivizes actions that lead to 
-        an increase in the expected value, aligning with the objective of maximizing long-term returns.
-
-        :param estimated_value: Tensor representing the model's estimated value for given states/actions.
-        :param expected_value: Tensor representing the target or expected value for given states/actions.
-        :param padding_mask: Tensor indicating valid positions (1) and padding (0) for loss calculation.
-        :param polar_point: Float specifying the magnitude of the polar points around which the bipolar distribution of 
-        advantages is centered. The function uses both positive and negative values of this parameter (+polar_point and 
-        -polar_point) within a fourth-degree polynomial error component to foster a bipolar distribution of advantage 
-        values. This dual-point consideration allows for a nuanced balancing of advantage values, promoting learning 
-        that effectively navigates between maximizing and minimizing expected returns based on the situational context.
-        :return: The computed bipolar advantage loss, or None if an update to the learnable parameters is not deemed necessary.
-        """
-        if self.should_update_learnable_td():
-            advantage = expected_value - estimated_value.detach()
-            
-            # Compute the value_incentive component of the bipolar TD error, scaled by the advantage.
-            # This component aims to encourage actions that increase the expected value.
-            second_degree_polynomial_error = (advantage - polar_point).square()
-            
-            # Calculate the fourth-degree polynomial error component, focusing on the squared difference
-            # between squared advantage and squared polar distance.
-            fourth_degree_polynomial_error = (advantage.square() + (polar_point)**2).square()
-
-            # Form the total bipolar TD error by combining the polynomial error with the
-            # value_incentive component, modulating the TD error to guide expected value adjustments.
-            bipolar_advantage_error = fourth_degree_polynomial_error + second_degree_polynomial_error
-            
-            # Aggregate the scaled bipolar TD error to produce a consolidated loss value,
-            # considering padding in the input tensors for accurate error computation.
-            bipolar_advantage_loss = self.select_tensor_reduction(bipolar_advantage_error, padding_mask)
-        else:
-            bipolar_advantage_loss = None
-            
-        return bipolar_advantage_loss
-        
     def compute_advantage(self, estimated_value: torch.Tensor, expected_value: torch.Tensor, padding_mask: torch.Tensor):
         """
         Calculates the advantage, which measures the benefit of taking specific actions from given states over the policy's average prediction for those states.
