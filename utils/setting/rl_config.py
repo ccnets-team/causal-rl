@@ -13,7 +13,7 @@ class TrainingParameters:
 
 class AlgorithmParameters:
     # Initialize algorithm parameters
-    def __init__(self, gamma = 0.99, lambd = 0.9, max_seq_len=16, use_deterministic=False):
+    def __init__(self, gamma = 0.99, lambd = 0.95, max_seq_len=16, use_deterministic=False):
         self.max_seq_len = max_seq_len  
         self.gamma = gamma  # Discount factor for future rewards, determining the importance of future rewards in the current state.
         self.lambd = lambd  # Lambda value for generalized advantage estimation (GAE), balancing bias and variance in the estimation of the advantage function.
