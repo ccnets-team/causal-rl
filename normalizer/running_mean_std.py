@@ -55,7 +55,7 @@ class RunningMeanStd:
         return self.var
 
     def normalize(self, x, feature_range = None):
-        if len(x) < 1 or torch.sum(self.count < 1) > 0:
+        if len(x) < 1:
             return x
         mean = self.get_mean().view(1, 1, self.num_features)
         var = self.get_var().view(1, 1, self.num_features)
