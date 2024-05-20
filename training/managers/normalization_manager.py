@@ -63,7 +63,7 @@ class NormalizerBase:
         self.normalizer = None
         self.feature_size = feature_size
         self.clip_norm_range = CLIP_NORM_RANGE  # The range within which normalized values are clipped, preventing excessively high normalization values.
-        update_decay_rate = 1e-3  # Slower decay for other types of normalizers
+        update_decay_rate = 1e-4  # Slower decay for other types of normalizers
                 
         norm_type = getattr(normalization_params, norm_type_key)
         if norm_type == "running_mean_std":
