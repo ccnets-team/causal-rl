@@ -7,11 +7,9 @@ import torch
 import torch.nn as nn
 
 from torch.distributions import Normal
-from ..network_utils import init_weights, create_layer
+from ..network_utils import init_weights, create_layer, init_log_std
+from ..network_utils import LOG_STD_MIN, LOG_STD_MAX
 from ..network_utils import ContinuousFeatureEmbeddingLayer
-
-LOG_STD_MIN = -20
-LOG_STD_MAX = 2
 
 class _BaseActor(nn.Module):
     def __init__(self, net, env_config, use_deterministic, network_params, input_size):
@@ -73,7 +71,10 @@ class DualInputActor(_BaseActor):
     def __init__(self, net, env_config, use_deterministic, network_params):
         super().__init__(net, env_config, use_deterministic, network_params, env_config.state_size + env_config.value_size)
         self.apply(init_weights)
-        
+
+        # Initialize log_std_layer specifically
+        init_log_std(self)
+                
         # Comment about joint representation for the actor and reverse-env network:
         # Concatenation (cat) is a more proper joint representation for actor and reverse-env joint type.
         # However, when the reward scale is too high, addition (add) seems more robust.

@@ -5,6 +5,11 @@ COPYRIGHT (c) 2022. CCNets, Inc. All Rights reserved.
 import torch
 from torch import nn
 
+INIT_STD = 0.1
+INIT_LOG_STD = -2
+LOG_STD_MIN = -20
+LOG_STD_MAX = 2
+
 class ModelParams:
     def __init__(self, d_model, num_layers, dropout):
         """
@@ -60,6 +65,27 @@ def init_weights(module):
                     
     for child in module.children():
         init_weights(child)  # Apply recursively to child submodules
+        
+def init_log_std(module, init_log_std_val=INIT_LOG_STD):
+    """
+    Initializes the log_std_layer so that its initial output is a specified log_std value.
+    This is typically achieved by setting biases to the log_std value and weights to zero.
+    Args:
+        module (nn.Module): The module containing the log_std_layer to initialize.
+        init_log_std_val (float): The target log_std value for initialization.
+    """
+    if hasattr(module, 'log_std_layer'):
+        if isinstance(module.log_std_layer, nn.Sequential):
+            for layer in module.log_std_layer:
+                if isinstance(layer, nn.Linear):
+                    # Initialize weights to zero and biases to the target log_std value
+                    layer.weight.data.zero_()
+                    layer.bias.data.fill_(init_log_std_val)
+        else:
+            # Direct initialization for non-Sequential log_std_layer
+            module.log_std_layer.weight.data.zero_()
+            module.log_std_layer.bias.data.fill_(init_log_std_val)
+
         
 class ContinuousFeatureEmbeddingLayer(nn.Module):
     def __init__(self, num_features, embedding_size, act_fn='tanh'):
