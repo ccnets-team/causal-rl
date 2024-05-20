@@ -16,7 +16,7 @@ class BaseTrainer(TrainingManager, NormalizationManager, ExplorationManager):
         self._unpack_rl_params(rl_params)
         self._init_trainer_specific_params()
 
-        self.gamma_lambda_learner = GammaLambdaLearner(self.max_seq_len, device)
+        self.gamma_lambda_learner = GammaLambdaLearner(rl_params.gamma, rl_params.lambd, self.max_seq_len, device)
         self.sequence_length_learner = SequenceLengthLearner(self.gamma_lambda_learner, self.max_seq_len)
         
         # Initializing the training manager with the networks involved in the learning process
