@@ -6,8 +6,8 @@ from ..utils.sequence_util import MIN_TD_EXTENSION_STEPS, TD_EXTENSION_RATIO
 class SequenceLengthLearner:
     def __init__(self, gamma_lambda_learner_for_seq, max_seq_len):
         self.max_seq_len = max_seq_len
-        self.min_seq_len = max_seq_len // 4  # Minimum sequence length set to 1/4 of max_seq_len
-        self.input_seq_len = max_seq_len // 2  # Initially set to max_seq_len; updated based on learnings
+        self.min_seq_len = max_seq_len // 2  # Minimum sequence length set to 1/4 of max_seq_len
+        self.input_seq_len = max_seq_len  # Initially set to max_seq_len; updated based on learnings
         self.gamma_lambda_learner_for_seq = gamma_lambda_learner_for_seq
         self.init_half_seq_len = False
         

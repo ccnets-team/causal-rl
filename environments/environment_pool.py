@@ -4,7 +4,7 @@ from .gym_wrapper import GymEnvWrapper
 from utils.structure.data_structures  import AgentTransitions
 import torch
 
-def get_sampled_seq_len(max_seq_len, sigma_factor=2):
+def get_sampled_seq_len(max_seq_len, sigma_factor=4):
     """
     Sample a sequence length using a normal distribution, focusing on mid-range lengths.
     
