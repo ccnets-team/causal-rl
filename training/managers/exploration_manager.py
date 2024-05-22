@@ -1,5 +1,4 @@
 import torch
-from ..utils.distribution_util import create_prob_dist_from_lambdas
 
 class ExplorationManager:
     def __init__(self, gamma_lambda_learner, total_iterations, device):
@@ -8,11 +7,13 @@ class ExplorationManager:
         self.gamma_lambda_learner_for_exploration = gamma_lambda_learner
 
     def sample_sequence_probabilities(self, input_seq_len):
-        """Generates or samples from a probability distribution for sequence lengths based on TD(λ) values.
-        Optionally smooths the distribution using a Gaussian kernel for a more generalized probability curve."""
-        lambd = self.gamma_lambda_learner_for_exploration.get_lambdas(seq_range = (-input_seq_len, None))
-        lambda_sequence_probs = create_prob_dist_from_lambdas(lambd)
-        return lambda_sequence_probs
+        # Create a tensor of sequence lengths (1, 2, ..., input_seq_len)
+        lengths = torch.arange(1, input_seq_len + 1, device=self.device).float()
+        
+        # The probability of each length is proportional to the length itself
+        probabilities = lengths / lengths.sum()
+        
+        return probabilities
 
     def sample_content_lengths(self, batch_size, input_seq_len):
         """Samples padding lengths for a batch of sequences based on a probability distribution,
