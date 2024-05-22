@@ -1,24 +1,43 @@
 import torch
 
+def sample_sequence_probabilities(max_seq_len, device, sigma_factor=4):
+    """
+    Generate a probability distribution over sequence lengths using a normal distribution,
+    focusing on mid-range lengths.
+    
+    Parameters:
+        max_seq_len (int): The maximum length of the sequence.
+        sigma_factor (float): A factor to adjust sigma, balancing distribution spread.
+        
+    Returns:
+        torch.Tensor: A probability distribution over sequence lengths.
+    """
+    mid_point = max_seq_len / 2
+    sigma = mid_point / sigma_factor  # Adjust sigma to control spread around the midpoint
+    
+    # Create a tensor of sequence lengths (1, 2, ..., max_seq_len)
+    lengths = torch.arange(1, max_seq_len + 1, device = device).float()
+    
+    # Calculate the probability of each length using the normal distribution's PDF
+    probabilities = torch.exp(-0.5 * ((lengths - mid_point) / sigma) ** 2)
+    
+    # Normalize the probabilities to sum to 1
+    probabilities /= probabilities.sum()
+    
+    return probabilities
+
 class ExplorationManager:
     def __init__(self, gamma_lambda_learner, total_iterations, device):
         self.device = device
         self.total_iterations = total_iterations 
         self.gamma_lambda_learner_for_exploration = gamma_lambda_learner
 
-    def sample_sequence_probabilities(self, input_seq_len):
-        # Create a tensor of sequence lengths (1, 2, ..., input_seq_len)
-        lengths = torch.arange(1, input_seq_len + 1, device=self.device).float()
-        
-        # The probability of each length is proportional to the length itself
-        probabilities = lengths / lengths.sum()
-        
-        return probabilities
 
     def sample_content_lengths(self, batch_size, input_seq_len):
         """Samples padding lengths for a batch of sequences based on a probability distribution,
         allowing for dynamic adjustments to sequence padding based on learned TD(λ) values."""
-        sampled_sequence_probs = self.sample_sequence_probabilities(input_seq_len)
+        sampled_sequence_probs = sample_sequence_probabilities(input_seq_len, self.device)
+        print(sampled_sequence_probs)
         sampled_indices = torch.multinomial(sampled_sequence_probs, batch_size, replacement=True).long()
         sampled_lengths = sampled_indices + 1
         return sampled_lengths
@@ -26,7 +45,7 @@ class ExplorationManager:
     def get_optimal_content_lengths(self, input_seq_len):
         """Calculates optimal padding lengths for sequences, aiming to align with the most likely
         sequence length based on the smoothed probability distribution."""
-        sampled_sequence_probs = self.sample_sequence_probabilities(input_seq_len)
+        sampled_sequence_probs = sample_sequence_probabilities(input_seq_len, self.device)
         sampled_indices = torch.argmax(sampled_sequence_probs, dim=0).long()
         content_lengths = sampled_indices + 1
         return content_lengths
