@@ -37,7 +37,6 @@ class ExplorationManager:
         """Samples padding lengths for a batch of sequences based on a probability distribution,
         allowing for dynamic adjustments to sequence padding based on learned TD(λ) values."""
         sampled_sequence_probs = sample_sequence_probabilities(input_seq_len, self.device)
-        print(sampled_sequence_probs)
         sampled_indices = torch.multinomial(sampled_sequence_probs, batch_size, replacement=True).long()
         sampled_lengths = sampled_indices + 1
         return sampled_lengths
